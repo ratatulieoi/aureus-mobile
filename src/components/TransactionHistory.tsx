@@ -1,11 +1,11 @@
-
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, TrendingUp, TrendingDown, Trash2, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Trash2, Search, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
 import { Transaction } from '@/pages/Index';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -19,141 +19,101 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === 'all' || transaction.type === filterType;
-    
-    return matchesSearch && matchesFilter;
+  const filteredTransactions = transactions.filter(t => {
+    const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          t.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || t.type === filterType;
+    return matchesSearch && matchesType;
   });
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Riwayat Transaksi
-        </CardTitle>
-        
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 mt-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Cari transaksi..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          
-          <div className="flex gap-2">
-            <Button
-              variant={filterType === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterType('all')}
-            >
-              Semua
-            </Button>
-            <Button
-              variant={filterType === 'income' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterType('income')}
-              className="text-green-600"
-            >
-              Pemasukan
-            </Button>
-            <Button
-              variant={filterType === 'expense' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterType('expense')}
-              className="text-red-600"
-            >
-              Pengeluaran
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-indigo-600 transition-colors" />
+          <input
+            placeholder="Search by note or category..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-14 bg-card border border-border rounded-2xl pl-12 pr-4 outline-none focus:border-indigo-600/30 transition-all font-medium shadow-sm"
+          />
         </div>
-      </CardHeader>
-      
-      <CardContent>
-        {filteredTransactions.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {transactions.length === 0 
-              ? 'Belum ada transaksi. Mulai tambahkan transaksi pertama Anda!'
-              : 'Tidak ada transaksi yang sesuai dengan pencarian Anda.'
-            }
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredTransactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    transaction.type === 'income' 
-                      ? 'bg-green-100 text-green-600' 
-                      : 'bg-red-100 text-red-600'
-                  }`}>
-                    {transaction.type === 'income' ? (
-                      <TrendingUp className="h-5 w-5" />
-                    ) : (
-                      <TrendingDown className="h-5 w-5" />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'}>
-                        {transaction.type === 'income' ? 'Masuk' : 'Keluar'}
-                      </Badge>
-                    </div>
-                    
-                    {transaction.description && (
-                      <p className="text-sm text-gray-600 mb-1">{transaction.description}</p>
-                    )}
-                    
-                    <p className="text-xs text-gray-500">{formatDate(transaction.date)}</p>
-                  </div>
+        
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+          {(['all', 'income', 'expense'] as const).map(type => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all border ${
+                filterType === type 
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 dark:shadow-none' 
+                : 'bg-card text-muted-foreground border-border'
+              }`}
+            >
+              {type === 'all' ? 'All' : type === 'income' ? 'Income' : 'Expense'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="space-y-3 pb-8">
+        <AnimatePresence initial={false}>
+          {filteredTransactions.map((t) => (
+            <motion.div
+              key={t.id}
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9, x: 50 }}
+              className="group relative flex items-center justify-between p-4 bg-card border border-border rounded-3xl hover:border-indigo-600/20 transition-all shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                  t.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                }`}>
+                  {t.type === 'income' ? <TrendingUp className="h-6 w-6" /> : <TrendingDown className="h-6 w-6" />}
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  <div className={`text-lg font-semibold ${
-                    transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {transaction.type === 'income' ? '+' : '-'}Rp {transaction.amount.toLocaleString('id-ID')}
+                <div>
+                  <p className="font-bold text-sm leading-tight mb-0.5">{t.description}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-tighter bg-indigo-50 px-1.5 py-0.5 rounded-md">{t.category}</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                       {format(new Date(t.date), 'dd MMM, HH:mm', { locale: id })}
+                    </span>
                   </div>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Yakin ingin menghapus transaksi ini?')) {
-                        onDeleteTransaction(transaction.id);
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
-            ))}
+              
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                   <p className={`font-black text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {t.type === 'income' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onDeleteTransaction(t.id)}
+                  className="opacity-0 group-hover:opacity-100 p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        
+        {filteredTransactions.length === 0 && (
+          <div className="py-20 text-center space-y-3">
+             <div className="w-20 h-20 bg-muted rounded-full mx-auto flex items-center justify-center opacity-40">
+                <Filter className="h-8 w-8 text-muted-foreground" />
+             </div>
+             <p className="text-muted-foreground font-medium italic">No transactions found</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
