@@ -1,15 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, MicOff, Check, Edit2, Calendar as CalendarIcon, Wallet, CreditCard } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { X, Mic, MicOff, Brain, Edit, Calendar } from 'lucide-react';
 import { Transaction } from '@/pages/Index';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Capacitor } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface VoiceInputProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
@@ -20,221 +19,658 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parsedData, setParsedData] = useState<any>(null);
+  const [parsedTransaction, setParsedTransaction] = useState<any>(null);
   const [error, setError] = useState<string>('');
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   const categories = {
-    expense: ['Makanan & Minuman', 'Transportasi', 'Belanja', 'Tagihan', 'Kesehatan', 'Hiburan', 'Pendidikan', 'Rumah Tangga', 'Komunikasi', 'Lainnya'],
-    income: ['Gaji', 'Bonus', 'Penjualan', 'Investasi', 'Freelance', 'Pemasukan Lain']
-  };
-
-  const triggerHaptic = (style: ImpactStyle = ImpactStyle.Light) => {
-    if (Capacitor.isNativePlatform()) Haptics.impact({ style });
+    expense: [
+      'Makanan & Minuman',
+      'Transportasi',
+      'Belanja',
+      'Tagihan',
+      'Kesehatan',
+      'Hiburan',
+      'Pendidikan',
+      'Rumah Tangga',
+      'Komunikasi',
+      'Lainnya'
+    ],
+    income: [
+      'Gaji',
+      'Bonus',
+      'Penjualan',
+      'Investasi',
+      'Freelance',
+      'Pemasukan Lain'
+    ]
   };
 
   useEffect(() => {
+    // If not native (Web), initialize standard SpeechRecognition
     if (!Capacitor.isNativePlatform()) {
-      const SpeechWeb = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechWeb) {
-        recognitionRef.current = new SpeechWeb();
-        recognitionRef.current.lang = 'id-ID';
-        recognitionRef.current.onresult = (e: any) => {
-          const text = e.results[0][0].transcript;
-          setTranscript(text);
-          processText(text);
-        };
-        recognitionRef.current.onend = () => setIsListening(false);
-        recognitionRef.current.onerror = () => setIsListening(false);
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        setError('Browser tidak mendukung speech recognition. Gunakan Chrome atau Edge.');
+        return;
       }
+
+      const SpeechRecognitionWeb = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionWeb();
+      
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'id-ID';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const finalTranscript = event.results[0][0].transcript;
+        setTranscript(finalTranscript);
+        processVoiceInput(finalTranscript);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        if (event.error === 'no-speech') {
+          setError('Tidak ada suara terdeteksi. Silakan coba lagi.');
+        } else if (event.error === 'network') {
+          setError('Masalah koneksi jaringan. Periksa internet Anda.');
+        } else {
+          setError('Terjadi kesalahan: ' + event.error);
+        }
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+
+      return () => {
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      };
+    } else {
+       // Check permissions for Native
+       SpeechRecognition.checkPermissions().then((permission) => {
+           if (permission.speechRecognition !== 'granted') {
+               SpeechRecognition.requestPermissions();
+           }
+       });
     }
   }, []);
 
   const startListening = async () => {
     setTranscript('');
-    setParsedData(null);
+    setParsedTransaction(null);
     setError('');
-    triggerHaptic(ImpactStyle.Medium);
+    setIsEditingCategory(false);
 
     if (Capacitor.isNativePlatform()) {
-      try {
-        const { speechRecognition } = await SpeechRecognition.requestPermissions();
-        if (speechRecognition === 'granted') {
-          setIsListening(true);
-          const { matches } = await SpeechRecognition.start({
-            language: "id-ID",
-            partialResults: false,
-            popup: true,
-          });
-          if (matches?.length) {
-            setTranscript(matches[0]);
-            processText(matches[0]);
-          }
-          setIsListening(false);
+        try {
+            const hasPermission = await SpeechRecognition.requestPermissions();
+            if (hasPermission.speechRecognition === 'granted') {
+                setIsListening(true);
+                const { matches } = await SpeechRecognition.start({
+                    language: "id-ID",
+                    maxResults: 1,
+                    prompt: "Katakan transaksi...",
+                    partialResults: false,
+                    popup: true,
+                });
+                
+                if (matches && matches.length > 0) {
+                    const text = matches[0];
+                    setTranscript(text);
+                    processVoiceInput(text);
+                }
+                setIsListening(false);
+            } else {
+                setError("Izin mikrofon ditolak.");
+            }
+        } catch (e: any) {
+            console.error(e);
+            setError("Gagal memulai: " + e.message);
+            setIsListening(false);
         }
-      } catch (e: any) {
-        setError(e.message);
-        setIsListening(false);
-      }
     } else {
-      recognitionRef.current?.start();
-      setIsListening(true);
+        if (recognitionRef.current) {
+            try {
+                recognitionRef.current.start();
+                setIsListening(true);
+            } catch (e) {
+                console.error("Failed to start recognition:", e);
+            }
+        }
     }
   };
 
-  const processText = (text: string) => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      try {
-        const result = parseLogic(text);
-        setParsedData(result);
-        triggerHaptic(ImpactStyle.Light);
-      } catch (e) {
-        setError('Gagal memahami input. Gunakan format: "Nasi goreng 15rb"');
-      }
-      setIsProcessing(false);
-    }, 800);
+  const stopListening = async () => {
+    if (Capacitor.isNativePlatform()) {
+        await SpeechRecognition.stop();
+        setIsListening(false);
+    } else {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
+    }
   };
 
-  const parseLogic = (text: string) => {
-    const lower = text.toLowerCase();
-    let type: 'income' | 'expense' = lower.match(/\b(gaji|bonus|untung|jual|terima|dapat|masuk|cuan)\b/) ? 'income' : 'expense';
+  // Improved Categorization Logic
+  const smartCategorize = (text: string, type: 'income' | 'expense'): string => {
+    const lowerText = text.toLowerCase();
     
-    // Simple amount extraction
+    if (type === 'income') {
+      if (lowerText.match(/\b(gaji|salary|payday|bayaran|upah)\b/)) return 'Gaji';
+      if (lowerText.match(/\b(bonus|thr|hadiah|reward|insentif)\b/)) return 'Bonus';
+      if (lowerText.match(/\b(jual|sold|laku|dagang|transaksi|toko)\b/)) return 'Penjualan';
+      if (lowerText.match(/\b(investasi|saham|reksadana|crypto|dividen|profit|bunga|deposito)\b/)) return 'Investasi';
+      if (lowerText.match(/\b(freelance|proyek|project|side job|ceperan|nulis|desain|coding)\b/)) return 'Freelance';
+      return 'Pemasukan Lain';
+    } else {
+      // Food & Drink - Expanded
+      if (lowerText.match(/\b(makan|nasi|ayam|bebek|soto|bakso|mie|kopi|teh|jus|minuman|restoran|warung|cafe|geprek|padang|burger|pizza|snack|jajan|kue|roti|sarapan|lunch|dinner|malam|siang|pagi)\b/))
+        return 'Makanan & Minuman';
+      
+      // Transport - Expanded
+      if (lowerText.match(/\b(bensin|ojek|grab|gojek|taxi|bus|kereta|krl|mrt|parkir|tol|motor|mobil|servis|bengkel|ban|oli|driver|uber|maxim|indrive|angkot)\b/))
+        return 'Transportasi';
+      
+      // Shopping - Expanded
+      if (lowerText.match(/\b(beli|belanja|shopping|mall|toko|pasar|supermarket|indomaret|alfamart|toped|tokopedia|shopee|lazada|bukalapak|baju|celana|sepatu|tas|aksesoris|skincare|makeup)\b/))
+        return 'Belanja';
+      
+      // Bills - Expanded
+      if (lowerText.match(/\b(listrik|air|pdam|telepon|internet|wifi|pulsa|token|pln|tagihan|bpjs|asuransi|cicilan|kredit|hutang|pinjaman|sewa|kos|kontrakan)\b/))
+        return 'Tagihan';
+      
+      // Health - Expanded
+      if (lowerText.match(/\b(dokter|rumah sakit|obat|vitamin|kesehatan|medical|apotek|klinik|periksa|gigi|mata|checkup|imunisasi|vaksin)\b/))
+        return 'Kesehatan';
+      
+      // Entertainment - Expanded
+      if (lowerText.match(/\b(bioskop|game|streaming|netflix|spotify|youtube|hiburan|nonton|wisata|jalan|liburan|hotel|staycation|konser|tiket|musik|hobi)\b/))
+        return 'Hiburan';
+      
+      // Education - Expanded
+      if (lowerText.match(/\b(sekolah|kuliah|kursus|les|buku|pendidikan|training|seminar|webinar|workshop|spp|uang gedung|seragam|alat tulis)\b/))
+        return 'Pendidikan';
+      
+      // Household - Expanded
+      if (lowerText.match(/\b(sabun|sampo|tissue|deterjen|pembersih|rumah tangga|galon|gas|elpiji|baterai|lampu|perabot|renovasi|tukang)\b/))
+        return 'Rumah Tangga';
+      
+      // Communication - Expanded
+      if (lowerText.match(/\b(paket|kuota|data|sim card|kartu perdana)\b/))
+        return 'Komunikasi';
+      
+      return 'Lainnya';
+    }
+  };
+
+  const processVoiceInput = (text: string) => {
+    setIsProcessing(true);
+    
+    try {
+      const result = parseTransaction(text);
+      setParsedTransaction(result);
+    } catch (error) {
+      console.error(error);
+      setError('Tidak dapat memahami input. Coba lagi dengan format: "beli nasi 15 ribu" atau "dapat gaji 5 juta"');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const parseDate = (text: string): Date => {
+    const lowerText = text.toLowerCase();
+    const today = new Date();
+    
+    // Relative dates
+    if (lowerText.includes('kemarin')) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 1);
+      return d;
+    }
+    if (lowerText.includes('lusa')) { 
+       // Let's assume user might interpret "kemarin lusa" as "day before yesterday"
+       if (lowerText.includes('kemarin lusa') || lowerText.includes('dua hari lalu')) {
+         const d = new Date(today);
+         d.setDate(d.getDate() - 2);
+         return d;
+       }
+    }
+    if (lowerText.match(/(\d+)\s*hari\s*(yang)?\s*lalu/)) {
+        const match = lowerText.match(/(\d+)\s*hari\s*(yang)?\s*lalu/);
+        if (match) {
+            const days = parseInt(match[1]);
+            const d = new Date(today);
+            d.setDate(d.getDate() - days);
+            return d;
+        }
+    }
+
+    // Specific dates (simple implementation for "tanggal X")
+    const dateMatch = lowerText.match(/tanggal\s*(\d{1,2})/);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      if (day >= 1 && day <= 31) {
+        const d = new Date(today);
+        if (day > today.getDate()) {
+            d.setMonth(d.getMonth() - 1);
+        }
+        d.setDate(day);
+        return d;
+      }
+    }
+
+    return today;
+  };
+
+  /**
+   * Preprocesses transcript to normalize Indonesian number formats
+   * 
+   * Purpose: Handle Indonesian thousand separators (periods) vs decimal points
+   * 
+   * Examples:
+   * - "100.000" (no unit word) → "100000" (remove period - thousand separator)
+   * - "2.5 juta" (has unit word) → "2.5 juta" (keep period - decimal point)
+   * - "1.500.000" (multiple periods) → "1500000" (remove all - thousand separators)
+   * - "beli nasi 50.000" → "beli nasi 50000"
+   * 
+   * Strategy:
+   * - Use negative lookahead to check if number is followed by unit words (ribu/juta/etc)
+   * - If NO unit word → Remove periods (they are thousand separators)
+   * - If YES unit word → Keep period (it's a decimal multiplier like "2.5 juta")
+   */
+  const preprocessTranscript = (text: string): string => {
+    let processed = text;
+    
+    // Pattern: Match numbers with Indonesian thousand separators (X.XXX or X.XXX.XXX)
+    // But NOT if followed by unit words (ribu, juta, etc.) - those are decimal multipliers
+    // Regex breakdown:
+    // \b(\d{1,3}(?:\.\d{3})+) - Matches numbers like 100.000 or 1.500.000
+    // (?!\s*(?:ribu|juta|jt|rb|k)\b) - Negative lookahead: NOT followed by unit words
+    processed = processed.replace(
+      /\b(\d{1,3}(?:\.\d{3})+)(?!\s*(?:ribu|juta|jt|rb|k)\b)/gi,
+      (match) => {
+        // Remove all periods from the matched number
+        return match.replace(/\./g, '');
+      }
+    );
+    
+    return processed;
+  };
+
+  /**
+   * Enhanced Voice Input Parser with Indonesian Number Format Support
+   * 
+   * Test Cases & Expected Results:
+   * 
+   * 1. Indonesian Thousand Separators (Period Removal):
+   *    - "beli nasi 100.000" → Amount: 100,000 ✓
+   *    - "dapat gaji 5.500.000" → Amount: 5,500,000 ✓
+   *    - "parkir 50.000" → Amount: 50,000 ✓
+   * 
+   * 2. Decimal Multipliers (Period Preserved):
+   *    - "dapat bonus 2.5 juta" → Amount: 2,500,000 (2.5 × 1,000,000) ✓
+   *    - "beli kopi 15.5 ribu" → Amount: 15,500 (15.5 × 1,000) ✓
+   *    - "dapat 1.2 juta" → Amount: 1,200,000 ✓
+   * 
+   * 3. Word-based Units:
+   *    - "beli nasi 50 ribu" → Amount: 50,000 ✓
+   *    - "dapat gaji 5 juta" → Amount: 5,000,000 ✓
+   *    - "parkir ceban" → Amount: 10,000 (slang) ✓
+   * 
+   * 4. Intelligent Interpretation:
+   *    - "15.000 ribu" → Amount: 15,000 (interpret as 15 × 1000, not 15,000 × 1000) ✓
+   *    - "100 ribu" → Amount: 100,000 ✓
+   *    - "2.5 juta" → Amount: 2,500,000 ✓
+   * 
+   * 5. Small Item Auto-multiply:
+   *    - "makan nasi 15" → Amount: 15,000 (auto ×1000 for food items) ✓
+   *    - "parkir 5" → Amount: 5,000 (auto ×1000 for parking) ✓
+   * 
+   * 6. Edge Cases:
+   *    - "Rp 100.000" → Amount: 100,000 (with Rp prefix) ✓
+   *    - "50.000 kemarin" → Amount: 50,000 (with date) ✓
+   */
+  const parseTransaction = (text: string) => {
+    // Preprocess to normalize Indonesian number formats
+    const processedText = preprocessTranscript(text);
+    const lowerText = processedText.toLowerCase().trim();
+    
+    console.log('=== Voice Input Parsing ===');
+    console.log('Original transcript:', text);
+    console.log('Preprocessed text:', processedText);
+    console.log('Lowercase text:', lowerText);
+    console.log('---');
+    
+    // 1. Determine Type
+    // Enhanced income keywords to cover Indonesian variations and slang
+    const incomeKeywords = [
+      'dapat', 'dapet',           // get/received (standard & slang)
+      'terima',                   // received
+      'gaji',                     // salary
+      'bonus',                    // bonus
+      'untung',                   // profit
+      'hasil',                    // result/earnings
+      'jual',                     // sell
+      'pendapatan',               // income
+      'masuk',                    // incoming
+      'dibayar',                  // paid
+      'cuan',                     // profit (slang)
+      'nemu', 'nemuin',           // found (standard & alternative)
+      'dikasih', 'dikasi', 'kasih', // was given / given
+      'hadiah',                   // gift/prize
+      'menang',                   // won
+      'transfer masuk',           // incoming transfer
+    ];
+    let type: 'income' | 'expense' = 'expense';
+    
+    if (incomeKeywords.some(keyword => lowerText.includes(keyword))) {
+      type = 'income';
+      console.log('✓ Detected as INCOME (keyword matched)');
+    } else {
+      console.log('✓ Detected as EXPENSE (default)');
+    }
+
+    // 2. Parse Amount (Enhanced)
     let amount = 0;
-    const ribuMatch = lower.match(/(\d+)\s*(ribu|rb|k)/);
-    const jutaMatch = lower.match(/(\d+)\s*(juta|jt)/);
-    const rawMatch = lower.match(/\b(\d{3,})\b/);
+    let description = processedText;
 
-    if (ribuMatch) amount = parseInt(ribuMatch[1]) * 1000;
-    else if (jutaMatch) amount = parseInt(jutaMatch[1]) * 1000000;
-    else if (rawMatch) amount = parseInt(rawMatch[1]);
+    // Slang detection
+    const slangMap: Record<string, number> = {
+        'goceng': 5000,
+        'ceban': 10000,
+        'noban': 20000,
+        'goban': 50000,
+        'gocap': 50000,
+        'gopek': 500,
+        'seceng': 1000,
+        'cepek': 100,
+        'sejut': 1000000,
+        'jigo': 25000
+    };
 
-    // Slang goceng ceban etc
-    const slangs: any = { goceng: 5000, ceban: 10000, goban: 50000, gocap: 50000, seceng: 1000 };
-    for (let s in slangs) if (lower.includes(s)) amount = slangs[s];
+    for (const [slang, val] of Object.entries(slangMap)) {
+        if (lowerText.includes(slang)) {
+            amount = val;
+            console.log('✓ Found slang amount:', slang, '→', amount);
+            description = description.replace(new RegExp(`\\b${slang}\\b`, 'gi'), '');
+            break; 
+        }
+    }
+    if (amount === 0) console.log('✗ No slang detected');
 
-    // Date
-    let date = new Date();
-    if (lower.includes('kemarin')) date.setDate(date.getDate() - 1);
+    // Standard Number Parsing
+    if (amount === 0) {
+        const rpWithDotsMatch = processedText.match(/Rp\.?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/i);
+        if (rpWithDotsMatch) {
+        let numStr = rpWithDotsMatch[1];
+        numStr = numStr.replace(/[.,]/g, ''); 
+        
+        amount = parseInt(numStr);
+        console.log('✓ Found Rp amount:', rpWithDotsMatch[1], '→', amount);
+        description = processedText.replace(new RegExp(rpWithDotsMatch[0], 'gi'), '').trim();
+        }
+        if (amount === 0) console.log('✗ No Rp format detected');
+    }
 
-    // Category
-    let category = type === 'income' ? 'Pemasukan Lain' : 'Lainnya';
-    if (lower.match(/(makan|minum|nasi|kopi|bakso)/)) category = 'Makanan & Minuman';
-    if (lower.match(/(bensin|gojek|grab|parkir|bus)/)) category = 'Transportasi';
-    if (lower.match(/(beli|belanja|pasar|mall)/)) category = 'Belanja';
+    // Parse "ribu" atau "rb" atau "k"
+    if (amount === 0) {
+      const ribuMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:ribu|rb|k)\b/);
+      if (ribuMatch) {
+        const numStr = ribuMatch[1].replace(',', '.');
+        amount = parseFloat(numStr) * 1000;
+        console.log('✓ Found ribu amount:', numStr, '× 1000 =', amount);
+        description = processedText.replace(new RegExp(ribuMatch[0], 'gi'), '').trim();
+      }
+      if (amount === 0) console.log('✗ No ribu format detected');
+    }
 
-    return { type, amount, category, description: text.split(/\d/)[0].trim() || 'Transaksi Suara', date };
+    // Parse "juta" atau "jt"
+    if (amount === 0) {
+      const jutaMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:juta|jt)\b/);
+      if (jutaMatch) {
+        const numStr = jutaMatch[1].replace(',', '.');
+        amount = parseFloat(numStr) * 1000000;
+        console.log('✓ Found juta amount:', numStr, '× 1000000 =', amount);
+        description = processedText.replace(new RegExp(jutaMatch[0], 'gi'), '').trim();
+      }
+      if (amount === 0) console.log('✗ No juta format detected');
+    }
+
+    // Parse angka biasa tanpa satuan
+    if (amount === 0) {
+      // After preprocessing, numbers are clean (no thousand separators)
+      // This regex now handles: "100000", "2.5", "15" etc.
+      const numberMatch = lowerText.match(/(?:rp\.?\s*)?(\d+(?:\.\d+)?)/);
+      if (numberMatch) {
+        const numStr = numberMatch[1];
+        const num = parseFloat(numStr);
+        console.log('✓ Found raw number:', numStr, '→', num);
+        
+        const smallItemKeywords = ['makan', 'nasi', 'kopi', 'parkir', 'bensin', 'ojek', 'angkot', 'geprek', 'es'];
+        if (num < 1000 && smallItemKeywords.some(keyword => lowerText.includes(keyword))) {
+          amount = num * 1000;
+          console.log('  → Small item detected, multiplied by 1000:', amount);
+        } else {
+          amount = num;
+        }
+        description = processedText.replace(new RegExp(numberMatch[0], 'gi'), '').trim();
+      }
+      if (amount === 0) console.log('✗ No raw number detected');
+    }
+
+    // 3. Clean description
+    const wordsToRemove = ['beli', 'bayar', 'untuk', 'dapat', 'terima', 'rp', 'rupiah', 'seharga', 'habis', 'keluar'];
+    let cleanDescription = description;
+    wordsToRemove.forEach(word => {
+      cleanDescription = cleanDescription.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
+    });
+    
+    const dateWords = ['kemarin', 'hari ini', 'lusa', 'minggu lalu', 'tanggal'];
+    dateWords.forEach(word => {
+        cleanDescription = cleanDescription.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
+    });
+    cleanDescription = cleanDescription.replace(/\b\d+\b/g, ''); 
+
+    cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
+    cleanDescription = cleanDescription.charAt(0).toUpperCase() + cleanDescription.slice(1);
+
+    if (amount === 0) {
+      throw new Error('No amount found');
+    }
+
+    // 4. Determine Category
+    const category = smartCategorize(processedText, type);
+
+    // 5. Determine Date
+    const date = parseDate(processedText);
+
+    console.log('---');
+    console.log('Final parsed result:', { type, amount, description: cleanDescription, category, date });
+    console.log('======================');
+
+    return {
+      type,
+      amount,
+      description: cleanDescription || 'Transaksi',
+      category,
+      date
+    };
+  };
+
+  const handleCategoryChange = (newCategory: string) => {
+    if (parsedTransaction) {
+      setParsedTransaction({
+        ...parsedTransaction,
+        category: newCategory
+      });
+      setIsEditingCategory(false);
+    }
+  };
+
+  const handleSave = () => {
+    if (parsedTransaction && parsedTransaction.amount > 0) {
+      onAddTransaction({
+        ...parsedTransaction,
+        date: parsedTransaction.date.toISOString(), 
+      });
+      onClose();
+    }
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-    >
-      <motion.div 
-        initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
-        className="w-full max-w-md bg-white dark:bg-[#12141C] rounded-[40px] overflow-hidden shadow-2xl"
-      >
-        <div className="p-8 space-y-8">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold tracking-tight">Voice Command</h3>
-            <button onClick={onClose} className="p-2 bg-muted rounded-full">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-md animate-in fade-in zoom-in duration-200">
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Brain className="h-5 w-5 text-blue-600" />
+            Smart Voice Input v2
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
 
-          <div className="flex flex-col items-center gap-6 py-4">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={isListening ? () => {} : startListening}
-              className={`w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 ${
+          <div className="text-center space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Coba: "Beli nasi padang goceng kemarin"
+            </p>
+            
+            <Button
+              onClick={isListening ? stopListening : startListening}
+              disabled={!!error && error.includes('Browser')}
+              className={`w-24 h-24 rounded-full transition-all duration-300 ${ 
                 isListening 
-                ? 'bg-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.4)] scale-110' 
-                : 'bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.3)]'
+                  ? 'bg-red-500 hover:bg-red-600 animate-pulse shadow-xl scale-110' 
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl'
               }`}
             >
-              {isListening ? (
-                <div className="flex gap-1 items-center">
-                  {[1,2,3].map(i => (
-                    <motion.div 
-                      key={i}
-                      animate={{ height: [15, 35, 15] }}
-                      transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.1 }}
-                      className="w-1.5 bg-white rounded-full"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Mic className="h-10 w-10 text-white" />
-              )}
-            </motion.button>
-            <p className="text-sm font-medium text-muted-foreground">
-              {isListening ? 'Mendengarkan...' : 'Ketuk untuk bicara'}
+              {isListening ? <MicOff className="h-10 w-10" /> : <Mic className="h-10 w-10" />}
+            </Button>
+            
+            <p className="text-sm font-medium">
+              {isListening ? '🎤 Mendengarkan...' : 'Tekan untuk berbicara'}
             </p>
           </div>
 
-          <AnimatePresence>
-            {transcript && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-muted/50 rounded-2xl italic text-center">
-                "{transcript}"
-              </motion.div>
-            )}
+          {transcript && (
+            <div className="bg-muted/50 p-4 rounded-xl border border-border/50">
+              <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Input Suara</p>
+              <p className="text-sm italic">"{transcript}"</p>
+            </div>
+          )}
 
-            {isProcessing && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center py-4">
-                <div className="w-6 h-6 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-              </motion.div>
-            )}
+          {isProcessing && (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">Memproses dengan AI...</p>
+            </div>
+          )}
 
-            {parsedData && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="bg-indigo-600/5 border border-indigo-600/10 rounded-3xl p-6 space-y-4"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Terdeteksi</p>
-                    <p className="text-2xl font-black">Rp {parsedData.amount.toLocaleString('id-ID')}</p>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${parsedData.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {parsedData.type}
+          {parsedTransaction && (
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-900/10 border border-green-200 dark:border-green-800 p-4 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                 <p className="font-semibold text-green-800 dark:text-green-200 text-sm">AI Analysis Complete</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="col-span-2 flex justify-between items-center bg-white/50 dark:bg-black/20 p-2 rounded-lg">
+                  <span className="text-muted-foreground">Jenis</span>
+                  <span className={`font-bold px-2 py-0.5 rounded text-xs ${ 
+                    parsedTransaction.type === 'income' 
+                    ? 'bg-green-100 text-green-700 border border-green-200' 
+                    : 'bg-red-100 text-red-700 border border-red-200'
+                  }`}>
+                    {parsedTransaction.type === 'income' ? 'PEMASUKAN' : 'PENGELUARAN'}
+                  </span>
+                </div>
+
+                <div className="col-span-2 flex justify-between items-center bg-white/50 dark:bg-black/20 p-2 rounded-lg">
+                  <span className="text-muted-foreground">Tanggal</span>
+                  <div className="flex items-center gap-2 font-medium">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    {format(parsedTransaction.date, 'dd MMMM yyyy', { locale: id })}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CalendarIcon className="h-3.5 w-3.5" />
-                    {format(parsedData.date, 'dd MMM yyyy', { locale: id })}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-indigo-600 font-bold justify-end">
-                    <Wallet className="h-3.5 w-3.5" />
-                    {parsedData.category}
+                <div className="col-span-2 flex justify-between items-center group bg-white/50 dark:bg-black/20 p-2 rounded-lg">
+                  <span className="text-muted-foreground">Kategori</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-blue-600">{parsedTransaction.category}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsEditingCategory(true)}
+                      className="h-5 w-5 opacity-50 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button 
-                    onClick={() => onAddTransaction({...parsedData, date: parsedData.date.toISOString()})}
-                    className="flex-1 h-12 bg-indigo-600 hover:bg-indigo-700 rounded-2xl gap-2"
-                  >
-                    <Check className="h-4 w-4" /> Simpan
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setParsedData(null)}
-                    className="h-12 w-12 rounded-2xl p-0"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
+                
+                {isEditingCategory && (
+                  <div className="col-span-2">
+                    <Select value={parsedTransaction.category} onValueChange={handleCategoryChange}>
+                      <SelectTrigger className="w-full bg-white dark:bg-gray-900">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories[parsedTransaction.type].map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                <div className="col-span-2 bg-white/80 dark:bg-black/40 p-3 rounded-lg border border-green-100 dark:border-green-900/50">
+                    <div className="flex justify-between items-baseline mb-1">
+                        <span className="text-xs text-muted-foreground">Total</span>
+                        <span className="font-bold text-lg text-foreground">Rp {parsedTransaction.amount.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-muted-foreground">Ket</span>
+                        <span className="font-medium text-sm text-foreground truncate ml-4">{parsedTransaction.description}</span>
+                    </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
-    </motion.div>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-700 text-white shadow-md">
+                  Simpan
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setTranscript('');
+                    setParsedTransaction(null);
+                    setIsEditingCategory(false);
+                    startListening();
+                  }}
+                  className="px-3"
+                >
+                  Ulangi
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
