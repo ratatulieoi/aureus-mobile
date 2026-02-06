@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -33,6 +33,22 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   const [showIncome, setShowIncome] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Load saved filter preference from localStorage
+  useEffect(() => {
+    const savedFilter = localStorage.getItem('transactionTableFilter');
+    if (savedFilter === 'income' || savedFilter === 'expense') {
+      setShowIncome(savedFilter === 'income');
+    }
+  }, []);
+
+  // Save filter preference to localStorage whenever it changes
+  const handleFilterChange = (value: string) => {
+    if (!value) return;
+    const isIncome = value === 'income';
+    setShowIncome(isIncome);
+    localStorage.setItem('transactionTableFilter', value);
+  };
+
   // Filter transactions by selected month and year
   const monthlyTransactions = transactions.filter(transaction => {
     if (isAllTime) return true;
@@ -66,10 +82,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
           <ToggleGroup
             type="single"
             value={showIncome ? 'income' : 'expense'}
-            onValueChange={(v) => {
-              if (!v) return;
-              setShowIncome(v === 'income');
-            }}
+            onValueChange={handleFilterChange}
             className="bg-background/50 p-1 rounded-lg border border-primary/20"
           >
             <ToggleGroupItem 

@@ -15,6 +15,7 @@ import TransactionSummary from '@/components/TransactionSummary';
 import MonthlyReports from '@/components/MonthlyReports';
 import SmartInsights from '@/components/SmartInsights';
 import SubscriptionManager from '@/components/SubscriptionManager';
+import BackupRestore from '@/components/BackupRestore';
 
 export interface Transaction {
   id: string;
@@ -108,6 +109,10 @@ const Index = () => {
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
+  const handleRestore = (restoredTransactions: Transaction[]) => {
+    setTransactions(restoredTransactions);
+  };
+
   const availableYears = Array.from(
     new Set(transactions.map(t => new Date(t.date).getFullYear()))
   ).sort((a, b) => b - a);
@@ -178,12 +183,10 @@ const Index = () => {
       </div>
 
       {/* Persistent Header */}
-      <div className="relative z-10">
-        <Header />
-      </div>
+      <Header />
 
-      {/* Main Content - with bottom nav spacing */}
-      <main className="pb-nav custom-scrollbar relative z-10">
+      {/* Main Content - with top header and bottom nav spacing */}
+      <main className="pt-16 pb-nav custom-scrollbar relative z-0">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 py-6">
           {/* Home Tab Actions */}
           {activeTab === 'home' && (
@@ -291,6 +294,17 @@ const Index = () => {
 
             {activeTab === 'more' && (
               <div className="space-y-6">
+                {/* Backup Warning Banner */}
+                <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-900/50 rounded-xl p-4 shadow-sm">
+                  <p className="text-sm text-red-700 dark:text-red-300 text-center font-medium">
+                     Kalo mau update backup dulu yaa biar datanya ga ilang 🤗
+                  </p>
+                </div>
+                
+                <BackupRestore 
+                  transactions={transactions}
+                  onRestore={handleRestore}
+                />
                 <AboutSection />
               </div>
             )}

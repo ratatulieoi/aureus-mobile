@@ -20,7 +20,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
-      <div className="border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="border-t bg-background">
         <div className="container mx-auto px-2">
           <div className="flex h-16 items-center justify-around">
           {navItems.map((item) => {

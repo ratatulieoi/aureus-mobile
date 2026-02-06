@@ -3,8 +3,8 @@ import { Instagram, Github } from 'lucide-react';
 
 const AboutSection: React.FC = () => {
   return (
-    <section className="py-12 px-4 sm:px-6 lg:px-8 mb-20">
-      <div className="container mx-auto max-w-2xl">
+    <section className="py-12 mb-20">
+      <div>
         <div className="rounded-xl border bg-card p-8 text-center space-y-6 shadow-sm">
           {/* Title */}
           <h2 className="text-2xl font-bold text-foreground">
@@ -51,7 +51,7 @@ const AboutSection: React.FC = () => {
           {/* App Version */}
           <div className="pt-2">
             <p className="text-xs text-muted-foreground">
-              Aureus v2.0 - 2026
+              Aureus v2.1 - 2026
             </p>
           </div>
         </div>

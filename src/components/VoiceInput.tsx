@@ -153,7 +153,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
                     maxResults: 1,
                     prompt: "Katakan transaksi...",
                     partialResults: false,
-                    popup: true,
+                    popup: false,
                 });
                 
                 if (matches && matches.length > 0) {

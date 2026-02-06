@@ -8,30 +8,53 @@ interface SmartInsightsProps {
 }
 
 const MONEY_QUOTES = [
-  "Uang tidak bisa membeli kebahagiaan, tapi lebih enak menangis di dalam Mercedes daripada di atas sepeda.",
-  "Hemat pangkal kaya, tapi kalau pelit pangkal dijauhi teman.",
-  "Jangan menabung apa yang tersisa setelah belanja, tapi belanjalah apa yang tersisa setelah menabung.",
-  "Aturan No.1: Jangan pernah rugi. Aturan No.2: Jangan lupa Aturan No.1.",
-  "Terlalu banyak orang menghabiskan uang yang tidak mereka miliki, untuk membeli barang yang tidak mereka butuhkan, demi membuat kagum orang yang tidak mereka sukai.",
-  "Investasi dalam pengetahuan selalu membayar bunga terbaik.",
-  "Bukan seberapa banyak uang yang kamu hasilkan, tapi seberapa banyak yang kamu simpan.",
-  "Uang adalah hamba yang baik, tapi tuan yang buruk.",
-  "Orang kaya punya TV kecil dan perpustakaan besar. Orang miskin punya TV besar dan tidak punya perpustakaan.",
-  "Hati-hati dengan pengeluaran kecil; kebocoran kecil bisa menenggelamkan kapal besar.",
-  "Saya suka uang saya berada di tempat yang bisa saya lihat: tergantung di lemari pakaian saya. (Carrie Bradshaw)",
-  "Satu-satunya cara untuk tidak memikirkan uang adalah dengan memiliki banyak uang.",
-  "Waktu adalah uang. Kalau kamu buang-buang waktu, kamu buang-buang uang.",
-  "Gaji itu seperti menstruasi, datang sebulan sekali, tapi nyerinya bisa seminggu.",
-  "Jika Anda berutang $100 pada bank, itu masalah Anda. Jika Anda berutang $100 juta, itu masalah bank."
+  "Uang gak bisa beli kebahagiaan? berarti uangnya kurang banyak.",
+  "follow github gw plis.",
+  "Price is what you pay, value is what you get.",
+  "Aturan No.1: Jangan pernah rugi. Aturan No.2: Kalau rugi, bilang aja 'uang belajar'.",
+  "Being rich is having money; being wealthy is having time.",
+  "I NEED A HUG-e amount of money.",
+  "Bukan seberapa banyak duit yang lo hasilin, tapi seberapa lama lo bisa tahan pas liat diskon 80%.",
+  "The only ex i miss is ex-tra money.",
+  "so my future depends on.... me?.",
+  "The Quickest way to Double your Money is to fold it over and put it back in your pocket!”.",
+  "If you can count your money, work harder!.",
+  "Cara terbaik untuk tidak mikirin duit adalah punya banyak duit. Atau amnesia. Pilih mana?",
+  "Money isn't the most important thing in life, but it's reasonably close to oxygen.",
+  "No plan is plan to stay broke.",
+  "People come and go. mostly go if you dont have money.",
+  "Tenang, masih bisa ngutang~",
+  "Setiap transaksi adalah bukti bahwa saya kurang berpikir.",
+  "Yaudah iya.",
+  "ALL IN SMEMESTA!",
+  "Ada yg baca ini ga sih?.",
+  "Maka, sesungguhnya beserta kesulitan ada kemudahan. Sesungguhnya beserta kesulitan ada kemudahan.",
+  "In the world you can be anything, be kind."
 ];
 
 const SmartInsights: React.FC<SmartInsightsProps> = () => {
   const [quote, setQuote] = useState("");
+  const [quoteHistory, setQuoteHistory] = useState<string[]>([]);
 
   useEffect(() => {
-    // Pick a random quote on mount
-    const randomQuote = MONEY_QUOTES[Math.floor(Math.random() * MONEY_QUOTES.length)];
+    // Get quote history from localStorage
+    const savedHistory = localStorage.getItem('quoteHistory');
+    const history: string[] = savedHistory ? JSON.parse(savedHistory) : [];
+    
+    // Filter out quotes that appeared in last 5
+    const availableQuotes = MONEY_QUOTES.filter(q => !history.includes(q));
+    
+    // If all quotes have been shown, reset history
+    const quotesToUse = availableQuotes.length > 0 ? availableQuotes : MONEY_QUOTES;
+    
+    // Pick a random quote
+    const randomQuote = quotesToUse[Math.floor(Math.random() * quotesToUse.length)];
     setQuote(randomQuote);
+    
+    // Update history (keep last 5)
+    const newHistory = [randomQuote, ...history].slice(0, 8);
+    setQuoteHistory(newHistory);
+    localStorage.setItem('quoteHistory', JSON.stringify(newHistory));
   }, []);
 
   return (
