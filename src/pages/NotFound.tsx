@@ -1,18 +1,18 @@
-import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-const NotFound = () => {
-  const location = useLocation();
+interface NotFoundProps {
+  pathname: string;
+}
 
+const NotFound = ({ pathname }: NotFoundProps) => {
   useEffect(() => {
     console.error(
       "404 Error: User attempted to access non-existent route:",
-      location.pathname
+      pathname
     );
-  }, [location.pathname]);
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -25,15 +25,15 @@ const NotFound = () => {
             Halaman tidak ditemukan
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Route <span className="font-mono">{location.pathname}</span> tidak tersedia.
+            Route <span className="font-mono">{pathname}</span> tidak tersedia.
           </p>
 
           <div className="mt-6 flex justify-center">
             <Button asChild>
-              <Link to="/">
-                <ArrowLeft className="mr-2 h-4 w-4" />
+              <a href="/">
+                <ArrowLeft aria-hidden="true" className="mr-2 h-4 w-4" />
                 Kembali ke Beranda
-              </Link>
+              </a>
             </Button>
           </div>
         </div>

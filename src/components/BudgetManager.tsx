@@ -1,11 +1,12 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import DeleteConfirmation from '@/components/DeleteConfirmation';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Circle, AlertCircle, Check, X, Square } from 'lucide-react';
-import { Transaction, Budget } from '@/pages/Index';
+import { Plus, Circle, AlertCircle, Check, Trash2, Square } from 'lucide-react';
+import type { Budget, Transaction } from '@/domain/types';
 
 interface BudgetManagerProps {
   budgets: Budget[];
@@ -17,15 +18,8 @@ interface BudgetManagerProps {
 }
 
 const CATEGORIES = [
-  'Makanan & Minuman',
-  'Transportasi',
-  'Belanja',
-  'Hiburan',
-  'Kesehatan',
-  'Pendidikan',
-  'Tagihan',
-  'Investasi',
-  'Lainnya'
+  'Makanan & Minuman', 'Transportasi', 'Belanja', 'Hiburan', 'Kesehatan',
+  'Pendidikan', 'Tagihan', 'Investasi', 'Lainnya',
 ];
 
 const BudgetManager: React.FC<BudgetManagerProps> = ({
@@ -34,216 +28,108 @@ const BudgetManager: React.FC<BudgetManagerProps> = ({
   onAddBudget,
   onDeleteBudget,
   selectedMonth,
-  selectedYear
+  selectedYear,
 }) => {
   const [showForm, setShowForm] = useState(false);
-  const [newBudget, setNewBudget] = useState({
-    category: '',
-    amount: ''
-  });
+  const [pendingDelete, setPendingDelete] = useState<Budget | null>(null);
+  const [newBudget, setNewBudget] = useState({ category: '', amount: '' });
 
-  // Filter budgets and transactions for selected month/year
-  const monthlyBudgets = budgets.filter(b => 
-    b.month === selectedMonth && b.year === selectedYear
-  );
-
-  const monthlyTransactions = transactions.filter(t => {
-    const date = new Date(t.date);
-    return date.getMonth() === selectedMonth && 
-           date.getFullYear() === selectedYear &&
-           t.type === 'expense';
+  const monthlyBudgets = budgets.filter((budget) => budget.month === selectedMonth && budget.year === selectedYear);
+  const monthlyTransactions = transactions.filter((transaction) => {
+    const date = new Date(transaction.date);
+    return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear && transaction.type === 'expense';
   });
 
   const handleAddBudget = () => {
-    if (newBudget.category && newBudget.amount) {
-      onAddBudget({
-        category: newBudget.category,
-        amount: parseFloat(newBudget.amount),
-        month: selectedMonth,
-        year: selectedYear
-      });
-      setNewBudget({ category: '', amount: '' });
-      setShowForm(false);
-    }
+    const amount = Number(newBudget.amount);
+    if (!newBudget.category || !Number.isFinite(amount) || amount <= 0) return;
+    onAddBudget({ category: newBudget.category, amount, month: selectedMonth, year: selectedYear });
+    setNewBudget({ category: '', amount: '' });
+    setShowForm(false);
   };
 
   const getBudgetStatus = (budget: Budget) => {
-    const spent = monthlyTransactions
-      .filter(t => t.category === budget.category)
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const percentage = (spent / budget.amount) * 100;
-    const remaining = budget.amount - spent;
-    
-    return { spent, percentage, remaining };
+    const spent = monthlyTransactions.filter(({ category }) => category === budget.category).reduce((sum, transaction) => sum + transaction.amount, 0);
+    const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+    return { spent, percentage, remaining: budget.amount - spent };
   };
 
-  const totalBudget = monthlyBudgets.reduce((sum, b) => sum + b.amount, 0);
-  const totalSpent = monthlyBudgets.reduce((sum, b) => {
-    const { spent } = getBudgetStatus(b);
-    return sum + spent;
-  }, 0);
+  const totalBudget = monthlyBudgets.reduce((sum, budget) => sum + budget.amount, 0);
+  const totalSpent = monthlyBudgets.reduce((sum, budget) => sum + getBudgetStatus(budget).spent, 0);
+  const totalRemaining = totalBudget - totalSpent;
 
   return (
-    <div className="space-y-6">
-      {/* Budget Overview - Neumorphic Card */}
-      <div className="neumorphic-card p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <div className="p-2  bg-primary/10">
-              <Square className="h-5 w-5 text-primary" />
+    <>
+      <div className="space-y-6">
+        <section className="min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-6" aria-labelledby="budget-overview-title">
+          <div className="mb-6 flex min-w-0 flex-col items-start justify-between gap-3 min-[360px]:flex-row min-[360px]:items-center">
+            <div className="flex min-w-0 items-center gap-2">
+              <div aria-hidden="true" className="shrink-0 rounded-lg bg-primary/10 p-2"><Square className="h-5 w-5 text-primary" /></div>
+              <div className="min-w-0"><h3 id="budget-overview-title" className="break-words text-lg font-semibold">Budget Overview</h3><p className="text-xs text-muted-foreground">{new Date(selectedYear, selectedMonth).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p></div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">Budget Overview</h3>
-              <p className="text-xs text-muted-foreground">
-                {new Date(selectedYear, selectedMonth).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
-              </p>
-            </div>
+            <Button type="button" onClick={() => setShowForm((open) => !open)} aria-expanded={showForm} aria-controls="budget-add-form" className="min-w-0 gap-2 whitespace-normal"><Plus aria-hidden="true" className="h-4 w-4" />Tambah Budget</Button>
           </div>
-          <Button onClick={() => setShowForm(!showForm)} size="sm" className="transition-smooth hover:scale-105">
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Budget
-          </Button>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="text-center p-4  bg-primary/5 border border-primary/10">
-            <p className="text-sm text-muted-foreground font-medium mb-1">Total Budget</p>
-            <p className="text-xl font-bold text-primary">
-              Rp {totalBudget.toLocaleString('id-ID')}
-            </p>
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="min-w-0 rounded-lg border border-primary/20 bg-primary/5 p-4 text-center"><p className="mb-1 text-sm font-medium text-muted-foreground">Total Budget</p><p className="break-words text-xl font-bold text-accent-text">Rp {totalBudget.toLocaleString('id-ID')}</p></div>
+            <div className="min-w-0 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-center"><p className="mb-1 text-sm font-medium text-muted-foreground">Total Pengeluaran</p><p className="break-words text-xl font-bold text-destructive">− Rp {totalSpent.toLocaleString('id-ID')}</p></div>
+            <div className={`min-w-0 rounded-lg border p-4 text-center ${totalRemaining >= 0 ? 'border-success/20 bg-success/5' : 'border-destructive/20 bg-destructive/5'}`}><p className="mb-1 text-sm font-medium text-muted-foreground">Sisa Budget</p><p className={`break-words text-xl font-bold ${totalRemaining >= 0 ? 'text-success' : 'text-destructive'}`}>{totalRemaining >= 0 ? 'Tersedia: ' : 'Melebihi: '}Rp {Math.abs(totalRemaining).toLocaleString('id-ID')}</p></div>
           </div>
-          <div className="text-center p-4  bg-destructive/5 border border-destructive/10">
-            <p className="text-sm text-muted-foreground font-medium mb-1">Total Pengeluaran</p>
-            <p className="text-xl font-bold text-destructive">
-              Rp {totalSpent.toLocaleString('id-ID')}
-            </p>
-          </div>
-          <div className={`text-center p-4  border ${
-            totalBudget - totalSpent >= 0 
-              ? 'bg-success/5 border-success/10' 
-              : 'bg-destructive/5 border-destructive/10'
-          }`}>
-            <p className={`text-sm font-medium mb-1 ${
-              totalBudget - totalSpent >= 0 
-                ? 'text-muted-foreground' 
-                : 'text-muted-foreground'
-            }`}>
-              Sisa Budget
-            </p>
-            <p className={`text-xl font-bold ${
-              totalBudget - totalSpent >= 0 
-                ? 'text-success' 
-                : 'text-destructive'
-            }`}>
-              Rp {Math.abs(totalBudget - totalSpent).toLocaleString('id-ID')}
-              {totalBudget - totalSpent < 0 && ' (Over)'}
-            </p>
-          </div>
-        </div>
 
-        {/* Add Budget Form */}
-        {showForm && (
-          <div className="neumorphic-inset p-4  animate-slide-up">
-            <h3 className="font-medium mb-4 text-foreground">Tambah Budget Baru</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Select value={newBudget.category} onValueChange={(value) => setNewBudget(prev => ({...prev, category: value}))}>
-                <SelectTrigger className="neumorphic-inset">
-                  <SelectValue placeholder="Pilih Kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                placeholder="Jumlah Budget"
-                value={newBudget.amount}
-                onChange={(e) => setNewBudget(prev => ({...prev, amount: e.target.value}))}
-                className="neumorphic-inset"
-              />
-              <div className="flex gap-2">
-                <Button onClick={handleAddBudget} size="sm" className="flex-1">
-                  Simpan
-                </Button>
-                <Button variant="outline" onClick={() => setShowForm(false)} size="sm">
-                  Batal
-                </Button>
+          {showForm && (
+            <div id="budget-add-form" className="rounded-lg border bg-muted/20 p-4 animate-in slide-in-from-top-2">
+              <h4 className="mb-4 font-medium">Tambah Budget Baru</h4>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="min-w-0"><Label htmlFor="budget-category" className="sr-only">Kategori budget</Label><Select value={newBudget.category} onValueChange={(category) => setNewBudget((current) => ({ ...current, category }))}><SelectTrigger id="budget-category"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger><SelectContent>{CATEGORIES.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select></div>
+                <div className="min-w-0"><Label htmlFor="budget-amount" className="sr-only">Jumlah budget</Label><Input id="budget-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="Jumlah Budget" value={newBudget.amount} onChange={(event) => setNewBudget((current) => ({ ...current, amount: event.target.value }))} /></div>
+                <div className="flex min-w-0 flex-col-reverse gap-2 min-[360px]:flex-row sm:flex-col-reverse lg:flex-row"><Button type="button" variant="outline" onClick={() => setShowForm(false)} className="min-w-0 flex-1">Batal</Button><Button type="button" onClick={handleAddBudget} className="min-w-0 flex-1">Simpan</Button></div>
               </div>
             </div>
+          )}
+        </section>
+
+        {monthlyBudgets.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {monthlyBudgets.map((budget) => {
+              const { spent, percentage, remaining } = getBudgetStatus(budget);
+              const isOverBudget = percentage > 100;
+              const isNearLimit = percentage > 80 && !isOverBudget;
+              const status = isOverBudget ? 'Melebihi batas' : isNearLimit ? 'Mendekati batas' : 'Dalam batas';
+              const valueText = `${percentage.toFixed(1)} persen terpakai. ${status}. ${remaining >= 0 ? `Sisa Rp ${remaining.toLocaleString('id-ID')}` : `Melebihi Rp ${Math.abs(remaining).toLocaleString('id-ID')}`}.`;
+              return (
+                <article key={budget.id} className="min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-5">
+                  <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {isOverBudget || isNearLimit ? <AlertCircle aria-hidden="true" className={`h-5 w-5 shrink-0 ${isOverBudget ? 'text-destructive' : 'text-accent-text'}`} /> : <Check aria-hidden="true" className="h-5 w-5 shrink-0 text-success" />}
+                      <div className="min-w-0"><h3 className="break-words font-semibold">{budget.category}</h3><p className={`text-xs font-semibold ${isOverBudget ? 'text-destructive' : isNearLimit ? 'text-accent-text' : 'text-success'}`}>{status}</p></div>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setPendingDelete(budget)} aria-label={`Hapus budget ${budget.category}`} className="h-11 w-11 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 aria-hidden="true" className="h-4 w-4" /></Button>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex min-w-0 flex-col justify-between gap-1 text-sm min-[360px]:flex-row"><span className="text-muted-foreground">Pengeluaran</span><span className="break-words text-right font-medium">Rp {spent.toLocaleString('id-ID')} / Rp {budget.amount.toLocaleString('id-ID')}</span></div>
+                    <Progress value={Math.min(Math.max(percentage, 0), 100)} aria-label={`Pemakaian budget ${budget.category}`} aria-valuetext={valueText} className={`h-2 ${isOverBudget ? '[&>div]:bg-destructive' : isNearLimit ? '[&>div]:bg-accent-text' : '[&>div]:bg-success'}`} />
+                    <div className="flex min-w-0 flex-col justify-between gap-1 text-xs min-[360px]:flex-row"><span className="text-muted-foreground">{percentage.toFixed(1)}% terpakai</span><span className={`break-words font-medium ${remaining >= 0 ? 'text-success' : 'text-destructive'}`}>{remaining >= 0 ? `Sisa: Rp ${remaining.toLocaleString('id-ID')}` : `Melebihi: Rp ${Math.abs(remaining).toLocaleString('id-ID')}`}</span></div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
+        ) : (
+          <div className="rounded-xl border bg-card px-4 py-12 text-center"><Circle aria-hidden="true" className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" /><p className="text-lg text-muted-foreground">Belum ada budget yang ditetapkan</p><p className="mt-1 text-sm text-muted-foreground">Mulai buat budget untuk kontrol keuangan yang lebih baik!</p></div>
         )}
       </div>
 
-      {/* Budget Details */}
-      {monthlyBudgets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {monthlyBudgets.map(budget => {
-            const { spent, percentage, remaining } = getBudgetStatus(budget);
-            const isOverBudget = percentage > 100;
-            const isNearLimit = percentage > 80 && percentage <= 100;
-            
-            return (
-              <div key={budget.id} className="neumorphic-card p-5 transition-smooth hover:scale-[1.02]">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-2">
-                    {isOverBudget ? (
-                      <AlertCircle className="h-5 w-5 text-destructive" />
-                    ) : isNearLimit ? (
-                      <AlertCircle className="h-5 w-5 text-yellow-500" />
-                    ) : (
-                      <Check className="h-5 w-5 text-success" />
-                    )}
-                    <h3 className="font-semibold text-foreground">{budget.category}</h3>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDeleteBudget(budget.id)}
-                    className="text-destructive hover:text-destructive/80 p-1 h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Pengeluaran</span>
-                    <span className="font-medium text-foreground">
-                      Rp {spent.toLocaleString('id-ID')} / Rp {budget.amount.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                  <Progress 
-                    value={Math.min(percentage, 100)} 
-                    className={`h-2 ${
-                      isOverBudget ? '[&>div]:bg-destructive' : 
-                      isNearLimit ? '[&>div]:bg-yellow-500' : 
-                      '[&>div]:bg-success'
-                    }`}
-                  />
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{percentage.toFixed(1)}% terpakai</span>
-                    <span className={remaining >= 0 ? 'text-success font-medium' : 'text-destructive font-medium'}>
-                      {remaining >= 0 ? `Sisa: Rp ${remaining.toLocaleString('id-ID')}` : `Over: Rp ${Math.abs(remaining).toLocaleString('id-ID')}`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="neumorphic-card p-12 text-center">
-          <Circle className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-          <p className="text-lg text-muted-foreground">Belum ada budget yang ditetapkan</p>
-          <p className="text-sm text-muted-foreground/70 mt-1">Mulai buat budget untuk kontrol keuangan yang lebih baik!</p>
-        </div>
-      )}
-    </div>
+      <DeleteConfirmation
+        open={pendingDelete !== null}
+        target={`Budget “${pendingDelete?.category ?? ''}”`}
+        subject="budget"
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        onConfirm={() => {
+          if (pendingDelete) onDeleteBudget(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
+    </>
   );
 };
 

@@ -19,8 +19,8 @@ theme: {
   			}
   		},
   		fontFamily: {
-  			sans: ['Poppins', 'system-ui', 'sans-serif'],
-  			display: ['Poppins', 'system-ui', 'sans-serif'],
+  			sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+  			display: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
   		},
   		extend: {
   			fontWeight: {
@@ -46,6 +46,7 @@ theme: {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				'accent-text': 'hsl(var(--accent-text))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'

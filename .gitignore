@@ -7,10 +7,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# npm is the repository package manager; package-lock.json stays tracked.
 node_modules
 dist
 dist-ssr
 *.local
+
+# Android signing material and generated release artifacts
+*.jks
+*.keystore
+*.p12
+keystore.properties
+signing.properties
+aureus-sbom.cdx.json
+*.sha256
 
 # Editor directories and files
 .vscode/*

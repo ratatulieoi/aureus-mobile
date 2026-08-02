@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import DeleteConfirmation from '@/components/DeleteConfirmation';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, ArrowUp, ArrowDown, PieChart, Layers } from 'lucide-react';
-import { Transaction } from '@/pages/Index';
+import { Trash2, ArrowUp, ArrowDown, PieChart, Layers } from 'lucide-react';
+import type { Transaction } from '@/domain/types';
+import { filterTransactionsByPeriod, normalizeCategoryFilter, normalizeTypeFilter } from '@/domain/period';
 
 interface TransactionByCategoryProps {
   transactions: Transaction[];
@@ -14,152 +16,122 @@ interface TransactionByCategoryProps {
   isAllTime?: boolean;
 }
 
-const TransactionByCategory: React.FC<TransactionByCategoryProps> = ({ 
-  transactions, 
+const TransactionByCategory: React.FC<TransactionByCategoryProps> = ({
+  transactions,
   onDeleteTransaction,
   selectedMonth,
   selectedYear,
-  isAllTime = false
+  isAllTime = false,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'income' | 'expense'>('all');
+  const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
 
-  // Filter transactions
-  const monthlyTransactions = transactions.filter(transaction => {
-    if (isAllTime) return true;
-    const date = new Date(transaction.date);
-    return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
-  });
+  const handleTypeChange = (value: string) => {
+    if (value === 'all' || value === 'income' || value === 'expense') setSelectedType(value);
+  };
 
-  const categories = Array.from(new Set(monthlyTransactions.map(t => t.category))).sort();
+  const periodTransactions = filterTransactionsByPeriod(transactions, { isAllTime, month: selectedMonth, year: selectedYear });
+  const categories = Array.from(new Set(periodTransactions.map((transaction) => transaction.category))).sort();
+  const effectiveCategory = normalizeCategoryFilter(selectedCategory, categories);
+  const effectiveType = normalizeTypeFilter(selectedType, periodTransactions);
 
-  const filteredTransactions = monthlyTransactions.filter(transaction => {
-    const matchesCategory = selectedCategory === 'all' || transaction.category === selectedCategory;
-    const matchesType = selectedType === 'all' || transaction.type === selectedType;
+  useEffect(() => {
+    if (effectiveCategory !== selectedCategory) setSelectedCategory(effectiveCategory);
+    if (effectiveType !== selectedType) setSelectedType(effectiveType);
+  }, [effectiveCategory, effectiveType, selectedCategory, selectedType]);
+
+  const filteredTransactions = periodTransactions.filter((transaction) => {
+    const matchesCategory = effectiveCategory === 'all' || transaction.category === effectiveCategory;
+    const matchesType = effectiveType === 'all' || transaction.type === effectiveType;
     return matchesCategory && matchesType;
   });
 
-  // Group by category
-  const transactionsByCategory = filteredTransactions.reduce((acc, transaction) => {
-    if (!acc[transaction.category]) {
-      acc[transaction.category] = [];
-    }
-    acc[transaction.category].push(transaction);
-    return acc;
+  const transactionsByCategory = filteredTransactions.reduce((groups, transaction) => {
+    (groups[transaction.category] ??= []).push(transaction);
+    return groups;
   }, {} as Record<string, Transaction[]>);
 
-  const getCategoryTotal = (txs: Transaction[]) => txs.reduce((sum, t) => sum + t.amount, 0);
-
   return (
-    <div className="space-y-6">
-       {/* Filter Header */}
-       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/50 p-4 rounded-xl border border-primary/10">
+    <>
+      <div className="space-y-6">
+        <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-primary/10 bg-card/50 p-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
-             <div className="p-2 bg-primary/20 rounded-lg">
-                <Layers className="h-5 w-5 text-primary-foreground" />
-             </div>
-             <div>
-                <h3 className="font-display font-bold text-lg leading-none">Breakdown</h3>
-                <p className="text-xs text-muted-foreground">Per Kategori</p>
-             </div>
+            <div aria-hidden="true" className="rounded-lg bg-primary/20 p-2"><Layers className="h-5 w-5 text-foreground" /></div>
+            <div><h3 className="font-display text-lg font-bold leading-none">Breakdown</h3><p className="text-xs text-muted-foreground">Per Kategori</p></div>
           </div>
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:w-auto">
+            <div className="min-w-0">
+              <Label htmlFor="category-type-filter" className="sr-only">Filter tipe transaksi</Label>
+              <Select value={selectedType} onValueChange={handleTypeChange}>
+                <SelectTrigger id="category-type-filter" className="w-full min-w-0 border-primary/20 bg-background sm:w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="all">Semua Tipe</SelectItem><SelectItem value="income">Pemasukan</SelectItem><SelectItem value="expense">Pengeluaran</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-0">
+              <Label htmlFor="category-name-filter" className="sr-only">Filter kategori transaksi</Label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger id="category-name-filter" className="w-full min-w-0 border-primary/20 bg-background sm:w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="all">Semua Kategori</SelectItem>{categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
 
-          <div className="flex gap-2 w-full sm:w-auto">
-             <Select value={selectedType} onValueChange={(v: any) => setSelectedType(v)}>
-                <SelectTrigger className="w-full sm:w-[140px] bg-background border-primary/20">
-                   <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                   <SelectItem value="all">Semua Tipe</SelectItem>
-                   <SelectItem value="income">Pemasukan</SelectItem>
-                   <SelectItem value="expense">Pengeluaran</SelectItem>
-                </SelectContent>
-             </Select>
-             
-             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-[160px] bg-background border-primary/20">
-                   <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                   <SelectItem value="all">Semua Kategori</SelectItem>
-                   {categories.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                   ))}
-                </SelectContent>
-             </Select>
+        {Object.keys(transactionsByCategory).length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-primary/20 bg-muted/20 px-4 py-20 text-center">
+            <PieChart aria-hidden="true" className="mx-auto mb-4 h-16 w-16 animate-spin-slow text-muted-foreground/30" />
+            <p className="font-medium text-muted-foreground">Tidak ada data untuk ditampilkan</p>
           </div>
-       </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {Object.entries(transactionsByCategory).map(([category, categoryTransactions]) => {
+              const totalIncome = categoryTransactions.filter(({ type }) => type === 'income').reduce((sum, { amount }) => sum + amount, 0);
+              const totalExpense = categoryTransactions.filter(({ type }) => type === 'expense').reduce((sum, { amount }) => sum + amount, 0);
+              return (
+                <section key={category} className="group relative min-w-0 overflow-hidden rounded-2xl border border-primary/10 bg-card transition-all duration-300 hover:shadow-lg">
+                  <div className="flex min-w-0 flex-col gap-3 border-b border-primary/5 bg-gradient-to-r from-muted/50 to-muted/10 p-4 min-[360px]:flex-row min-[360px]:items-start min-[360px]:justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="max-w-full whitespace-normal break-words border-primary/20 bg-background px-3 py-1 text-sm font-bold">{category}</Badge>
+                      <span className="rounded-full bg-background/50 px-2 py-0.5 font-mono text-xs text-muted-foreground">{categoryTransactions.length} item</span>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-start font-mono text-xs min-[360px]:items-end">
+                      {totalIncome > 0 && <span className="flex items-center gap-1 text-success"><ArrowUp aria-hidden="true" className="h-3 w-3" /><span className="sr-only">Pemasukan </span>+ {totalIncome.toLocaleString('id-ID')}</span>}
+                      {totalExpense > 0 && <span className="flex items-center gap-1 text-destructive"><ArrowDown aria-hidden="true" className="h-3 w-3" /><span className="sr-only">Pengeluaran </span>- {totalExpense.toLocaleString('id-ID')}</span>}
+                    </div>
+                  </div>
 
-       {/* Masonry / Grid Layout for Categories */}
-       {Object.keys(transactionsByCategory).length === 0 ? (
-          <div className="text-center py-20 border-2 border-dashed border-primary/20 rounded-2xl bg-muted/20">
-             <PieChart className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4 animate-spin-slow" />
-             <p className="text-muted-foreground font-medium">Tidak ada data untuk ditampilkan</p>
-          </div>
-       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {Object.entries(transactionsByCategory).map(([category, categoryTransactions]) => {
-                const totalIncome = categoryTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-                const totalExpense = categoryTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-                
-                return (
-                   <div key={category} className="group relative bg-card border border-primary/10 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                      {/* Card Header with Totals */}
-                      <div className="bg-gradient-to-r from-muted/50 to-muted/10 p-4 border-b border-primary/5 flex justify-between items-center">
-                         <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="text-sm font-bold bg-background px-3 py-1 border-primary/20">
-                               {category}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground font-mono bg-background/50 px-2 py-0.5 rounded-full">
-                               {categoryTransactions.length} item
-                            </span>
-                         </div>
-                         <div className="text-right flex flex-col items-end text-xs font-mono">
-                            {totalIncome > 0 && <span className="text-success flex items-center gap-1"><ArrowUp className="h-3 w-3"/> {totalIncome.toLocaleString()}</span>}
-                            {totalExpense > 0 && <span className="text-destructive flex items-center gap-1"><ArrowDown className="h-3 w-3"/> {totalExpense.toLocaleString()}</span>}
-                         </div>
+                  <div>
+                    {categoryTransactions.slice(0, 5).map((transaction) => (
+                      <div key={transaction.id} className="flex min-w-0 items-center justify-between gap-2 border-b border-dashed border-primary/10 p-3 text-sm transition-colors last:border-0 hover:bg-primary/5">
+                        <div className="min-w-0 flex-1"><span className="block break-words font-medium text-foreground/90">{transaction.description || 'Tanpa Keterangan'}</span><span className="text-[10px] text-muted-foreground">{new Date(transaction.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span></div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className={`max-w-[7.5rem] break-words text-right font-mono font-bold min-[360px]:max-w-none ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}><span aria-hidden="true">{transaction.type === 'income' ? '↑ +' : '↓ -'} </span>{transaction.amount.toLocaleString('id-ID')}<span className="sr-only"> {transaction.type === 'income' ? 'pemasukan' : 'pengeluaran'}</span></span>
+                          <Button type="button" variant="ghost" size="icon" aria-label={`Hapus transaksi ${transaction.description || category}`} className="h-11 w-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setPendingDelete(transaction)}><Trash2 aria-hidden="true" className="h-4 w-4" /></Button>
+                        </div>
                       </div>
-
-                      {/* Receipt-style List */}
-                      <div className="p-0">
-                         {categoryTransactions.slice(0, 5).map((t, idx) => (
-                            <div key={t.id} className="flex justify-between items-center p-3 border-b border-dashed border-primary/10 last:border-0 hover:bg-primary/5 transition-colors text-sm">
-                               <div className="flex flex-col min-w-0 pr-2">
-                                  <span className="truncate font-medium text-foreground/90">{t.description || "Tanpa Keterangan"}</span>
-                                  <span className="text-[10px] text-muted-foreground">{new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-                               </div>
-                               <div className="flex items-center gap-2 shrink-0">
-                                  <span className={`font-mono font-bold ${t.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                                     {t.type === 'income' ? '+' : '-'} {t.amount.toLocaleString('id-ID')}
-                                  </span>
-                                  <Button 
-                                     variant="ghost" 
-                                     size="icon" 
-                                     className="h-6 w-6 text-muted-foreground/50 hover:text-destructive -mr-2"
-                                     onClick={() => {
-                                        if(confirm("Hapus?")) onDeleteTransaction(t.id)
-                                     }}
-                                  >
-                                     <X className="h-3 w-3" />
-                                  </Button>
-                               </div>
-                            </div>
-                         ))}
-                         {categoryTransactions.length > 5 && (
-                            <div className="p-2 text-center bg-muted/20 text-xs text-muted-foreground italic">
-                               ...dan {categoryTransactions.length - 5} lainnya
-                            </div>
-                         )}
-                      </div>
-                      
-                      {/* Decorative Zigzag Bottom (Receipt look) */}
-                      <div className="h-2 w-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMiA0IiBwcmVzZXJ2ZUFzcGVjdHJhdGlvPSJub25lIj48cGF0aCBkPSJNIDAgMCBMIDYgNCBMIDEyIDAgWiIgZmlsbD0iI2Y1ZjVkYyIvPjwvc3ZnPg==')] bg-contain bg-bottom opacity-50"></div>
-                   </div>
-                );
-             })}
+                    ))}
+                    {categoryTransactions.length > 5 && <div className="bg-muted/20 p-2 text-center text-xs italic text-muted-foreground">…dan {categoryTransactions.length - 5} lainnya</div>}
+                  </div>
+                  <div aria-hidden="true" className="h-2 w-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMiA0IiBwcmVzZXJ2ZUFzcGVjdHJhdGlvPSJub25lIj48cGF0aCBkPSJNIDAgMCBMIDYgNCBMIDEyIDAgWiIgZmlsbD0iI2Y1ZjVkYyIvPjwvc3ZnPg==')] bg-contain bg-bottom opacity-50" />
+                </section>
+              );
+            })}
           </div>
-       )}
-    </div>
+        )}
+      </div>
+
+      <DeleteConfirmation
+        open={pendingDelete !== null}
+        target={`Transaksi “${pendingDelete?.description || pendingDelete?.category || ''}”`}
+        subject="transaksi"
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        onConfirm={() => {
+          if (pendingDelete) onDeleteTransaction(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
+    </>
   );
 };
 

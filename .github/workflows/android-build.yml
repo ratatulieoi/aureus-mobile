@@ -1,50 +1,103 @@
-name: Build Android APK
+name: Android quality gates
 
 on:
+  pull_request:
   push:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Build APK
-    runs-on: ubuntu-latest
+  validate:
+    name: Web and Android gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      TZ: Asia/Jakarta
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22'
+          node-version: '22.22.3'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Verify npm toolchain
+        run: |
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
+
+      - name: Setup Java 21
+        uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4.9.0
         with:
-          distribution: 'zulu'
-          java-version: '21'
+          distribution: temurin
+          java-version: '21.0.8+9'
+          cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install exact npm graph
+        run: npm ci
 
-      - name: Build Web App
-        run: npm run build
+      - name: Run aggregate application gate
+        run: npm run check
 
-      - name: Sync Capacitor
+      - name: Enforce dependency audit policy
+        run: |
+          npm run audit:prod
+          npm run audit:all
+
+      - name: Generate deterministic npm SBOM
+        run: npm run sbom
+
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build APK
+      - name: Check npm lockfile drift
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          before="$(sha256sum package-lock.json)"
+          npm install --package-lock-only --ignore-scripts
+          after="$(sha256sum package-lock.json)"
+          test "$before" = "$after"
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Run Android unit tests, lint, and debug assembly
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug processDebugMainManifest
+
+      - name: Assert merged manifest security policy
+        run: node scripts/assert-merged-manifest.mjs android/app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml
+
+      - name: Verify diagnostic APK
+        run: |
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk > app-debug.apk.sha256
+
+      - name: Upload diagnostic APK and SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: aureus-debug-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            app-debug.apk.sha256
+            aureus-sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 7

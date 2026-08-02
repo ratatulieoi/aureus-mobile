@@ -1,26 +1,27 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Mic, MicOff, Hash, Edit, Square } from 'lucide-react';
-import { Transaction } from '@/pages/Index';
-import { format } from 'date-fns';
-import { id } from 'date-fns/locale';
-import { Capacitor } from '@capacitor/core';
+import { Mic, MicOff, Hash, Edit, CalendarDays } from 'lucide-react';
+import type { NewTransaction } from '@/domain/types';
+import { TRANSACTION_CATEGORIES } from '@/domain/categories';
+import { parseVoiceTransaction, type ParsedVoiceTransaction } from '@/domain/voice-parser';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+import { attemptTransactionCommit } from '@/domain/transaction-action';
 
 interface VoiceInputProps {
-  onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  onAddTransaction: (transaction: NewTransaction) => boolean;
   onClose: () => void;
 }
-
-type ParsedTransaction = {
-  type: 'income' | 'expense';
-  amount: number;
-  category: string;
-  description: string;
-  date: Date;
-};
 
 type WebSpeechRecognitionEvent = {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
@@ -43,690 +44,393 @@ type WebSpeechRecognition = {
 
 type WebSpeechRecognitionCtor = new () => WebSpeechRecognition;
 
+type VoiceOperation = 'idle' | 'starting' | 'listening' | 'stopping' | 'processing' | 'saving';
+
 const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) => {
-  const [isListening, setIsListening] = useState(false);
+  const [operation, setOperation] = useState<VoiceOperation>('idle');
   const [transcript, setTranscript] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [parsedTransaction, setParsedTransaction] = useState<ParsedTransaction | null>(null);
+  const [parsedTransaction, setParsedTransaction] = useState<ParsedVoiceTransaction | null>(null);
   const [error, setError] = useState<string>('');
   const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [nativeReleasePending, setNativeReleasePending] = useState(false);
   const recognitionRef = useRef<WebSpeechRecognition | null>(null);
+  const nativeListenerRef = useRef<PluginListenerHandle | null>(null);
   const processVoiceInputRef = useRef<(text: string) => void>(() => {});
+  const saveGuardRef = useRef(false);
+  const transitionGuardRef = useRef(false);
+  const nativeReleasePendingRef = useRef(false);
+  const operationIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  const microphoneButtonRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null,
+  );
 
-  const categories = {
-    expense: [
-      'Makanan & Minuman',
-      'Transportasi',
-      'Belanja',
-      'Tagihan',
-      'Kesehatan',
-      'Hiburan',
-      'Pendidikan',
-      'Rumah Tangga',
-      'Komunikasi',
-      'Lainnya'
-    ],
-    income: [
-      'Gaji',
-      'Bonus',
-      'Penjualan',
-      'Investasi',
-      'Freelance',
-      'Pemasukan Lain'
-    ]
-  };
+  const isListening = operation === 'listening';
+  const isProcessing = operation === 'processing';
+  const isSaving = operation === 'saving';
+  const dismissalBlocked = operation === 'starting' || isSaving;
+
+  const markNativeStopped = useCallback(() => {
+    nativeReleasePendingRef.current = false;
+    transitionGuardRef.current = false;
+    if (mountedRef.current) {
+      setNativeReleasePending(false);
+      setOperation((current) => current === 'saving' ? current : 'idle');
+    }
+  }, []);
 
   useEffect(() => {
-    // If not native (Web), initialize standard SpeechRecognition
-    if (!Capacitor.isNativePlatform()) {
+    mountedRef.current = true;
+    if (Capacitor.isNativePlatform()) {
+      void SpeechRecognition.addListener('listeningState', ({ status }) => {
+        if (status === 'stopped') markNativeStopped();
+      }).then((handle) => {
+        if (!mountedRef.current) void handle.remove();
+        else nativeListenerRef.current = handle;
+      }).catch((listenerError: unknown) => {
+        console.error('Gagal memasang listener status mikrofon', listenerError);
+      });
+    } else {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
         setError('Browser tidak mendukung speech recognition. Gunakan Chrome atau Edge.');
-        return;
+        return () => { mountedRef.current = false; };
       }
 
-      const w = window as unknown as {
+      const speechWindow = window as unknown as {
         SpeechRecognition?: WebSpeechRecognitionCtor;
         webkitSpeechRecognition?: WebSpeechRecognitionCtor;
       };
-      const SpeechRecognitionWeb = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+      const SpeechRecognitionWeb = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
       if (!SpeechRecognitionWeb) {
         setError('Browser tidak mendukung speech recognition. Gunakan Chrome atau Edge.');
-        return;
+        return () => { mountedRef.current = false; };
       }
 
-      recognitionRef.current = new SpeechRecognitionWeb();
-      
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'id-ID';
-
-      recognitionRef.current.onresult = (event) => {
+      const recognition = new SpeechRecognitionWeb();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'id-ID';
+      recognition.onresult = (event) => {
         const finalTranscript = event.results?.[0]?.[0]?.transcript ?? '';
         setTranscript(finalTranscript);
         processVoiceInputRef.current(finalTranscript);
       };
-
-      recognitionRef.current.onerror = (event) => {
+      recognition.onerror = (event) => {
         console.error('Speech recognition error', event.error);
-        if (event.error === 'no-speech') {
-          setError('Tidak ada suara terdeteksi. Silakan coba lagi.');
-        } else if (event.error === 'network') {
-          setError('Masalah koneksi jaringan. Periksa internet Anda.');
-        } else {
-          setError('Terjadi kesalahan: ' + event.error);
-        }
-        setIsListening(false);
+        setError(event.error === 'no-speech'
+          ? 'Tidak ada suara terdeteksi. Silakan coba lagi.'
+          : event.error === 'network'
+            ? 'Masalah koneksi jaringan. Periksa internet Anda.'
+            : `Terjadi kesalahan pengenalan suara: ${event.error}`);
+        setOperation('idle');
       };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
+      recognition.onend = () => {
+        transitionGuardRef.current = false;
+        setOperation((current) => current === 'processing' || current === 'saving' ? current : 'idle');
       };
-
-      return () => {
-        if (recognitionRef.current) {
-          recognitionRef.current.stop();
-        }
-      };
-    } else {
-       // Check permissions for Native
-       SpeechRecognition.checkPermissions().then((permission) => {
-           if (permission.speechRecognition !== 'granted') {
-               SpeechRecognition.requestPermissions();
-           }
-       });
     }
-  }, []);
 
-  const startListening = async () => {
-    setTranscript('');
-    setParsedTransaction(null);
-    setError('');
-    setIsEditingCategory(false);
-
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const hasPermission = await SpeechRecognition.requestPermissions();
-            if (hasPermission.speechRecognition === 'granted') {
-                setIsListening(true);
-                const { matches } = await SpeechRecognition.start({
-                    language: "id-ID",
-                    maxResults: 1,
-                    prompt: "Katakan transaksi...",
-                    partialResults: false,
-                    popup: false,
-                });
-                
-                if (matches && matches.length > 0) {
-                    const text = matches[0];
-                    setTranscript(text);
-                    processVoiceInputRef.current(text);
-                }
-                setIsListening(false);
-            } else {
-                setError("Izin mikrofon ditolak.");
-            }
-        } catch (e: unknown) {
-            console.error(e);
-            const message = e instanceof Error ? e.message : 'Unknown error';
-            setError("Gagal memulai: " + message);
-            setIsListening(false);
-        }
-    } else {
-        if (recognitionRef.current) {
-            try {
-                recognitionRef.current.start();
-                setIsListening(true);
-            } catch (e) {
-                console.error("Failed to start recognition:", e);
-            }
-        }
-    }
-  };
-
-  const stopListening = async () => {
-    if (Capacitor.isNativePlatform()) {
-        await SpeechRecognition.stop();
-        setIsListening(false);
-    } else {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            setIsListening(false);
-        }
-    }
-  };
-
-  // Improved Categorization Logic
-  const smartCategorize = (text: string, type: 'income' | 'expense'): string => {
-    const lowerText = text.toLowerCase();
-    
-    if (type === 'income') {
-      if (lowerText.match(/\b(gaji|salary|payday|bayaran|upah)\b/)) return 'Gaji';
-      if (lowerText.match(/\b(bonus|thr|hadiah|reward|insentif)\b/)) return 'Bonus';
-      if (lowerText.match(/\b(jual|sold|laku|dagang|transaksi|toko)\b/)) return 'Penjualan';
-      if (lowerText.match(/\b(investasi|saham|reksadana|crypto|dividen|profit|bunga|deposito)\b/)) return 'Investasi';
-      if (lowerText.match(/\b(freelance|proyek|project|side job|ceperan|nulis|desain|coding)\b/)) return 'Freelance';
-      return 'Pemasukan Lain';
-    } else {
-      // Food & Drink - Expanded
-      if (lowerText.match(/\b(makan|nasi|ayam|bebek|soto|bakso|mie|kopi|teh|jus|minuman|restoran|warung|cafe|geprek|padang|burger|pizza|snack|jajan|kue|roti|sarapan|lunch|dinner|malam|siang|pagi)\b/))
-        return 'Makanan & Minuman';
-      
-      // Transport - Expanded
-      if (lowerText.match(/\b(bensin|ojek|grab|gojek|taxi|bus|kereta|krl|mrt|parkir|tol|motor|mobil|servis|bengkel|ban|oli|driver|uber|maxim|indrive|angkot)\b/))
-        return 'Transportasi';
-      
-      // Shopping - Expanded
-      if (lowerText.match(/\b(beli|belanja|shopping|mall|toko|pasar|supermarket|indomaret|alfamart|toped|tokopedia|shopee|lazada|bukalapak|baju|celana|sepatu|tas|aksesoris|skincare|makeup)\b/))
-        return 'Belanja';
-      
-      // Bills - Expanded
-      if (lowerText.match(/\b(listrik|air|pdam|telepon|internet|wifi|pulsa|token|pln|tagihan|bpjs|asuransi|cicilan|kredit|hutang|pinjaman|sewa|kos|kontrakan)\b/))
-        return 'Tagihan';
-      
-      // Health - Expanded
-      if (lowerText.match(/\b(dokter|rumah sakit|obat|vitamin|kesehatan|medical|apotek|klinik|periksa|gigi|mata|checkup|imunisasi|vaksin)\b/))
-        return 'Kesehatan';
-      
-      // Entertainment - Expanded
-      if (lowerText.match(/\b(bioskop|game|streaming|netflix|spotify|youtube|hiburan|nonton|wisata|jalan|liburan|hotel|staycation|konser|tiket|musik|hobi)\b/))
-        return 'Hiburan';
-      
-      // Education - Expanded
-      if (lowerText.match(/\b(sekolah|kuliah|kursus|les|buku|pendidikan|training|seminar|webinar|workshop|spp|uang gedung|seragam|alat tulis)\b/))
-        return 'Pendidikan';
-      
-      // Household - Expanded
-      if (lowerText.match(/\b(sabun|sampo|tissue|deterjen|pembersih|rumah tangga|galon|gas|elpiji|baterai|lampu|perabot|renovasi|tukang)\b/))
-        return 'Rumah Tangga';
-      
-      // Communication - Expanded
-      if (lowerText.match(/\b(paket|kuota|data|sim card|kartu perdana)\b/))
-        return 'Komunikasi';
-      
-      return 'Lainnya';
-    }
-  };
+    return () => {
+      mountedRef.current = false;
+      operationIdRef.current += 1;
+      const recognition = recognitionRef.current;
+      if (recognition) {
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        try { recognition.stop(); } catch { /* recognizer may already be idle */ }
+      }
+      const nativeListener = nativeListenerRef.current;
+      nativeListenerRef.current = null;
+      if (nativeListener) void nativeListener.remove().catch(() => undefined);
+      if (Capacitor.isNativePlatform()) void SpeechRecognition.stop().catch(() => undefined);
+    };
+  }, [markNativeStopped]);
 
   const processVoiceInput = (text: string) => {
-    setIsProcessing(true);
-    
+    setOperation('processing');
     try {
-      const result = parseTransaction(text);
-      setParsedTransaction(result);
-    } catch (error) {
-      console.error(error);
-      setError('Tidak dapat memahami input. Coba lagi dengan format: "beli nasi 15 ribu" atau "dapat gaji 5 juta"');
+      setParsedTransaction(parseVoiceTransaction(text));
+      setError('');
+    } catch (parseError) {
+      console.error(parseError);
+      setError('Tidak dapat memahami input. Coba lagi dengan format: “beli nasi 15 ribu” atau “dapat gaji 5 juta”.');
     } finally {
-      setIsProcessing(false);
+      setOperation('idle');
     }
   };
   processVoiceInputRef.current = processVoiceInput;
 
-  const parseDate = (text: string): Date => {
-    const lowerText = text.toLowerCase();
-    const today = new Date();
-    
-    // Relative dates
-    if (lowerText.includes('kemarin lusa') || lowerText.includes('dua hari lalu')) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 2);
-      return d;
-    }
-    if (lowerText.includes('kemarin')) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 1);
-      return d;
-    }
-    if (lowerText.includes('besok')) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + 1);
-      return d;
-    }
-    if (lowerText.includes('lusa')) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + 2);
-      return d;
-    }
-    if (lowerText.match(/(\d+)\s*hari\s*(yang)?\s*lalu/)) {
-        const match = lowerText.match(/(\d+)\s*hari\s*(yang)?\s*lalu/);
-        if (match) {
-            const days = parseInt(match[1]);
-            const d = new Date(today);
-            d.setDate(d.getDate() - days);
-            return d;
+  const startListening = async () => {
+    if (transitionGuardRef.current || nativeReleasePendingRef.current || operation !== 'idle') return;
+    transitionGuardRef.current = true;
+    const operationId = ++operationIdRef.current;
+    setTranscript('');
+    setParsedTransaction(null);
+    setError('');
+    setIsEditingCategory(false);
+    setOperation('starting');
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const nativeState = await SpeechRecognition.isListening();
+        if (nativeState.listening || nativeReleasePendingRef.current) {
+          nativeReleasePendingRef.current = true;
+          setNativeReleasePending(true);
+          setError('Mikrofon masih berhenti dari sesi sebelumnya. Tunggu status berhenti sebelum mencoba lagi.');
+          setOperation('idle');
+          transitionGuardRef.current = false;
+          return;
         }
-    }
-    if (lowerText.match(/(\d+)\s*hari\s*(lagi|ke\s*depan)/)) {
-        const match = lowerText.match(/(\d+)\s*hari\s*(lagi|ke\s*depan)/);
-        if (match) {
-            const days = parseInt(match[1]);
-            const d = new Date(today);
-            d.setDate(d.getDate() + days);
-            return d;
+        const available = await SpeechRecognition.available();
+        if (!available.available) throw new Error('Layanan pengenalan suara tidak tersedia di perangkat ini.');
+        const permission = await SpeechRecognition.requestPermissions();
+        if (permission.speechRecognition !== 'granted') {
+          throw new Error('Izin mikrofon ditolak. Aktifkan izin mikrofon di pengaturan perangkat.');
         }
-    }
-
-    // Specific dates (simple implementation for "tanggal X")
-    const dateMatch = lowerText.match(/tanggal\s*(\d{1,2})/);
-    if (dateMatch) {
-      const day = parseInt(dateMatch[1]);
-      if (day >= 1 && day <= 31) {
-        const d = new Date(today);
-        if (day > today.getDate()) {
-            d.setMonth(d.getMonth() - 1);
+        if (!mountedRef.current || operationId !== operationIdRef.current) {
+          transitionGuardRef.current = false;
+          return;
         }
-        d.setDate(day);
-        return d;
-      }
-    }
-
-    return today;
-  };
-
-  /**
-   * Preprocesses transcript to normalize Indonesian number formats
-   * 
-   * Purpose: Handle Indonesian thousand separators (periods) vs decimal points
-   * 
-   * Examples:
-   * - "100.000" (no unit word) → "100000" (remove period - thousand separator)
-   * - "2.5 juta" (has unit word) → "2.5 juta" (keep period - decimal point)
-   * - "1.500.000" (multiple periods) → "1500000" (remove all - thousand separators)
-   * - "beli nasi 50.000" → "beli nasi 50000"
-   * 
-   * Strategy:
-   * - Use negative lookahead to check if number is followed by unit words (ribu/juta/etc)
-   * - If NO unit word → Remove periods (they are thousand separators)
-   * - If YES unit word → Keep period (it's a decimal multiplier like "2.5 juta")
-   */
-  const preprocessTranscript = (text: string): string => {
-    let processed = text;
-    
-    // Pattern: Match numbers with Indonesian thousand separators (X.XXX or X.XXX.XXX)
-    // But NOT if followed by unit words (ribu, juta, etc.) - those are decimal multipliers
-    // Regex breakdown:
-    // \b(\d{1,3}(?:\.\d{3})+) - Matches numbers like 100.000 or 1.500.000
-    // (?!\s*(?:ribu|juta|jt|rb|k)\b) - Negative lookahead: NOT followed by unit words
-    processed = processed.replace(
-      /\b(\d{1,3}(?:\.\d{3})+)(?!\s*(?:ribu|juta|jt|rb|k)\b)/gi,
-      (match) => {
-        // Remove all periods from the matched number
-        return match.replace(/\./g, '');
-      }
-    );
-    
-    return processed;
-  };
-
-  /**
-   * Enhanced Voice Input Parser with Indonesian Number Format Support
-   * 
-   * Test Cases & Expected Results:
-   * 
-   * 1. Indonesian Thousand Separators (Period Removal):
-   *    - "beli nasi 100.000" → Amount: 100,000 ✓
-   *    - "dapat gaji 5.500.000" → Amount: 5,500,000 ✓
-   *    - "parkir 50.000" → Amount: 50,000 ✓
-   * 
-   * 2. Decimal Multipliers (Period Preserved):
-   *    - "dapat bonus 2.5 juta" → Amount: 2,500,000 (2.5 × 1,000,000) ✓
-   *    - "beli kopi 15.5 ribu" → Amount: 15,500 (15.5 × 1,000) ✓
-   *    - "dapat 1.2 juta" → Amount: 1,200,000 ✓
-   * 
-   * 3. Word-based Units:
-   *    - "beli nasi 50 ribu" → Amount: 50,000 ✓
-   *    - "dapat gaji 5 juta" → Amount: 5,000,000 ✓
-   *    - "parkir ceban" → Amount: 10,000 (slang) ✓
-   * 
-   * 4. Intelligent Interpretation:
-   *    - "15.000 ribu" → Amount: 15,000 (interpret as 15 × 1000, not 15,000 × 1000) ✓
-   *    - "100 ribu" → Amount: 100,000 ✓
-   *    - "2.5 juta" → Amount: 2,500,000 ✓
-   * 
-   * 5. Small Item Auto-multiply:
-   *    - "makan nasi 15" → Amount: 15,000 (auto ×1000 for food items) ✓
-   *    - "parkir 5" → Amount: 5,000 (auto ×1000 for parking) ✓
-   * 
-   * 6. Edge Cases:
-   *    - "Rp 100.000" → Amount: 100,000 (with Rp prefix) ✓
-   *    - "50.000 kemarin" → Amount: 50,000 (with date) ✓
-   */
-  const parseTransaction = (text: string): ParsedTransaction => {
-    // Preprocess to normalize Indonesian number formats
-    const processedText = preprocessTranscript(text);
-    const lowerText = processedText.toLowerCase().trim();
-    
-    console.log('=== Voice Input Parsing ===');
-    console.log('Original transcript:', text);
-    console.log('Preprocessed text:', processedText);
-    console.log('Lowercase text:', lowerText);
-    console.log('---');
-    
-    // 1. Determine Type
-    // Enhanced income keywords to cover Indonesian variations and slang
-    const incomeKeywords = [
-      'dapat', 'dapet',           // get/received (standard & slang)
-      'terima',                   // received
-      'gaji',                     // salary
-      'bonus',                    // bonus
-      'untung',                   // profit
-      'hasil',                    // result/earnings
-      'jual',                     // sell
-      'pendapatan',               // income
-      'masuk',                    // incoming
-      'dibayar',                  // paid
-      'cuan',                     // profit (slang)
-      'nemu', 'nemuin',           // found (standard & alternative)
-      'dikasih', 'dikasi', 'kasih', // was given / given
-      'hadiah',                   // gift/prize
-      'menang',                   // won
-      'transfer masuk',           // incoming transfer
-    ];
-    let type: 'income' | 'expense' = 'expense';
-    
-    if (incomeKeywords.some(keyword => lowerText.includes(keyword))) {
-      type = 'income';
-      console.log('✓ Detected as INCOME (keyword matched)');
-    } else {
-      console.log('✓ Detected as EXPENSE (default)');
-    }
-
-    // 2. Parse Amount (Enhanced)
-    let amount = 0;
-    let description = processedText;
-
-    // Slang detection
-    const slangMap: Record<string, number> = {
-        'goceng': 5000,
-        'ceban': 10000,
-        'noban': 20000,
-        'goban': 50000,
-        'gocap': 50000,
-        'gopek': 500,
-        'seceng': 1000,
-        'cepek': 100,
-        'sejut': 1000000,
-        'jigo': 25000
-    };
-
-    for (const [slang, val] of Object.entries(slangMap)) {
-        if (lowerText.includes(slang)) {
-            amount = val;
-            console.log('✓ Found slang amount:', slang, '→', amount);
-            description = description.replace(new RegExp(`\\b${slang}\\b`, 'gi'), '');
-            break; 
-        }
-    }
-    if (amount === 0) console.log('✗ No slang detected');
-
-    // Standard Number Parsing
-    if (amount === 0) {
-        const rpWithDotsMatch = processedText.match(/Rp\.?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/i);
-        if (rpWithDotsMatch) {
-        let numStr = rpWithDotsMatch[1];
-        numStr = numStr.replace(/[.,]/g, ''); 
-        
-        amount = parseInt(numStr);
-        console.log('✓ Found Rp amount:', rpWithDotsMatch[1], '→', amount);
-        description = processedText.replace(new RegExp(rpWithDotsMatch[0], 'gi'), '').trim();
-        }
-        if (amount === 0) console.log('✗ No Rp format detected');
-    }
-
-    // Parse "ribu" atau "rb" atau "k"
-    if (amount === 0) {
-      const ribuMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:ribu|rb|k)\b/);
-      if (ribuMatch) {
-        const numStr = ribuMatch[1].replace(',', '.');
-        amount = parseFloat(numStr) * 1000;
-        console.log('✓ Found ribu amount:', numStr, '× 1000 =', amount);
-        description = processedText.replace(new RegExp(ribuMatch[0], 'gi'), '').trim();
-      }
-      if (amount === 0) console.log('✗ No ribu format detected');
-    }
-
-    // Parse "juta" atau "jt"
-    if (amount === 0) {
-      const jutaMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:juta|jt)\b/);
-      if (jutaMatch) {
-        const numStr = jutaMatch[1].replace(',', '.');
-        amount = parseFloat(numStr) * 1000000;
-        console.log('✓ Found juta amount:', numStr, '× 1000000 =', amount);
-        description = processedText.replace(new RegExp(jutaMatch[0], 'gi'), '').trim();
-      }
-      if (amount === 0) console.log('✗ No juta format detected');
-    }
-
-    // Parse angka biasa tanpa satuan
-    if (amount === 0) {
-      // After preprocessing, numbers are clean (no thousand separators)
-      // This regex now handles: "100000", "2.5", "15" etc.
-      const numberMatch = lowerText.match(/(?:rp\.?\s*)?(\d+(?:\.\d+)?)/);
-      if (numberMatch) {
-        const numStr = numberMatch[1];
-        const num = parseFloat(numStr);
-        console.log('✓ Found raw number:', numStr, '→', num);
-        
-        const smallItemKeywords = ['makan', 'nasi', 'kopi', 'parkir', 'bensin', 'ojek', 'angkot', 'geprek', 'es'];
-        if (num < 1000 && smallItemKeywords.some(keyword => lowerText.includes(keyword))) {
-          amount = num * 1000;
-          console.log('  → Small item detected, multiplied by 1000:', amount);
+        setOperation('listening');
+        transitionGuardRef.current = false;
+        const { matches } = await SpeechRecognition.start({
+          language: 'id-ID',
+          maxResults: 1,
+          prompt: 'Katakan transaksi...',
+          partialResults: false,
+          popup: false,
+        });
+        if (!mountedRef.current || operationId !== operationIdRef.current) return;
+        const text = matches?.[0];
+        if (text) {
+          setTranscript(text);
+          processVoiceInputRef.current(text);
         } else {
-          amount = num;
+          setOperation('idle');
+          transitionGuardRef.current = false;
         }
-        description = processedText.replace(new RegExp(numberMatch[0], 'gi'), '').trim();
+      } catch (caughtError: unknown) {
+        console.error(caughtError);
+        if (!mountedRef.current || operationId !== operationIdRef.current) {
+          transitionGuardRef.current = false;
+          return;
+        }
+        const message = caughtError instanceof Error ? caughtError.message : 'Terjadi kesalahan yang tidak dikenal.';
+        setError(`Gagal memulai input suara: ${message}`);
+        setOperation('idle');
+        transitionGuardRef.current = false;
       }
-      if (amount === 0) console.log('✗ No raw number detected');
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setOperation('listening');
+        transitionGuardRef.current = false;
+      } catch (caughtError) {
+        console.error('Failed to start recognition:', caughtError);
+        setError('Pengenalan suara belum dapat dimulai. Tunggu sebentar lalu coba lagi.');
+        setOperation('idle');
+        transitionGuardRef.current = false;
+      }
+    }
+  };
+
+  const checkNativeRelease = async () => {
+    if (transitionGuardRef.current || !nativeReleasePendingRef.current) return;
+    transitionGuardRef.current = true;
+    try {
+      const state = await SpeechRecognition.isListening();
+      if (state.listening) {
+        setError('Mikrofon perangkat masih aktif. Tunggu status berhenti lalu periksa lagi.');
+      } else {
+        markNativeStopped();
+        setError('');
+      }
+    } catch (caughtError) {
+      console.error('Failed to check recognition state:', caughtError);
+      setError('Status mikrofon belum dapat diperiksa. Silakan periksa lagi.');
+    } finally {
+      transitionGuardRef.current = false;
+    }
+  };
+
+  const stopListening = () => {
+    if (transitionGuardRef.current || !isListening) return;
+    ++operationIdRef.current; // invalidate the pending start result immediately
+    if (Capacitor.isNativePlatform()) {
+      nativeReleasePendingRef.current = true;
+      setNativeReleasePending(true);
+      setOperation('idle');
+      // Fire-and-observe: the plugin's listeningState event owns release. The
+      // UI never awaits the known non-settling Android stop promise.
+      void SpeechRecognition.stop().catch((caughtError: unknown) => {
+        console.error('Failed to stop recognition:', caughtError);
+        if (mountedRef.current) setError('Perintah berhenti gagal. Tunggu status mikrofon perangkat sebelum mencoba lagi.');
+      });
+      return;
     }
 
-    // 3. Clean description
-    const wordsToRemove = ['beli', 'bayar', 'untuk', 'dapat', 'terima', 'rp', 'rupiah', 'seharga', 'habis', 'keluar'];
-    let cleanDescription = description;
-    wordsToRemove.forEach(word => {
-      cleanDescription = cleanDescription.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
-    });
-    
-    const dateWords = ['kemarin', 'hari ini', 'lusa', 'minggu lalu', 'tanggal'];
-    dateWords.forEach(word => {
-        cleanDescription = cleanDescription.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
-    });
-    cleanDescription = cleanDescription.replace(/\b\d+\b/g, ''); 
-
-    cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
-    cleanDescription = cleanDescription.charAt(0).toUpperCase() + cleanDescription.slice(1);
-
-    if (amount === 0) {
-      throw new Error('No amount found');
+    transitionGuardRef.current = true;
+    setOperation('stopping');
+    try {
+      recognitionRef.current?.stop();
+    } catch (caughtError) {
+      console.error('Failed to stop recognition:', caughtError);
+      setError('Perekaman belum dapat dihentikan. Silakan coba lagi.');
+      transitionGuardRef.current = false;
+      setOperation('idle');
     }
+  };
 
-    // 4. Determine Category
-    const category = smartCategorize(processedText, type);
-
-    // 5. Determine Date
-    const date = parseDate(processedText);
-
-    console.log('---');
-    console.log('Final parsed result:', { type, amount, description: cleanDescription, category, date });
-    console.log('======================');
-
-    return {
-      type,
-      amount,
-      description: cleanDescription || 'Transaksi',
-      category,
-      date
-    };
+  const requestClose = () => {
+    if (dismissalBlocked) return;
+    if (Capacitor.isNativePlatform() && (isListening || nativeReleasePendingRef.current)) {
+      ++operationIdRef.current;
+      nativeReleasePendingRef.current = true;
+      void SpeechRecognition.stop().catch(() => undefined);
+    }
+    onClose();
+    window.requestAnimationFrame(() => returnFocusRef.current?.focus());
   };
 
   const handleCategoryChange = (newCategory: string) => {
-    if (parsedTransaction) {
-      setParsedTransaction({
-        ...parsedTransaction,
-        category: newCategory
-      });
-      setIsEditingCategory(false);
-    }
+    if (!parsedTransaction) return;
+    setParsedTransaction({ ...parsedTransaction, category: newCategory });
+    setIsEditingCategory(false);
   };
 
   const handleSave = () => {
-    if (parsedTransaction && parsedTransaction.amount > 0) {
-      onAddTransaction({
-        ...parsedTransaction,
-        date: parsedTransaction.date.toISOString(), 
-      });
-      onClose();
+    if (saveGuardRef.current || !parsedTransaction || !Number.isSafeInteger(parsedTransaction.amount) || parsedTransaction.amount <= 0) return;
+    setOperation('saving');
+    const succeeded = attemptTransactionCommit(saveGuardRef, () => onAddTransaction({
+      ...parsedTransaction,
+      date: parsedTransaction.date.toISOString(),
+    }));
+    if (!succeeded) {
+      setOperation('idle');
+      setError('Transaksi belum tersimpan. Silakan coba lagi.');
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg animate-in zoom-in slide-in-from-bottom-4 duration-300">
-        <div className="flex flex-row items-center justify-between pb-4">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-            <Hash className="h-5 w-5 text-primary" />
+    <Dialog open onOpenChange={(open) => { if (!open) requestClose(); }}>
+      <DialogContent
+        hideClose={dismissalBlocked}
+        closeLabel="Tutup input suara"
+        className="max-w-md bg-card"
+        onEscapeKeyDown={(event) => { if (dismissalBlocked) event.preventDefault(); }}
+        onInteractOutside={(event) => { if (dismissalBlocked) event.preventDefault(); }}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          microphoneButtonRef.current?.focus();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Hash aria-hidden="true" className="h-5 w-5 text-primary" />
             Input Suara
-          </h2>
-          <Button variant="ghost" size="sm" onClick={onClose} className=" h-8 w-8 p-0 hover:bg-muted">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <div className="space-y-4">
+          </DialogTitle>
+          <DialogDescription>
+            Tekan mikrofon, ucapkan transaksi dalam bahasa Indonesia, lalu periksa hasil sebelum menyimpan.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4" aria-busy={operation !== 'idle'}>
           {error && (
-            <div className="bg-destructive/10 border border-destructive/30 text-destructive px-3 py-2  text-sm">
+            <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </div>
           )}
 
-          <div className="text-center space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Coba: "Beli nasi padang goceng kemarin"
-            </p>
-            
+          <div className="space-y-3 text-center">
+            <p className="text-sm text-muted-foreground">Coba: “Beli nasi padang goceng kemarin”</p>
             <Button
-              onClick={isListening ? stopListening : startListening}
-              disabled={!!error && error.includes('Browser')}
-              className={`w-24 h-24 transition-all duration-300 ${ 
-                isListening 
-                  ? 'bg-destructive hover:bg-destructive/90 animate-pulse shadow-xl scale-110' 
-                  : 'bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl'
-              }`}
+              ref={microphoneButtonRef}
+              type="button"
+              onClick={nativeReleasePending ? checkNativeRelease : isListening ? stopListening : startListening}
+              disabled={operation === 'starting' || operation === 'stopping' || isProcessing || isSaving || error.includes('Browser tidak mendukung')}
+              aria-label={nativeReleasePending ? 'Periksa status mikrofon' : isListening ? 'Hentikan perekaman suara' : 'Mulai perekaman suara'}
+              aria-pressed={isListening}
+              className={`h-24 w-24 rounded-full transition-all duration-300 ${isListening ? 'animate-pulse bg-destructive text-destructive-foreground hover:bg-destructive/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
             >
-              {isListening ? <MicOff className="h-10 w-10" /> : <Mic className="h-10 w-10" />}
+              {isListening ? <MicOff aria-hidden="true" className="h-10 w-10" /> : <Mic aria-hidden="true" className="h-10 w-10" />}
             </Button>
-            
-            <p className="text-sm font-medium text-foreground">
-              {isListening ? 'Mendengarkan…' : 'Tekan untuk berbicara'}
+            <p role="status" aria-live="polite" className="text-sm font-medium">
+              {operation === 'starting' ? 'Menyiapkan mikrofon…' : operation === 'stopping' ? 'Menghentikan…' : nativeReleasePending ? 'Mikrofon sedang berhenti. Tekan untuk memeriksa status.' : isListening ? 'Mendengarkan…' : 'Tekan untuk berbicara'}
             </p>
           </div>
 
           {transcript && (
             <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Input Suara</p>
-              <p className="text-sm italic text-foreground">"{transcript}"</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Input Suara</p>
+              <p className="break-words text-sm italic">“{transcript}”</p>
             </div>
           )}
 
           {isProcessing && (
-            <div className="text-center py-4">
-              <div className="animate-spin  h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm text-muted-foreground">Memproses...</p>
+            <div role="status" className="py-4 text-center">
+              <div aria-hidden="true" className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-muted border-b-primary" />
+              <p className="text-sm text-muted-foreground">Memproses…</p>
             </div>
           )}
 
           {parsedTransaction && (
-            <div className="rounded-lg border bg-success/5 border-success/20 p-4 space-y-3 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                 <div className="h-2 w-2  bg-success animate-pulse"></div>
-                 <p className="font-semibold text-success text-sm">Analisis Selesai</p>
+            <div className="space-y-3 rounded-lg border border-success/30 bg-success/5 p-4 shadow-sm">
+              <div role="status" className="flex items-center gap-2">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-success" />
+                <p className="text-sm font-semibold text-success">Analisis selesai</p>
               </div>
-              
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="col-span-2 flex justify-between items-center rounded-md border bg-background p-2">
-                  <span className="text-muted-foreground">Jenis</span>
-                  <span className={`font-bold px-2 py-0.5 rounded text-xs ${ 
-                    parsedTransaction.type === 'income' 
-                    ? 'bg-success/20 text-success border border-success/30' 
-                    : 'bg-destructive/20 text-destructive border border-destructive/30'
-                  }`}>
-                    {parsedTransaction.type === 'income' ? 'PEMASUKAN' : 'PENGELUARAN'}
-                  </span>
-                </div>
 
-                <div className="col-span-2 flex justify-between items-center rounded-md border bg-background p-2">
-                  <span className="text-muted-foreground">Tanggal</span>
-                  <div className="flex items-center gap-2 font-medium text-foreground">
-                    <Square className="h-3.5 w-3.5 text-muted-foreground" />
-                    {format(parsedTransaction.date, 'dd MMMM yyyy', { locale: id })}
-                  </div>
+              <dl className="grid grid-cols-1 gap-3 text-sm">
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-2">
+                  <dt className="text-muted-foreground">Jenis</dt>
+                  <dd className={`rounded border px-2 py-0.5 text-xs font-bold ${parsedTransaction.type === 'income' ? 'border-success/40 bg-success/10 text-success' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}>
+                    {parsedTransaction.type === 'income' ? '↑ PEMASUKAN' : '↓ PENGELUARAN'}
+                  </dd>
                 </div>
-
-                <div className="col-span-2 flex justify-between items-center group rounded-md border bg-background p-2">
-                  <span className="text-muted-foreground">Kategori</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-primary">{parsedTransaction.category}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsEditingCategory(true)}
-                      className="h-5 w-5 opacity-50 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Edit className="h-3 w-3" />
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-2">
+                  <dt className="text-muted-foreground">Tanggal</dt>
+                  <dd className="flex items-center gap-2 text-right font-medium"><CalendarDays aria-hidden="true" className="h-4 w-4 text-muted-foreground" />{new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(parsedTransaction.date)}</dd>
+                </div>
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-2">
+                  <dt className="text-muted-foreground">Kategori</dt>
+                  <dd className="flex min-w-0 items-center justify-end gap-2">
+                    <span className="break-words text-right font-bold">{parsedTransaction.category}</span>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setIsEditingCategory(true)} aria-label={`Ubah kategori ${parsedTransaction.category}`} className="h-11 w-11 shrink-0">
+                      <Edit aria-hidden="true" className="h-4 w-4" />
                     </Button>
-                  </div>
+                  </dd>
                 </div>
-                
                 {isEditingCategory && (
-                  <div className="col-span-2">
+                  <div>
+                    <Label htmlFor="voice-category">Kategori hasil suara</Label>
                     <Select value={parsedTransaction.category} onValueChange={handleCategoryChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories[parsedTransaction.type].map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                      <SelectTrigger id="voice-category" className="mt-1 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>{TRANSACTION_CATEGORIES[parsedTransaction.type].map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 )}
-                
-                <div className="col-span-2 rounded-md border bg-background p-3">
-                    <div className="flex justify-between items-baseline mb-1">
-                        <span className="text-xs text-muted-foreground">Total</span>
-                        <span className="font-bold text-lg text-foreground">Rp {parsedTransaction.amount.toLocaleString('id-ID')}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-muted-foreground">Ket</span>
-                        <span className="font-medium text-sm text-foreground truncate ml-4">{parsedTransaction.description}</span>
-                    </div>
+                <div className="rounded-md border bg-background p-3">
+                  <div className="flex min-w-0 items-baseline justify-between gap-3"><dt className="text-xs text-muted-foreground">Total</dt><dd className="break-words text-right text-lg font-bold">Rp {parsedTransaction.amount.toLocaleString('id-ID')}</dd></div>
+                  <div className="mt-1 flex min-w-0 items-start justify-between gap-3"><dt className="text-xs text-muted-foreground">Keterangan</dt><dd className="min-w-0 break-words text-right text-sm font-medium">{parsedTransaction.description}</dd></div>
                 </div>
-              </div>
-              
-              <div className="flex gap-2 pt-2">
-                <Button onClick={handleSave} className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-md">
-                  Simpan
+              </dl>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" disabled={isSaving} onClick={() => { setTranscript(''); setParsedTransaction(null); setIsEditingCategory(false); void startListening(); }}>Ulangi</Button>
+                <Button type="button" onClick={handleSave} disabled={isSaving} aria-disabled={isSaving} className="bg-success text-success-foreground hover:bg-success/90">
+                  {isSaving ? 'Menyimpan…' : 'Simpan transaksi'}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setTranscript('');
-                    setParsedTransaction(null);
-                    setIsEditingCategory(false);
-                    startListening();
-                  }}
-                  className="px-3"
-                >
-                  Ulangi
-                </Button>
-              </div>
+              </DialogFooter>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

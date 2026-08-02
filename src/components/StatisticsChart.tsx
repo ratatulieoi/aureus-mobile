@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Transaction } from '@/pages/Index';
+import type { Transaction } from '@/domain/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -17,6 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 import { BarChart3 } from 'lucide-react';
+import { filterTransactionsByPeriod } from '@/domain/period';
 
 
 interface StatisticsChartProps {
@@ -62,9 +63,10 @@ const StatisticsChart: React.FC<StatisticsChartProps> = ({ transactions, selecte
     
   } else {
     // Existing Daily logic
-    const monthlyTransactions = transactions.filter((t) => {
-      const d = new Date(t.date);
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    const monthlyTransactions = filterTransactionsByPeriod(transactions, {
+      isAllTime: false,
+      month: selectedMonth,
+      year: selectedYear,
     });
 
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
@@ -87,11 +89,12 @@ const StatisticsChart: React.FC<StatisticsChartProps> = ({ transactions, selecte
     <Card>
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-primary" />
+          <BarChart3 aria-hidden="true" className="h-5 w-5 text-primary" />
           {isAllTime ? 'Tren Bulanan (All-Time)' : 'Tren Harian'}
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <p className="sr-only">Grafik batang membandingkan pemasukan dan pengeluaran; kedua seri juga dibedakan oleh label, bukan warna saja.</p>
         <ChartContainer
           className="h-[260px] w-full"
           config={{

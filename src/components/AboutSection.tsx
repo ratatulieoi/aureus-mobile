@@ -23,9 +23,10 @@ const AboutSection: React.FC = () => {
               href="https://instagram.com/rmeydani_"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-foreground hover:text-primary transition-smooth group"
+              aria-label="Buka Instagram @rmeydani_ di tab baru"
+              className="group flex min-h-11 items-center gap-2 rounded-md px-2 text-foreground ring-offset-background transition-colors hover:text-accent-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <Instagram className="h-5 w-5 group-hover:scale-110 transition-smooth" />
+              <Instagram aria-hidden="true" className="h-5 w-5 transition-transform group-hover:scale-110" />
               <span className="text-sm font-medium">@rmeydani_</span>
             </a>
 
@@ -34,9 +35,10 @@ const AboutSection: React.FC = () => {
               href="https://github.com/ratatulieoi"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-foreground hover:text-primary transition-smooth group"
+              aria-label="Buka GitHub ratatulieoi di tab baru"
+              className="group flex min-h-11 items-center gap-2 rounded-md px-2 text-foreground ring-offset-background transition-colors hover:text-accent-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <Github className="h-5 w-5 group-hover:scale-110 transition-smooth" />
+              <Github aria-hidden="true" className="h-5 w-5 transition-transform group-hover:scale-110" />
               <span className="text-sm font-medium">ratatulieoi</span>
             </a>
           </div>

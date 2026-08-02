@@ -1,68 +1,65 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Download, Upload, FileJson, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { Transaction } from '@/pages/Index';
+import type { Subscription, Transaction } from '@/domain/types';
+import { createBackupEnvelope, MAX_BACKUP_BYTES, parseBackupText, type DecodedBackup } from '@/domain/backup';
+import { formatLocalCalendarDate } from '@/domain/calendar-date';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { writeNativeExportFile } from '@/platform/export-file';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface BackupRestoreProps {
   transactions: Transaction[];
-  onRestore: (transactions: Transaction[]) => void;
+  subscriptions: Subscription[];
+  onRestore: (snapshot: { transactions: Transaction[]; subscriptions: Subscription[] }) => void;
 }
 
-const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, onRestore }) => {
+const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptions, onRestore }) => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<DecodedBackup | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const restoreButtonRef = useRef<HTMLButtonElement>(null);
+
+  const resetInput = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleBackup = async () => {
     setIsProcessing(true);
     setMessage(null);
-
     try {
-      const backupData = {
-        version: '2.0',
-        exportDate: new Date().toISOString(),
-        transactionCount: transactions.length,
-        transactions: transactions,
-      };
-
-      const jsonString = JSON.stringify(backupData, null, 2);
-      const fileName = `aureus-backup-${new Date().toISOString().split('T')[0]}.json`;
-
+      const jsonString = JSON.stringify(createBackupEnvelope(transactions, subscriptions), null, 2);
+      const fileName = `aureus-backup-${formatLocalCalendarDate(new Date())}.json`;
       if (Capacitor.isNativePlatform()) {
-        // Mobile: Use Filesystem + Share
-        const result = await Filesystem.writeFile({
-          path: fileName,
-          data: jsonString,
-          directory: Directory.Cache,
-          encoding: Encoding.UTF8,
-        });
-
-        await Share.share({
-          title: 'Backup Aureus',
-          text: 'Backup data transaksi Aureus',
-          url: result.uri,
-          dialogTitle: 'Simpan atau Bagikan Backup',
-        });
-
-        setMessage({ type: 'success', text: `Backup berhasil dibuat: ${fileName}` });
+        const result = await writeNativeExportFile(fileName, jsonString);
+        await Share.share({ title: 'Backup Aureus', text: 'Backup data Aureus', url: result.uri, dialogTitle: 'Simpan atau Bagikan Backup' });
       } else {
-        // Web: Trigger download
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        setMessage({ type: 'success', text: `Backup berhasil diunduh: ${fileName}` });
+        const url = URL.createObjectURL(new Blob([jsonString], { type: 'application/json' }));
+        try {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        } finally {
+          URL.revokeObjectURL(url);
+        }
       }
+      setMessage({ type: 'success', text: `Backup berhasil dibuat: ${fileName}` });
     } catch (error) {
       console.error('Backup error:', error);
       setMessage({ type: 'error', text: 'Gagal membuat backup. Silakan coba lagi.' });
@@ -74,153 +71,82 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, onRestore }
   const handleRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_BACKUP_BYTES) {
+      setMessage({ type: 'error', text: `File backup terlalu besar (maksimum ${MAX_BACKUP_BYTES / 1024 / 1024} MB).` });
+      resetInput();
+      return;
+    }
 
     setIsProcessing(true);
     setMessage(null);
-
     const reader = new FileReader();
-
-    reader.onload = (e) => {
+    reader.onload = () => {
       try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content);
-
-        // Validate backup structure
-        if (!data.transactions || !Array.isArray(data.transactions)) {
-          throw new Error('Format backup tidak valid');
-        }
-
-        // Validate and normalize each transaction
-        const restoredTransactions: Transaction[] = [];
-        for (const t of data.transactions) {
-          if (
-            typeof t === 'object' &&
-            t !== null &&
-            (t.type === 'income' || t.type === 'expense') &&
-            typeof t.amount === 'number' &&
-            typeof t.category === 'string' &&
-            typeof t.description === 'string' &&
-            typeof t.date === 'string'
-          ) {
-            restoredTransactions.push({
-              id: typeof t.id === 'string' ? t.id : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-              type: t.type,
-              amount: t.amount,
-              category: t.category,
-              description: t.description,
-              date: t.date,
-            });
-          }
-        }
-
-        if (restoredTransactions.length === 0) {
-          throw new Error('Tidak ada transaksi valid dalam backup');
-        }
-
-        // Restore data
-        onRestore(restoredTransactions);
-        setMessage({
-          type: 'success',
-          text: `Berhasil restore ${restoredTransactions.length} transaksi dari backup`,
-        });
+        if (typeof reader.result !== 'string') throw new Error('Isi file backup tidak dapat dibaca');
+        setPendingRestore(parseBackupText(reader.result));
       } catch (error) {
-        console.error('Restore error:', error);
-        setMessage({
-          type: 'error',
-          text: error instanceof Error ? error.message : 'Gagal restore backup. File mungkin rusak.',
-        });
+        console.error('Restore validation error:', error);
+        setMessage({ type: 'error', text: error instanceof Error ? error.message : 'File backup tidak valid.' });
       } finally {
         setIsProcessing(false);
-        // Reset input
-        event.target.value = '';
+        resetInput();
       }
     };
-
     reader.onerror = () => {
-      setMessage({ type: 'error', text: 'Gagal membaca file' });
+      setMessage({ type: 'error', text: 'Gagal membaca file backup.' });
       setIsProcessing(false);
+      resetInput();
     };
-
+    reader.onabort = () => {
+      setIsProcessing(false);
+      resetInput();
+    };
     reader.readAsText(file);
   };
 
+  const cancelRestore = () => {
+    setPendingRestore(null);
+    setIsProcessing(false);
+    resetInput();
+  };
+
+  const confirmRestore = () => {
+    if (!pendingRestore) return;
+    const count = pendingRestore.transactions.length;
+    onRestore({ transactions: pendingRestore.transactions, subscriptions: pendingRestore.subscriptions });
+    setPendingRestore(null);
+    setMessage({ type: 'success', text: `Berhasil memulihkan ${count} transaksi dan ${pendingRestore.subscriptions.length} langganan.` });
+    setIsProcessing(false);
+    resetInput();
+  };
+
   return (
-    <Card className="p-6">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Backup & Restore</h2>
-          <p className="text-sm text-muted-foreground">
-            Simpan atau pulihkan data transaksi Anda dalam format JSON
-          </p>
-        </div>
-
-        {message && (
-          <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-            {message.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4" />
-            ) : (
-              <AlertCircle className="h-4 w-4" />
-            )}
-            <AlertDescription>{message.text}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* Backup Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-foreground">
-              <Download className="h-5 w-5" />
-              <h3 className="font-semibold">Backup Data</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Ekspor semua transaksi ke file JSON
-            </p>
-            <Button
-              onClick={handleBackup}
-              disabled={isProcessing || transactions.length === 0}
-              className="w-full gap-2"
-            >
-              <FileJson className="h-4 w-4" />
-              {isProcessing ? 'Memproses...' : `Backup (${transactions.length} transaksi)`}
-            </Button>
+    <>
+      <Card className="p-6">
+        <div className="space-y-6">
+          <div><h2 className="text-xl font-bold text-foreground mb-2">Backup & Restore</h2><p className="text-sm text-muted-foreground">Simpan atau pulihkan transaksi dan langganan dalam format JSON tervalidasi.</p></div>
+          {message && <Alert role={message.type === 'error' ? 'alert' : 'status'} aria-live={message.type === 'error' ? 'assertive' : 'polite'} variant={message.type === 'error' ? 'destructive' : 'default'}>{message.type === 'success' ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" /> : <AlertCircle aria-hidden="true" className="h-4 w-4" />}<AlertDescription>{message.text}</AlertDescription></Alert>}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-3"><div className="flex items-center gap-2 text-foreground"><Download aria-hidden="true" className="h-5 w-5" /><h3 className="font-semibold">Backup Data</h3></div><p className="text-sm text-muted-foreground">Ekspor seluruh data ke satu file.</p><Button onClick={handleBackup} disabled={isProcessing} aria-busy={isProcessing} className="min-h-11 w-full min-w-0 gap-2 whitespace-normal"><FileJson aria-hidden="true" className="h-4 w-4" />{isProcessing ? 'Memproses...' : `Backup (${transactions.length} transaksi)`}</Button></div>
+            <div className="min-w-0 space-y-3"><div className="flex items-center gap-2 text-foreground"><Upload aria-hidden="true" className="h-5 w-5" /><h3 className="font-semibold">Restore Data</h3></div><p id="restore-file-help" className="text-sm text-muted-foreground">Validasi dahulu, lalu konfirmasi penggantian.</p><Button ref={restoreButtonRef} onClick={() => fileInputRef.current?.click()} disabled={isProcessing} aria-busy={isProcessing} variant="outline" className="min-h-11 w-full min-w-0 gap-2 whitespace-normal"><Upload aria-hidden="true" className="h-4 w-4" />{isProcessing ? 'Memproses...' : 'Pilih File Backup'}</Button><input ref={fileInputRef} id="restore-file-input" type="file" accept=".json,application/json" aria-describedby="restore-file-help" aria-label="Pilih file backup JSON" onChange={handleRestore} className="sr-only" tabIndex={-1} /></div>
           </div>
-
-          {/* Restore Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-foreground">
-              <Upload className="h-5 w-5" />
-              <h3 className="font-semibold">Restore Data</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Pulihkan transaksi dari file backup
-            </p>
-            <Button
-              onClick={() => document.getElementById('restore-file-input')?.click()}
-              disabled={isProcessing}
-              variant="outline"
-              className="w-full gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              {isProcessing ? 'Memproses...' : 'Pilih File Backup'}
-            </Button>
-            <input
-              id="restore-file-input"
-              type="file"
-              accept=".json"
-              onChange={handleRestore}
-              className="hidden"
-            />
-          </div>
+          <Alert role="note"><AlertCircle aria-hidden="true" className="h-4 w-4" /><AlertDescription className="text-xs"><strong>Perhatian:</strong> Restore yang dikonfirmasi mengganti seluruh transaksi dan langganan saat ini. File tidak valid tidak akan mengubah data.</AlertDescription></Alert>
         </div>
+      </Card>
 
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-xs">
-            <strong>Perhatian:</strong> Restore akan mengganti semua data yang ada saat ini. Pastikan untuk backup data saat ini sebelum melakukan restore.
-          </AlertDescription>
-        </Alert>
-      </div>
-    </Card>
+      <AlertDialog open={pendingRestore !== null} onOpenChange={(open) => { if (!open) cancelRestore(); }}>
+        <AlertDialogContent onCloseAutoFocus={(event) => { event.preventDefault(); window.requestAnimationFrame(() => restoreButtonRef.current?.focus()); }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ganti semua data Aureus?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Data saat ini ({transactions.length} transaksi, {subscriptions.length} langganan) akan diganti dengan backup ({pendingRestore?.transactions.length ?? 0} transaksi, {pendingRestore?.subscriptions.length ?? 0} langganan).
+              {pendingRestore?.warning ? ` ${pendingRestore.warning}` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel onClick={cancelRestore}>Batal</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmRestore}>Ya, ganti semua data</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

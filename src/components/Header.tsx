@@ -4,11 +4,11 @@ import { Sun } from 'lucide-react';
 
 const Header: React.FC = () => {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background safe-area-top">
+    <header className="safe-area-top fixed inset-x-0 top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
-            <Sun className="h-6 w-6 text-primary animate-spin-slow" />
+            <Sun aria-hidden="true" className="h-6 w-6 animate-spin-slow text-primary" />
             <h1 className="text-lg font-bold tracking-tight sm:text-xl">
               <span className="gradient-text">Aureus</span>
             </h1>

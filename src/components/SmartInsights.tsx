@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Quote } from 'lucide-react';
-import { Transaction } from '@/pages/Index';
+import type { Transaction } from '@/domain/types';
 
 interface SmartInsightsProps {
   transactions: Transaction[];
@@ -34,12 +34,22 @@ const MONEY_QUOTES = [
 
 const SmartInsights: React.FC<SmartInsightsProps> = () => {
   const [quote, setQuote] = useState("");
-  const [quoteHistory, setQuoteHistory] = useState<string[]>([]);
 
   useEffect(() => {
-    // Get quote history from localStorage
-    const savedHistory = localStorage.getItem('quoteHistory');
-    const history: string[] = savedHistory ? JSON.parse(savedHistory) : [];
+    // Get quote history without requiring storage availability.
+    let savedHistory: string | null = null;
+    let history: string[] = [];
+    try {
+      savedHistory = window.localStorage.getItem('quoteHistory');
+      if (savedHistory) {
+        const parsed: unknown = JSON.parse(savedHistory);
+        if (Array.isArray(parsed)) {
+          history = parsed.filter((item): item is string => typeof item === 'string').slice(0, 8);
+        }
+      }
+    } catch {
+      // Unavailable/corrupt quote history is non-financial and safely ignored.
+    }
     
     // Filter out quotes that appeared in last 5
     const availableQuotes = MONEY_QUOTES.filter(q => !history.includes(q));
@@ -53,25 +63,28 @@ const SmartInsights: React.FC<SmartInsightsProps> = () => {
     
     // Update history (keep last 5)
     const newHistory = [randomQuote, ...history].slice(0, 8);
-    setQuoteHistory(newHistory);
-    localStorage.setItem('quoteHistory', JSON.stringify(newHistory));
+    try {
+      window.localStorage.setItem('quoteHistory', JSON.stringify(newHistory));
+    } catch {
+      // Insights remain usable when storage is unavailable or full.
+    }
   }, []);
 
   return (
     <Card className="border-2 border-primary/20 shadow-[4px_4px_0px_0px_rgba(var(--primary),0.2)] hover:shadow-[6px_6px_0px_0px_rgba(var(--primary),0.4)] transition-all duration-300">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-display">
-          <Quote className="h-5 w-5 text-primary rotate-180" />
+          <Quote aria-hidden="true" className="h-5 w-5 rotate-180 text-primary" />
           Kata Bijak (Mungkin)
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="relative p-6 bg-primary/5 rounded-lg border border-dashed border-primary/30">
-          <Quote className="absolute top-2 left-2 h-8 w-8 text-primary/10 -scale-x-100" />
+          <Quote aria-hidden="true" className="absolute top-2 left-2 h-8 w-8 text-primary/10 -scale-x-100" />
           <p className="text-lg font-medium text-center italic text-foreground/80 font-serif leading-relaxed">
             "{quote}"
           </p>
-          <Quote className="absolute bottom-2 right-2 h-8 w-8 text-primary/10" />
+          <Quote aria-hidden="true" className="absolute bottom-2 right-2 h-8 w-8 text-primary/10" />
         </div>
       </CardContent>
     </Card>

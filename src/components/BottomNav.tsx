@@ -9,56 +9,40 @@ interface BottomNavProps {
   onTabChange: (tab: NavTab) => void;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
-  const navItems = [
-    { id: 'home' as NavTab, icon: Home, label: 'Beranda' },
-    { id: 'stats' as NavTab, icon: BarChart, label: 'Statistik' },
-    { id: 'subs' as NavTab, icon: Ticket, label: 'Langganan' },
-    { id: 'reports' as NavTab, icon: File, label: 'Laporan' },
-    { id: 'more' as NavTab, icon: Grid, label: 'Lainnya' },
-  ];
+const NAV_ITEMS = [
+  { id: 'home' as NavTab, icon: Home, label: 'Beranda' },
+  { id: 'stats' as NavTab, icon: BarChart, label: 'Statistik' },
+  { id: 'subs' as NavTab, icon: Ticket, label: 'Langganan', shortLabel: 'Langganan' },
+  { id: 'reports' as NavTab, icon: File, label: 'Laporan' },
+  { id: 'more' as NavTab, icon: Grid, label: 'Lainnya' },
+];
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
-      <div className="border-t bg-background">
-        <div className="container mx-auto px-2">
-          <div className="flex h-16 items-center justify-around">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            
-            return (
-              <button
-                key={item.id}
-                onClick={() => onTabChange(item.id)}
-                type="button"
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "relative flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-lg px-4 py-2 text-xs font-medium transition-colors",
-                  isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className={cn("h-5 w-5", isActive && "text-primary")} strokeWidth={2.25} />
-                <span 
-                  className={cn("leading-none", isActive && "font-semibold")}
-                >
-                  {item.label}
-                </span>
-                
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="absolute -bottom-[1px] h-[3px] w-8 rounded-full bg-primary" />
-                )}
-              </button>
-            );
-          })}
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-};
+const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => (
+  <nav aria-label="Navigasi utama" className="safe-area-bottom fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur">
+    <div className="mx-auto grid h-16 w-full max-w-3xl grid-cols-5 px-1 sm:px-2">
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const isActive = activeTab === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            type="button"
+            aria-current={isActive ? 'page' : undefined}
+            aria-label={item.label}
+            className={cn(
+              'relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium leading-none ring-offset-background transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-[360px]:text-[11px] sm:px-2 sm:text-xs',
+              isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Icon aria-hidden="true" className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} strokeWidth={2.25} />
+            <span className={cn('block w-full truncate text-center', isActive && 'font-semibold')}>{item.shortLabel ?? item.label}</span>
+            {isActive && <span aria-hidden="true" className="absolute bottom-0 h-[3px] w-7 rounded-full bg-primary" />}
+          </button>
+        );
+      })}
+    </div>
+  </nav>
+);
 
 export default BottomNav;

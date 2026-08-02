@@ -1,0 +1,192 @@
+name: Android release artifacts
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'SemVer version name (for example 2.3.0)'
+        required: true
+        type: string
+      version_code:
+        description: 'Positive, monotonically increasing Android versionCode'
+        required: true
+        type: number
+      signing:
+        description: 'Signing mode (signed requires protected secrets)'
+        required: true
+        default: unsigned
+        type: choice
+        options:
+          - unsigned
+          - signed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release inputs and gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      TZ: Asia/Jakarta
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.22.3'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Java 21
+        uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4.9.0
+        with:
+          distribution: temurin
+          java-version: '21.0.8+9'
+          cache: gradle
+
+      - name: Setup Android SDK tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Install exact npm graph
+        run: npm ci
+
+      - name: Derive and validate release version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TAG_NAME: ${{ github.ref_name }}
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          INPUT_SIGNING: ${{ inputs.signing }}
+        run: node scripts/derive-version.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Run aggregate and audit gates
+        run: |
+          npm run check
+          npm run audit:prod
+          npm run audit:all
+          npm run sbom
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Check npm lockfile drift
+        run: |
+          before="$(sha256sum package-lock.json)"
+          npm install --package-lock-only --ignore-scripts
+          after="$(sha256sum package-lock.json)"
+          test "$before" = "$after"
+
+      - name: Configure protected release signing
+        if: steps.version.outputs.signing == 'signed'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.AUREUS_ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.AUREUS_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AUREUS_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AUREUS_ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo 'Missing AUREUS_ANDROID_KEYSTORE_BASE64'; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo 'Missing AUREUS_ANDROID_KEYSTORE_PASSWORD'; exit 1; }
+          test -n "$KEY_ALIAS" || { echo 'Missing AUREUS_ANDROID_KEY_ALIAS'; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo 'Missing AUREUS_ANDROID_KEY_PASSWORD'; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aureus-release.jks"
+          test -s "$RUNNER_TEMP/aureus-release.jks"
+          {
+            printf 'ORG_GRADLE_PROJECT_AUREUS_KEYSTORE_FILE=%s\n' "$RUNNER_TEMP/aureus-release.jks"
+            printf 'ORG_GRADLE_PROJECT_AUREUS_KEYSTORE_PASSWORD=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'ORG_GRADLE_PROJECT_AUREUS_KEY_ALIAS=%s\n' "$KEY_ALIAS"
+            printf 'ORG_GRADLE_PROJECT_AUREUS_KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and validate release AAB
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_AUREUS_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          ORG_GRADLE_PROJECT_AUREUS_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testReleaseUnitTest lintRelease bundleRelease processReleaseMainManifest
+
+      - name: Assert merged release manifest
+        run: node scripts/assert-merged-manifest.mjs android/app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml
+
+      - name: Package immutable release artifacts
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          SIGNING: ${{ steps.version.outputs.signing }}
+        run: |
+          source_aab=android/app/build/outputs/bundle/release/app-release.aab
+          test -s "$source_aab"
+          mkdir -p release-artifacts
+          output="release-artifacts/aureus-${VERSION_NAME}-${VERSION_CODE}-${SIGNING}.aab"
+          cp "$source_aab" "$output"
+          cp aureus-sbom.cdx.json "release-artifacts/aureus-${VERSION_NAME}-${VERSION_CODE}.cdx.json"
+          (cd release-artifacts && sha256sum *) > release-artifacts/SHA256SUMS
+          test -s release-artifacts/SHA256SUMS
+
+      - name: Upload validated AAB, SBOM, and checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aureus-release-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload tag release handoff
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aureus-tag-release-${{ github.ref_name }}-${{ github.sha }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 1
+
+  github-release:
+    name: Attach tag artifacts to GitHub Release
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download validated tag artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: aureus-tag-release-${{ github.ref_name }}-${{ github.sha }}
+          path: release-artifacts
+
+      - name: Verify downloaded release assets
+        run: |
+          test -s release-artifacts/SHA256SUMS
+          (cd release-artifacts && sha256sum --check SHA256SUMS)
+          compgen -G 'release-artifacts/*.aab' >/dev/null
+
+      - name: Create GitHub Release and attach immutable assets
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: release-artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          overwrite_files: false

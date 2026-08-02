@@ -20,31 +20,32 @@
     /* Primary Action - A vibrant but pastel sunny yellow */
     --primary: 45 100% 60%;
     --primary-foreground: 35 50% 15%; /* Dark brown text on yellow buttons */
+    --accent-text: 35 75% 28%; /* AA-safe meaningful accent text */
 
     /* Secondary - A softer, buttery yellow */
     --secondary: 48 80% 88%;
     --secondary-foreground: 35 40% 20%;
 
-    /* Muted - For backgrounds/disabled states */
+    /* Muted surfaces retain AA contrast for normal text. */
     --muted: 48 40% 85%;
-    --muted-foreground: 38 20% 40%;
+    --muted-foreground: 35 28% 32%;
 
     /* Accent - Used for hovers */
     --accent: 45 90% 80%;
     --accent-foreground: 35 40% 20%;
 
-    /* Destructive - Deep Amber (Yellow-adjacent) instead of Red */
-    --destructive: 35 90% 60%;
-    --destructive-foreground: 48 100% 95%;
+    /* Destructive and success tokens are dual-use: text on app surfaces and
+       foreground/background button pairs, both at WCAG AA contrast. */
+    --destructive: 8 68% 40%;
+    --destructive-foreground: 48 100% 97%;
 
     /* Borders - Soft gold/tan */
     --border: 45 40% 80%;
     --input: 45 40% 80%;
-    --ring: 45 100% 50%; /* Focus ring */
+    --ring: 35 90% 32%;
 
-    /* Success - Greenish Yellow / Chartreuse (Yellow-dominant) */
-    --success: 65 80% 45%;
-    --success-foreground: 48 100% 95%;
+    --success: 105 55% 29%;
+    --success-foreground: 48 100% 97%;
 
     --radius: 1rem; /* Rounder, friendlier corners */
   }
@@ -66,20 +67,22 @@
     /* Primary - Vibrant Pastel Yellow (High Contrast against Black) */
     --primary: 48 90% 65%;
     --primary-foreground: 0 0% 10%; /* Black text on yellow */
+    --accent-text: 48 90% 65%;
 
     /* Secondary - Dark Matte Grey */
     --secondary: 0 0% 18%;
     --secondary-foreground: 60 20% 96%;
 
     --muted: 0 0% 18%;
-    --muted-foreground: 0 0% 60%;
+    --muted-foreground: 0 0% 68%;
 
     --accent: 0 0% 18%;
     --accent-foreground: 48 90% 65%;
 
-    /* Destructive - Pastel Red/Coral */
-    --destructive: 0 70% 65%;
-    --destructive-foreground: 60 20% 96%;
+    /* Bright status fills remain readable on matte black and use dark text
+       when the token itself is used as a control background. */
+    --destructive: 0 80% 72%;
+    --destructive-foreground: 0 0% 10%;
 
     --border: 0 0% 20%;
     --input: 0 0% 20%;
@@ -95,8 +98,18 @@
   * {
     @apply border-border;
   }
+  html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground transition-colors duration-500 font-sans;
+    min-width: 320px;
+    overflow-x: hidden;
+  }
+  :where(a, button, input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 3px;
   }
   
   /* Selection color overrides */
@@ -210,8 +223,74 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @layer utilities {
-  /* Bottom nav spacing: Height of nav (4rem) + extra space (2rem) + safe area */
+  /* Capacitor 8 System Bars injects --safe-area-inset-* on Android WebView
+     versions whose env() values are unreliable. Native CSS env() remains the
+     fallback on browsers, iOS, and newer WebViews. */
+  .safe-area-top {
+    padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  }
+
+  .safe-area-bottom {
+    padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  }
+
+  .safe-area-dialog {
+    scroll-padding-top: max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    scroll-padding-bottom: max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .modal-safe-content {
+    width: calc(100% - 2rem);
+    max-height: calc(100vh - 2rem - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    max-height: calc(100dvh - 2rem - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    padding: max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px))) max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    scroll-padding-top: max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    scroll-padding-bottom: max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .main-safe-offset {
+    padding-top: calc(4rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  }
+
+  /* Fixed nav height + breathing room + gesture/navigation inset. */
   .pb-nav {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(5.5rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+}
+
+@media (min-width: 640px) {
+  .modal-safe-content {
+    width: 100%;
+    padding: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0s !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-drift,
+  .animate-float,
+  .animate-coin-drop,
+  .animate-spin,
+  .animate-spin-slow,
+  .animate-wiggle,
+  .animate-blob,
+  .animate-marquee,
+  .animate-pulse {
+    animation: none !important;
+    transform: none !important;
   }
 }

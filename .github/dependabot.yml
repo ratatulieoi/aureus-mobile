@@ -1,0 +1,44 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Jakarta
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      capacitor:
+        patterns:
+          - '@capacitor/*'
+          - '@capacitor-community/*'
+      web-runtime:
+        dependency-type: production
+        exclude-patterns:
+          - '@capacitor/*'
+          - '@capacitor-community/*'
+      web-tooling:
+        dependency-type: development
+
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      android-toolchain:
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns:
+          - '*'
