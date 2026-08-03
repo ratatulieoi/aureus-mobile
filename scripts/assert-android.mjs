@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relativePath) => readFile(path.join(root, relativePath), 'utf8');
 
-const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGradle, styles, capacitorConfig] = await Promise.all([
+const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGradle, styles, api27Styles, capacitorConfig] = await Promise.all([
   read('android/app/src/main/AndroidManifest.xml'),
   read('android/app/src/main/res/xml/file_paths.xml'),
   read('android/app/src/main/res/xml/backup_rules.xml'),
@@ -15,6 +15,7 @@ const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGr
   read('src/platform/export-file.ts'),
   read('android/app/build.gradle'),
   read('android/app/src/main/res/values/styles.xml'),
+  read('android/app/src/main/res/values-v27/styles.xml'),
   read('capacitor.config.ts'),
 ]);
 
@@ -51,7 +52,8 @@ assert.match(buildGradle, /shrinkResources\s*=\s*true/);
 assert.match(buildGradle, /proguard-android-optimize\.txt/);
 assert.match(buildGradle, /AUREUS_VERSION_CODE/);
 assert.match(buildGradle, /AUREUS_VERSION_NAME/);
-assert.match(styles, /android:windowLayoutInDisplayCutoutMode">always</);
+assert.doesNotMatch(styles, /android:windowLayoutInDisplayCutoutMode/, 'API 24 base styles cannot use the API 27 cutout attribute');
+assert.equal(count(api27Styles, /android:windowLayoutInDisplayCutoutMode">always</g), 2);
 assert.match(capacitorConfig, /SystemBars:[\s\S]*insetsHandling:\s*['"]css['"]/);
 
 console.log('Tracked Android privacy/security assertions passed.');

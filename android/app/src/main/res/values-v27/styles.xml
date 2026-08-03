@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The cutout API exists only on Android 8.1/API 27 and later. -->
+    <style name="AppTheme.NoActionBar">
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch">
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+    </style>
+</resources>
