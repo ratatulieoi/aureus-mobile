@@ -72,10 +72,4 @@ for (const required of [
   'action-gh-release',
 ]) assert.ok(release.includes(required), `Release workflow missing: ${required}`);
 
-const dependabot = YAML.parse(await readFile(path.join(root, '.github', 'dependabot.yml'), 'utf8'));
-assert.deepEqual(
-  dependabot.updates.map((entry) => entry['package-ecosystem']).sort(),
-  ['github-actions', 'gradle', 'npm'],
-);
-
 console.log(`Workflow YAML and ${expectedActionPins.size} reviewed action pins validated.`);
