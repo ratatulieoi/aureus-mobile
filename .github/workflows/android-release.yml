@@ -41,26 +41,26 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22.22.3'
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Setup Java 21
-        uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4.9.0
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '21.0.8+9'
           cache: gradle
 
       - name: Setup Android SDK tools
-        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
         with:
           cmdline-tools-version: '12266719'
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
@@ -145,7 +145,7 @@ jobs:
           test -s release-artifacts/SHA256SUMS
 
       - name: Upload validated AAB, SBOM, and checksums
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: aureus-release-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-artifacts/
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload tag release handoff
         if: github.event_name == 'push'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: aureus-tag-release-${{ github.ref_name }}-${{ github.sha }}
           path: release-artifacts/
@@ -172,7 +172,7 @@ jobs:
 
     steps:
       - name: Download validated tag artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: aureus-tag-release-${{ github.ref_name }}-${{ github.sha }}
           path: release-artifacts
@@ -184,7 +184,7 @@ jobs:
           compgen -G 'release-artifacts/*.aab' >/dev/null
 
       - name: Create GitHub Release and attach immutable assets
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: release-artifacts/*
           fail_on_unmatched_files: true
