@@ -12,10 +12,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run test:policy && npm run build && npm run bundle:check && npm run android:assert && npm run ci:validate",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:policy && npm run build && npm run bundle:check && npm run brand:assert && npm run android:assert && npm run ci:validate",
     "bundle:check": "node scripts/check-bundle.mjs",
     "audit:prod": "npm audit --omit=dev --audit-level=low",
     "audit:all": "npm audit --audit-level=low",
+    "brand:assert": "node scripts/assert-brand.mjs",
     "android:assert": "node scripts/assert-android.mjs",
     "ci:validate": "node scripts/validate-ci.mjs",
     "sbom": "npm sbom --sbom-format=cyclonedx > aureus-sbom.cdx.json",
@@ -86,6 +87,7 @@
     "@isaacs/brace-expansion": "5.0.1",
     "uuid": "11.1.1",
     "picomatch@2.3.1": "2.3.2",
-    "minimatch@10.1.1": "10.2.6"
+    "minimatch@10.1.1": "10.2.6",
+    "nanoid": "3.3.18"
   }
 }

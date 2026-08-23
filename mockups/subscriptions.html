@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>Aureus subscriptions layout mockup</title>
+	<style>
+		* { box-sizing: border-box; }
+
+		html {
+			font-family: Arial, sans-serif;
+			color: #000;
+			background: #fff;
+		}
+
+		body { margin: 0; }
+		button, input, select { font: inherit; color: inherit; }
+		button { background: #fff; }
+
+		.app {
+			width: min(420px, 100%);
+			min-height: 100dvh;
+			margin: 0 auto;
+			padding-bottom: 74px;
+			border-inline: 1px solid #000;
+		}
+
+		.app-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			min-height: 58px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #000;
+		}
+
+		.app-header h1 { margin: 0; font-size: 20px; }
+
+		.icon-button {
+			min-width: 44px;
+			height: 44px;
+			border: 1px solid #000;
+			border-radius: 0;
+			cursor: pointer;
+		}
+
+		main { padding: 16px; }
+
+		.summary {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			border: 1px solid #000;
+		}
+
+		.summary div {
+			min-height: 68px;
+			padding: 10px;
+		}
+
+		.summary div + div { border-left: 1px solid #000; }
+		.summary span, .summary strong { display: block; }
+		.summary span { margin-bottom: 7px; font-size: 12px; }
+
+		.add-button {
+			width: 100%;
+			min-height: 48px;
+			margin-top: 12px;
+			border: 2px solid #000;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.subscription-section { margin-top: 22px; }
+		.subscription-section h2 { margin: 0 0 9px; font-size: 17px; }
+		.subscription-list { border: 1px solid #000; }
+
+		.subscription-row {
+			width: 100%;
+			min-height: 77px;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 12px;
+			padding: 11px;
+			border: 0;
+			border-bottom: 1px solid #000;
+			background: #fff;
+			text-align: left;
+			cursor: pointer;
+		}
+
+		.subscription-row:last-child { border-bottom: 0; }
+		.subscription-copy { min-width: 0; }
+
+		.subscription-copy strong,
+		.subscription-copy span {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.subscription-copy span { margin-top: 5px; font-size: 12px; }
+		.subscription-date { text-align: right; }
+		.subscription-date strong, .subscription-date span { display: block; }
+		.subscription-date span { margin-top: 5px; font-size: 12px; }
+
+		.due-progress {
+			grid-column: 1 / -1;
+			height: 5px;
+			overflow: hidden;
+			border: 1px solid #000;
+		}
+
+		.due-progress span {
+			display: block;
+			height: 100%;
+			background: #000;
+		}
+
+		.due-layout {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			border-bottom: 1px solid #000;
+		}
+
+		.due-layout:last-child { border-bottom: 0; }
+		.due-layout .subscription-row { border-bottom: 0; }
+
+		.pay-button {
+			min-width: 64px;
+			min-height: 36px;
+			align-self: center;
+			margin: 10px 10px 10px 0;
+			padding: 6px 10px;
+			border: 1px solid #000;
+			font-size: 13px;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.empty-state {
+			margin: 0;
+			padding: 18px 12px;
+			border: 1px solid #000;
+			text-align: center;
+		}
+
+		.bottom-nav {
+			position: fixed;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			min-height: 64px;
+			transform: translateX(-50%);
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			border: 1px solid #000;
+			background: #fff;
+		}
+
+		.bottom-nav button,
+		.bottom-nav a {
+			min-height: 62px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border: 0;
+			border-right: 1px solid #000;
+			background: #fff;
+			color: #000;
+			text-align: center;
+			text-decoration: none;
+			cursor: pointer;
+		}
+
+		.bottom-nav > :last-child { border-right: 0; }
+
+		.bottom-nav [aria-current="page"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.backdrop {
+			position: fixed;
+			z-index: 1;
+			inset: 0;
+			display: none;
+			border: 0;
+			background: rgba(255, 255, 255, .8);
+		}
+
+		.backdrop.open { display: block; }
+
+		.sheet {
+			position: fixed;
+			z-index: 2;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			max-height: 92dvh;
+			overflow: auto;
+			transform: translate(-50%, 105%);
+			padding: 16px;
+			border: 1px solid #000;
+			background: #fff;
+			transition: transform 150ms linear;
+		}
+
+		.sheet.open { transform: translate(-50%, 0); }
+
+		.sheet-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 16px;
+		}
+
+		.sheet-header h2 { margin: 0; font-size: 20px; }
+		.sheet-header p { margin: 4px 0 0; font-size: 13px; }
+
+		.field {
+			display: grid;
+			gap: 5px;
+			margin-bottom: 14px;
+		}
+
+		.field label { font-size: 13px; font-weight: 700; }
+
+		.field input,
+		.field select {
+			width: 100%;
+			height: 46px;
+			padding: 8px;
+			border: 1px solid #000;
+			border-radius: 0;
+			background: #fff;
+		}
+
+		.detail-grid {
+			border: 1px solid #000;
+		}
+
+		.detail-row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			padding: 10px;
+			border-bottom: 1px solid #000;
+		}
+
+		.detail-row:last-child { border-bottom: 0; }
+		.detail-row span:last-child { text-align: right; font-weight: 700; }
+
+		.detail-actions {
+			display: grid;
+			gap: 8px;
+			margin-top: 16px;
+		}
+
+		.detail-actions button,
+		.form-actions button {
+			min-height: 48px;
+			border: 1px solid #000;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.detail-actions .primary-button,
+		.form-actions .primary-button { border-width: 2px; }
+
+		.form-actions {
+			display: grid;
+			grid-template-columns: 1fr 2fr;
+			gap: 8px;
+			margin-top: 20px;
+		}
+
+		.payment-note {
+			margin: 0 0 16px;
+			padding: 12px;
+			border: 1px solid #000;
+			font-size: 13px;
+			line-height: 1.4;
+		}
+
+		.checkbox-field {
+			display: flex;
+			align-items: flex-start;
+			gap: 9px;
+			margin-bottom: 16px;
+			font-size: 13px;
+			line-height: 1.35;
+		}
+
+		.checkbox-field input { width: 20px; height: 20px; margin: 0; }
+
+		.message {
+			position: fixed;
+			z-index: 3;
+			left: 50%;
+			bottom: 78px;
+			display: none;
+			width: min(390px, calc(100% - 32px));
+			transform: translateX(-50%);
+			padding: 12px;
+			border: 2px solid #000;
+			background: #fff;
+			text-align: center;
+		}
+
+		.message.visible { display: block; }
+
+		:focus-visible {
+			outline: 3px double #000;
+			outline-offset: 2px;
+		}
+
+		@media (min-width: 421px) {
+			body { padding: 20px 0; }
+			.app { min-height: calc(100dvh - 40px); border-block: 1px solid #000; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.sheet { transition: none; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="app-header">
+			<h1>Langganan</h1>
+			<button class="icon-button" type="button" aria-label="Buka pengaturan langganan">Menu</button>
+		</header>
+
+		<main>
+			<section class="summary" aria-label="Ringkasan langganan">
+				<div><span>Rata-rata bulanan</span><strong id="monthlyAverage">Rp0</strong></div>
+				<div><span>Perlu dibayar</span><strong id="dueCount">0 langganan</strong></div>
+			</section>
+
+			<button class="add-button" id="addSubscription" type="button">+ Tambah langganan</button>
+
+			<section class="subscription-section" aria-labelledby="dueTitle">
+				<h2 id="dueTitle">Jatuh tempo</h2>
+				<div id="dueList"></div>
+			</section>
+
+			<section class="subscription-section" aria-labelledby="upcomingTitle">
+				<h2 id="upcomingTitle">Akan datang</h2>
+				<div id="upcomingList"></div>
+			</section>
+		</main>
+
+		<nav class="bottom-nav" aria-label="Navigasi utama">
+			<a href="./dashboard-low-click.html">Home</a>
+			<a href="./activities.html">Aktivitas</a>
+			<a href="./subscriptions.html" aria-current="page">Langganan</a>
+			<a href="./more.html">Lainnya</a>
+		</nav>
+	</div>
+
+	<button class="backdrop" id="backdrop" type="button" aria-label="Tutup panel langganan"></button>
+
+	<section class="sheet" id="detailSheet" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="detailTitle">Detail langganan</h2>
+				<p id="detailStatus"></p>
+			</div>
+			<button class="icon-button close-sheet" type="button" aria-label="Tutup detail langganan">Tutup</button>
+		</div>
+
+		<div class="detail-grid">
+			<div class="detail-row"><span>Jumlah</span><span id="detailAmount"></span></div>
+			<div class="detail-row"><span>Mulai</span><span id="detailStart"></span></div>
+			<div class="detail-row"><span>Siklus</span><span id="detailCycle"></span></div>
+			<div class="detail-row"><span>Pembayaran berikutnya</span><span id="detailNext"></span></div>
+		</div>
+
+		<div class="detail-actions">
+			<button class="primary-button" id="detailPay" type="button">Catat pembayaran</button>
+			<button id="detailEdit" type="button">Edit langganan</button>
+			<button id="detailDelete" type="button">Hapus langganan</button>
+		</div>
+	</section>
+
+	<section class="sheet" id="subscriptionSheet" role="dialog" aria-modal="true" aria-labelledby="subscriptionFormTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="subscriptionFormTitle">Tambah langganan</h2>
+				<p>Data jadwal berulang</p>
+			</div>
+			<button class="icon-button close-sheet" type="button" aria-label="Tutup formulir langganan">Tutup</button>
+		</div>
+
+		<form id="subscriptionForm">
+			<div class="field">
+				<label for="subscriptionName">Nama</label>
+				<input id="subscriptionName" autocomplete="off" maxlength="100" required>
+			</div>
+			<div class="field">
+				<label for="subscriptionAmount">Jumlah</label>
+				<input id="subscriptionAmount" inputmode="numeric" autocomplete="off" required>
+			</div>
+			<div class="field">
+				<label for="subscriptionStart">Tanggal mulai</label>
+				<input id="subscriptionStart" type="date" required>
+			</div>
+			<div class="field">
+				<label for="subscriptionCycle">Siklus pembayaran dalam hari</label>
+				<input id="subscriptionCycle" type="number" min="1" max="36600" step="1" required>
+			</div>
+			<label class="checkbox-field" id="firstPaymentLabel">
+				<input id="recordFirstPayment" type="checkbox">
+				<span>Catat pembayaran pertama sebagai pengeluaran hari ini.</span>
+			</label>
+			<div class="form-actions">
+				<button id="cancelSubscription" type="button">Batal</button>
+				<button class="primary-button" type="submit">Simpan langganan</button>
+			</div>
+		</form>
+	</section>
+
+	<section class="sheet" id="paymentSheet" role="dialog" aria-modal="true" aria-labelledby="paymentTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="paymentTitle">Catat pembayaran</h2>
+				<p id="paymentSubscriptionName"></p>
+			</div>
+			<button class="icon-button close-sheet" type="button" aria-label="Tutup pembayaran">Tutup</button>
+		</div>
+
+		<p class="payment-note">Pembayaran menjadi transaksi pengeluaran. Jadwal berikutnya maju sesuai siklus setelah pembayaran dicatat.</p>
+
+		<form id="paymentForm">
+			<div class="field">
+				<label for="paymentAmount">Jumlah</label>
+				<input id="paymentAmount" inputmode="numeric" required>
+			</div>
+			<div class="field">
+				<label for="paymentDate">Tanggal transaksi</label>
+				<input id="paymentDate" type="date" required>
+			</div>
+			<div class="field">
+				<label for="paymentCategory">Kategori</label>
+				<input id="paymentCategory" value="Langganan" readonly>
+			</div>
+			<div class="field">
+				<label for="paymentDescription">Deskripsi</label>
+				<input id="paymentDescription" maxlength="100" required>
+			</div>
+			<button class="add-button" type="submit">Catat dan lanjutkan jadwal</button>
+		</form>
+	</section>
+
+	<div class="message" id="message" role="status" aria-live="polite"></div>
+
+	<script>
+		const SUBSCRIPTION_KEY = 'aureusLayoutMockSubscriptionsV1';
+		const TRANSACTION_KEY = 'aureusLayoutMockTransactionsV1';
+		const rupiah = new Intl.NumberFormat('id-ID');
+		const longDate = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+		const dueList = document.querySelector('#dueList');
+		const upcomingList = document.querySelector('#upcomingList');
+		const monthlyAverage = document.querySelector('#monthlyAverage');
+		const dueCount = document.querySelector('#dueCount');
+		const backdrop = document.querySelector('#backdrop');
+		const detailSheet = document.querySelector('#detailSheet');
+		const subscriptionSheet = document.querySelector('#subscriptionSheet');
+		const paymentSheet = document.querySelector('#paymentSheet');
+		const subscriptionFormTitle = document.querySelector('#subscriptionFormTitle');
+		const subscriptionName = document.querySelector('#subscriptionName');
+		const subscriptionAmount = document.querySelector('#subscriptionAmount');
+		const subscriptionStart = document.querySelector('#subscriptionStart');
+		const subscriptionCycle = document.querySelector('#subscriptionCycle');
+		const firstPaymentLabel = document.querySelector('#firstPaymentLabel');
+		const recordFirstPayment = document.querySelector('#recordFirstPayment');
+		const paymentAmount = document.querySelector('#paymentAmount');
+		const paymentDate = document.querySelector('#paymentDate');
+		const paymentDescription = document.querySelector('#paymentDescription');
+		const message = document.querySelector('#message');
+		let subscriptions = loadSubscriptions();
+		let selectedId = null;
+		let formMode = 'add';
+		let messageTimer;
+
+		function todayValue() {
+			const date = new Date();
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		}
+
+		function addDays(dateValue, days) {
+			const date = new Date(`${dateValue}T12:00:00`);
+			date.setDate(date.getDate() + days);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		}
+
+		function calendarDayNumber(dateValue) {
+			const [year, month, day] = dateValue.split('-').map(Number);
+			return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+		}
+
+		function calculateNextPaymentDate(startDate, cycleDays) {
+			if (startDate >= todayValue()) return startDate;
+			const elapsedDays = calendarDayNumber(todayValue()) - calendarDayNumber(startDate);
+			const completedCycles = Math.ceil(elapsedDays / cycleDays);
+			return addDays(startDate, completedCycles * cycleDays);
+		}
+
+		function daysFromToday(dateValue) {
+			const start = new Date(`${todayValue()}T12:00:00`);
+			const end = new Date(`${dateValue}T12:00:00`);
+			return Math.round((end - start) / 86400000);
+		}
+
+		function dateText(dateValue) {
+			return longDate.format(new Date(`${dateValue}T12:00:00`));
+		}
+
+		function dueText(dateValue) {
+			const days = daysFromToday(dateValue);
+			if (days < 0) return `${Math.abs(days)} hari terlambat`;
+			if (days === 0) return 'Hari ini';
+			if (days === 1) return 'Besok';
+			return `${days} hari lagi`;
+		}
+
+		function defaultSubscriptions() {
+			const today = todayValue();
+			return [
+				{ id: 'sub-1', name: 'Netflix', amount: 186000, startDate: addDays(today, -365), cycleDays: 30, nextPaymentDate: today },
+				{ id: 'sub-2', name: 'Internet rumah', amount: 325000, startDate: addDays(today, -240), cycleDays: 30, nextPaymentDate: addDays(today, -2) },
+				{ id: 'sub-3', name: 'Spotify', amount: 54990, startDate: addDays(today, -180), cycleDays: 30, nextPaymentDate: addDays(today, 5) },
+				{ id: 'sub-4', name: 'Penyimpanan cloud', amount: 29900, startDate: addDays(today, -90), cycleDays: 30, nextPaymentDate: addDays(today, 12) },
+				{ id: 'sub-5', name: 'Domain website', amount: 175000, startDate: addDays(today, -320), cycleDays: 365, nextPaymentDate: addDays(today, 35) }
+			];
+		}
+
+		function loadSubscriptions() {
+			try {
+				const stored = JSON.parse(localStorage.getItem(SUBSCRIPTION_KEY));
+				if (Array.isArray(stored)) return stored;
+			} catch {}
+			const initial = defaultSubscriptions();
+			persistSubscriptions(initial);
+			return initial;
+		}
+
+		function persistSubscriptions(value = subscriptions) {
+			try {
+				localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(value));
+			} catch {}
+		}
+
+		function loadTransactions() {
+			try {
+				const stored = JSON.parse(localStorage.getItem(TRANSACTION_KEY));
+				return Array.isArray(stored) ? stored : [];
+			} catch {
+				return [];
+			}
+		}
+
+		function persistPayment(subscription, amount, date, description) {
+			const transactions = loadTransactions();
+			transactions.push({
+				id: `subscription-${subscription.id}-${date}-${Date.now()}`,
+				type: 'expense',
+				amount,
+				description,
+				category: 'Langganan',
+				date,
+				time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+			});
+			try {
+				localStorage.setItem(TRANSACTION_KEY, JSON.stringify(transactions));
+			} catch {}
+		}
+
+		function render() {
+			const sorted = [...subscriptions].sort((a, b) => a.nextPaymentDate.localeCompare(b.nextPaymentDate));
+			const due = sorted.filter((subscription) => daysFromToday(subscription.nextPaymentDate) <= 0);
+			const upcoming = sorted.filter((subscription) => daysFromToday(subscription.nextPaymentDate) > 0);
+			const averageDaysPerMonth = 365.2425 / 12;
+			const monthlyAmount = subscriptions.reduce(
+				(sum, subscription) => sum + (subscription.amount * averageDaysPerMonth) / subscription.cycleDays,
+				0
+			);
+			monthlyAverage.textContent = `Rp${rupiah.format(Math.round(monthlyAmount))}`;
+			dueCount.textContent = `${due.length} langganan`;
+			renderDueList(due);
+			renderUpcomingList(upcoming);
+		}
+
+		function renderDueList(items) {
+			dueList.replaceChildren();
+			if (items.length === 0) {
+				const empty = document.createElement('p');
+				empty.className = 'empty-state';
+				empty.textContent = 'Tidak ada langganan yang jatuh tempo.';
+				dueList.append(empty);
+				return;
+			}
+			const list = document.createElement('div');
+			list.className = 'subscription-list';
+			items.forEach((subscription) => {
+				const wrapper = document.createElement('div');
+				wrapper.className = 'due-layout';
+				wrapper.append(createSubscriptionRow(subscription));
+				const pay = document.createElement('button');
+				pay.className = 'pay-button';
+				pay.type = 'button';
+				pay.textContent = 'Bayar';
+				pay.addEventListener('click', () => openPayment(subscription.id));
+				wrapper.append(pay);
+				list.append(wrapper);
+			});
+			dueList.append(list);
+		}
+
+		function renderUpcomingList(items) {
+			upcomingList.replaceChildren();
+			if (items.length === 0) {
+				const empty = document.createElement('p');
+				empty.className = 'empty-state';
+				empty.textContent = 'Tidak ada pembayaran berikutnya.';
+				upcomingList.append(empty);
+				return;
+			}
+			const list = document.createElement('div');
+			list.className = 'subscription-list';
+			items.forEach((subscription) => list.append(createSubscriptionRow(subscription)));
+			upcomingList.append(list);
+		}
+
+		function createSubscriptionRow(subscription) {
+			const button = document.createElement('button');
+			button.className = 'subscription-row';
+			button.type = 'button';
+			button.addEventListener('click', () => openDetail(subscription.id));
+			const copy = document.createElement('span');
+			copy.className = 'subscription-copy';
+			const name = document.createElement('strong');
+			name.textContent = subscription.name;
+			const amount = document.createElement('span');
+			amount.textContent = `Rp${rupiah.format(subscription.amount)} · ${subscription.cycleDays} ↻`;
+			amount.setAttribute('aria-label', `Rp${rupiah.format(subscription.amount)}, siklus ${subscription.cycleDays} hari`);
+			copy.append(name, amount);
+			const date = document.createElement('span');
+			date.className = 'subscription-date';
+			const relative = document.createElement('strong');
+			relative.textContent = dueText(subscription.nextPaymentDate);
+			const exact = document.createElement('span');
+			exact.textContent = dateText(subscription.nextPaymentDate);
+			date.append(relative, exact);
+
+			const daysRemaining = Math.max(0, daysFromToday(subscription.nextPaymentDate));
+			const elapsedPercent = Math.max(0, Math.min(100, ((subscription.cycleDays - daysRemaining) / subscription.cycleDays) * 100));
+			const progress = document.createElement('span');
+			progress.className = 'due-progress';
+			progress.setAttribute('role', 'progressbar');
+			progress.setAttribute('aria-label', `Waktu menuju pembayaran ${subscription.name}`);
+			progress.setAttribute('aria-valuemin', '0');
+			progress.setAttribute('aria-valuemax', '100');
+			progress.setAttribute('aria-valuenow', String(Math.round(elapsedPercent)));
+			const progressValue = document.createElement('span');
+			progressValue.style.width = `${elapsedPercent}%`;
+			progress.append(progressValue);
+
+			button.append(copy, date, progress);
+			return button;
+		}
+
+		function openSheet(sheet) {
+			closeSheets();
+			backdrop.classList.add('open');
+			sheet.classList.add('open');
+		}
+
+		function closeSheets() {
+			backdrop.classList.remove('open');
+			detailSheet.classList.remove('open');
+			subscriptionSheet.classList.remove('open');
+			paymentSheet.classList.remove('open');
+		}
+
+		function selectedSubscription() {
+			return subscriptions.find((subscription) => subscription.id === selectedId);
+		}
+
+		function openDetail(id) {
+			selectedId = id;
+			const subscription = selectedSubscription();
+			if (!subscription) return;
+			document.querySelector('#detailTitle').textContent = subscription.name;
+			document.querySelector('#detailStatus').textContent = dueText(subscription.nextPaymentDate);
+			document.querySelector('#detailAmount').textContent = `Rp${rupiah.format(subscription.amount)}`;
+			document.querySelector('#detailStart').textContent = dateText(subscription.startDate);
+			document.querySelector('#detailCycle').textContent = `${subscription.cycleDays} hari`;
+			document.querySelector('#detailNext').textContent = dateText(subscription.nextPaymentDate);
+			openSheet(detailSheet);
+		}
+
+		function openAdd() {
+			selectedId = null;
+			formMode = 'add';
+			subscriptionFormTitle.textContent = 'Tambah langganan';
+			subscriptionName.value = '';
+			subscriptionAmount.value = '';
+			subscriptionStart.value = todayValue();
+			subscriptionCycle.value = '30';
+			recordFirstPayment.checked = false;
+			firstPaymentLabel.hidden = false;
+			openSheet(subscriptionSheet);
+			setTimeout(() => subscriptionName.focus(), 170);
+		}
+
+		function openEdit() {
+			const subscription = selectedSubscription();
+			if (!subscription) return;
+			formMode = 'edit';
+			subscriptionFormTitle.textContent = 'Edit langganan';
+			subscriptionName.value = subscription.name;
+			subscriptionAmount.value = rupiah.format(subscription.amount);
+			subscriptionStart.value = subscription.startDate;
+			subscriptionCycle.value = String(subscription.cycleDays);
+			firstPaymentLabel.hidden = true;
+			openSheet(subscriptionSheet);
+			setTimeout(() => subscriptionName.focus(), 170);
+		}
+
+		function openPayment(id) {
+			selectedId = id;
+			const subscription = selectedSubscription();
+			if (!subscription) return;
+			document.querySelector('#paymentSubscriptionName').textContent = subscription.name;
+			paymentAmount.value = rupiah.format(subscription.amount);
+			paymentDate.value = subscription.nextPaymentDate <= todayValue() ? subscription.nextPaymentDate : todayValue();
+			paymentDescription.value = subscription.name;
+			openSheet(paymentSheet);
+		}
+
+		function showMessage(text) {
+			clearTimeout(messageTimer);
+			message.textContent = text;
+			message.classList.add('visible');
+			messageTimer = setTimeout(() => message.classList.remove('visible'), 2500);
+		}
+
+		function formatAmount(input) {
+			const digits = input.value.replace(/\D/g, '').slice(0, 15);
+			input.value = digits ? rupiah.format(Number(digits)) : '';
+		}
+
+		document.querySelector('#addSubscription').addEventListener('click', openAdd);
+		document.querySelector('#cancelSubscription').addEventListener('click', closeSheets);
+		document.querySelector('#detailEdit').addEventListener('click', openEdit);
+		document.querySelector('#detailPay').addEventListener('click', () => openPayment(selectedId));
+		document.querySelector('#detailDelete').addEventListener('click', () => {
+			const subscription = selectedSubscription();
+			if (!subscription) return;
+			subscriptions = subscriptions.filter((entry) => entry.id !== selectedId);
+			persistSubscriptions();
+			closeSheets();
+			render();
+			showMessage(`${subscription.name} dihapus.`);
+		});
+
+		document.querySelectorAll('.close-sheet').forEach((button) => button.addEventListener('click', closeSheets));
+		backdrop.addEventListener('click', closeSheets);
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') closeSheets();
+		});
+
+		subscriptionAmount.addEventListener('input', () => formatAmount(subscriptionAmount));
+		paymentAmount.addEventListener('input', () => formatAmount(paymentAmount));
+
+		document.querySelector('#subscriptionForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const amount = Number(subscriptionAmount.value.replace(/\D/g, ''));
+			const cycleDays = Number(subscriptionCycle.value);
+			if (!amount || !Number.isInteger(cycleDays) || cycleDays < 1) return;
+			const data = {
+				name: subscriptionName.value.trim(),
+				amount,
+				startDate: subscriptionStart.value,
+				cycleDays
+			};
+			if (!data.name) return;
+
+			if (formMode === 'add') {
+				const subscription = {
+					id: `sub-${Date.now()}`,
+					...data,
+					nextPaymentDate: calculateNextPaymentDate(data.startDate, data.cycleDays)
+				};
+				subscriptions.push(subscription);
+				if (recordFirstPayment.checked) {
+					persistPayment(subscription, amount, todayValue(), subscription.name);
+					subscription.nextPaymentDate = addDays(todayValue(), cycleDays);
+				}
+				showMessage(`${subscription.name} ditambahkan.`);
+			} else {
+				const subscription = selectedSubscription();
+				if (!subscription) return;
+				const scheduleChanged = subscription.startDate !== data.startDate || subscription.cycleDays !== data.cycleDays;
+				Object.assign(subscription, data);
+				if (scheduleChanged) {
+					subscription.nextPaymentDate = calculateNextPaymentDate(data.startDate, data.cycleDays);
+				}
+				showMessage(`${subscription.name} diperbarui.`);
+			}
+
+			persistSubscriptions();
+			closeSheets();
+			render();
+		});
+
+		document.querySelector('#paymentForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const subscription = selectedSubscription();
+			const amount = Number(paymentAmount.value.replace(/\D/g, ''));
+			const description = paymentDescription.value.trim();
+			if (!subscription || !amount || !description) return;
+			persistPayment(subscription, amount, paymentDate.value, description);
+			subscription.nextPaymentDate = addDays(subscription.nextPaymentDate, subscription.cycleDays);
+			persistSubscriptions();
+			closeSheets();
+			render();
+			showMessage(`Pembayaran ${subscription.name} dicatat.`);
+		});
+
+		render();
+	</script>
+</body>
+</html>

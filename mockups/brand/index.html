@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aureus brand asset review</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0d110e;
+      --muted: #666b67;
+      --paper: #f7f5ef;
+      --line: #d6d4cc;
+      --lime: #d7df70;
+      --dark: #0d110e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #dddcd6; color: var(--ink); font-family: Arial, sans-serif; }
+    main { width: min(1160px, calc(100% - 32px)); margin: 32px auto; border: 1px solid #aaa9a3; background: var(--paper); box-shadow: 0 18px 60px rgb(13 17 14 / .12); }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 30px; border-bottom: 1px solid var(--line); }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(24px, 4vw, 42px); font-weight: 500; letter-spacing: -.04em; }
+    header p, .note { color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .status { padding: 7px 11px; border: 1px solid var(--ink); border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .panel { min-height: 380px; display: grid; place-items: center; padding: 42px; border-bottom: 1px solid var(--line); }
+    .panel:nth-child(odd) { border-right: 1px solid var(--line); }
+    .panel.dark { background: var(--dark); color: #f7f5ef; }
+    .panel-content { width: 100%; display: grid; justify-items: center; gap: 28px; }
+    .panel h2 { justify-self: start; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+    .mark { width: 128px; aspect-ratio: 66 / 100; display: block; background: var(--lime); mask: url('aureus-mark.svg') center / contain no-repeat; -webkit-mask: url('aureus-mark.svg') center / contain no-repeat; }
+    .mark.ink { background: var(--ink); }
+    .mark.paper { background: var(--paper); }
+    .lockup { width: min(520px, 100%); display: flex; align-items: center; justify-content: center; gap: 32px; color: var(--ink); }
+    .lockup.light { color: var(--paper); }
+    .lockup .mark { width: 74px; flex: 0 0 auto; }
+    .lockup span:last-child { font-size: clamp(44px, 8vw, 78px); font-weight: 300; letter-spacing: .18em; line-height: 1; }
+    .icon { width: min(260px, 70vw); border-radius: 22%; box-shadow: 0 20px 40px rgb(13 17 14 / .18); }
+    .sizes { display: flex; align-items: end; justify-content: center; gap: 30px; min-height: 150px; }
+    .sizes figure { margin: 0; display: grid; justify-items: center; gap: 12px; }
+    .sizes .mark { display: block; }
+    .sizes figcaption { color: var(--muted); font-size: 10px; }
+    .s16 { width: 16px; } .s24 { width: 24px; } .s32 { width: 32px; } .s48 { width: 48px; } .s72 { width: 72px; }
+    .colors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; border: 1px solid var(--line); }
+    .swatch { min-height: 130px; display: grid; align-content: end; padding: 14px; font-size: 11px; }
+    .swatch + .swatch { border-left: 1px solid var(--line); }
+    .lime { background: var(--lime); } .black { background: var(--dark); color: var(--paper); } .offwhite { background: var(--paper); }
+    footer { padding: 24px 30px 30px; }
+    footer p { max-width: 760px; }
+    code { padding: 2px 5px; background: rgb(13 17 14 / .07); }
+    @media (max-width: 720px) {
+      main { width: 100%; margin: 0; border-inline: 0; }
+      header { align-items: start; flex-direction: column; }
+      .grid { grid-template-columns: 1fr; }
+      .panel:nth-child(odd) { border-right: 0; }
+      .panel { min-height: 320px; padding: 30px 22px; }
+      .sizes { gap: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Aureus asset review</h1>
+        <p>Rebuilt from the supplied brand board. These files are isolated mockups and are not connected to the app.</p>
+      </div>
+      <span class="status">REVIEW ONLY</span>
+    </header>
+
+    <div class="grid">
+      <section class="panel dark">
+        <div class="panel-content">
+          <h2>Primary mark on dark</h2>
+          <span class="mark" role="img" aria-label="Aureus lime mark"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-content">
+          <h2>One-color mark</h2>
+          <span class="mark ink" role="img" aria-label="Aureus dark mark"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-content">
+          <h2>App icon candidate</h2>
+          <img class="icon" src="aureus-app-icon.svg" alt="Aureus app icon candidate">
+        </div>
+      </section>
+
+      <section class="panel dark">
+        <div class="panel-content">
+          <h2>Horizontal lockup</h2>
+          <div class="lockup light" role="img" aria-label="Aureus horizontal lockup preview"><span class="mark"></span><span>aureus</span></div>
+          <p class="note">Wordmark font is a temporary proportion guide.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-content">
+          <h2>Small-size check</h2>
+          <div class="sizes">
+            <figure><span class="mark s16"></span><figcaption>16 px</figcaption></figure>
+            <figure><span class="mark s24"></span><figcaption>24 px</figcaption></figure>
+            <figure><span class="mark s32"></span><figcaption>32 px</figcaption></figure>
+            <figure><span class="mark s48"></span><figcaption>48 px</figcaption></figure>
+            <figure><span class="mark s72"></span><figcaption>72 px</figcaption></figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-content">
+          <h2>Working palette</h2>
+          <div class="colors">
+            <div class="swatch lime">Lime<br>#D7DF70</div>
+            <div class="swatch black">Ink<br>#0D110E</div>
+            <div class="swatch offwhite">Paper<br>#F7F5EF</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <p class="note">Files under <code>mockups/brand/</code> are the approved source previews used to generate Aureus web and Android brand assets.</p>
+    </footer>
+  </main>
+</body>
+</html>

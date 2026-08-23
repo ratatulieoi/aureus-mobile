@@ -10,7 +10,6 @@ import { toast } from '@/components/ui/use-toast';
 import type { NewTransaction, Subscription, Transaction } from '@/domain/types';
 import { addCalendarDays, calendarDateToLocalInstant, formatLocalCalendarDate, parseLocalCalendarDate } from '@/domain/calendar-date';
 import { generateId } from '@/domain/id';
-import { parseRupiahAmount } from '@/domain/transaction-validation';
 import { areSubscriptionListsEqual, reconcileSubscriptions, SUBSCRIPTION_COLORS, validateAndNormalizeSubscription } from '@/domain/subscription';
 
 interface SubscriptionManagerProps {
@@ -50,7 +49,7 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
 
   const handleAdd = (event: React.FormEvent) => {
     event.preventDefault();
-    const amount = parseRupiahAmount(newSub.amount);
+    const amount = /^\d+$/.test(newSub.amount.trim()) ? Number(newSub.amount.trim()) : Number.NaN;
     const cycleDays = /^\d+$/.test(newSub.cycleDays) ? Number(newSub.cycleDays) : Number.NaN;
     const nextPaymentDate = newSub.createTransactionNow ? addCalendarDays(newSub.startDate, cycleDays) : newSub.startDate;
     let subscriptionId: string;
@@ -74,7 +73,7 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       return;
     }
 
-    if (newSub.createTransactionNow) {
+    if (newSub.createTransactionNow && result.value.amount > 0) {
       const date = calendarDateToLocalInstant(newSub.startDate, new Date());
       if (!date) {
         toast({ variant: 'destructive', title: 'Tanggal tidak valid', description: 'Pembayaran pertama tidak dapat dicatat.' });
@@ -124,7 +123,7 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
               <form onSubmit={handleAdd} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2"><Label htmlFor="subscription-name">Nama Layanan</Label><Input id="subscription-name" maxLength={100} aria-describedby="subscription-name-help" placeholder="Netflix, Spotify..." value={newSub.name} onChange={(event) => setNewSub({ ...newSub, name: event.target.value })} required /><p id="subscription-name-help" className="text-xs text-muted-foreground">Maksimum 100 karakter.</p></div>
-                  <div className="space-y-2"><Label htmlFor="subscription-amount">Biaya (Rp)</Label><Input id="subscription-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="50000" value={newSub.amount} onChange={(event) => setNewSub({ ...newSub, amount: event.target.value })} required /></div>
+                  <div className="space-y-2"><Label htmlFor="subscription-amount">Biaya (Rp)</Label><Input id="subscription-amount" type="number" min="0" step="1" inputMode="numeric" placeholder="0" value={newSub.amount} onChange={(event) => setNewSub({ ...newSub, amount: event.target.value })} required /></div>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2"><Label htmlFor="subscription-start">Mulai Tanggal</Label><Input id="subscription-start" type="date" value={newSub.startDate} onChange={(event) => setNewSub({ ...newSub, startDate: event.target.value })} required /></div>

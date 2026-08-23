@@ -1,42 +1,109 @@
-import React from 'react';
-import { UserRound } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-export type NavTab = 'home' | 'activity' | 'subs' | 'more';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { DatabaseBackup, EllipsisVertical, Moon, PanelsTopLeft, Sun } from 'lucide-react';
+import BrandMark from '@/components/BrandMark';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
+import { useTheme } from '@/hooks/use-theme';
 
 interface HeaderProps {
-  activeTab: NavTab;
-  onTabChange: (tab: NavTab) => void;
+  onOpenMore: () => void;
+  onOpenBackup: () => void;
 }
 
-const NAV_ITEMS: ReadonlyArray<{ id: NavTab; label: string }> = [
-  { id: 'home', label: 'Home' },
-  { id: 'activity', label: 'Aktivitas' },
-  { id: 'subs', label: 'Langganan' },
-  { id: 'more', label: 'Lainnya' },
-];
+const Header: React.FC<HeaderProps> = ({ onOpenMore, onOpenBackup }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [theme, toggleTheme] = useTheme();
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
-const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => (
-  <header className="app-topbar safe-area-top">
-    <div className="app-topbar-inner">
-      <span className="app-avatar" aria-hidden="true">
-        <UserRound className="h-6 w-6" strokeWidth={1.7} />
-      </span>
-      <nav className="app-tabs" aria-label="Navigasi utama">
-        {NAV_ITEMS.map(({ id, label }) => (
+  useMobileBackDismiss(menuOpen, () => setMenuOpen(false));
+
+  const updateMenuAnchor = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuAnchor({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    updateMenuAnchor();
+    const dismissOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || menuPanelRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', dismissOutside);
+    window.addEventListener('resize', updateMenuAnchor);
+    return () => {
+      window.removeEventListener('pointerdown', dismissOutside);
+      window.removeEventListener('resize', updateMenuAnchor);
+    };
+  }, [menuOpen, updateMenuAnchor]);
+
+  const toggleMenu = () => {
+    if (!menuOpen) updateMenuAnchor();
+    setMenuOpen((open) => !open);
+  };
+
+  const runMenuAction = (action: () => void) => {
+    setMenuOpen(false);
+    action();
+  };
+
+  return (
+    <header className="app-topbar safe-area-top">
+      <div className="app-topbar-inner">
+        <div className="app-brand-lockup" aria-label="Aureus">
+          <span className="app-brand-mark"><BrandMark /></span>
+          <span className="app-wordmark">Aureus</span>
+        </div>
+
+        <div className="app-overflow" ref={menuRef}>
           <button
-            key={id}
+            ref={triggerRef}
             type="button"
-            onClick={() => onTabChange(id)}
-            aria-current={activeTab === id ? 'page' : undefined}
-            className={cn('app-tab', activeTab === id && 'is-active')}
+            className="app-overflow-trigger"
+            aria-label="Buka menu Aureus"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={toggleMenu}
           >
-            {label}
+            <EllipsisVertical aria-hidden="true" />
           </button>
-        ))}
-      </nav>
-    </div>
-  </header>
-);
+
+          {menuOpen && menuAnchor && createPortal(
+            <div
+              ref={menuPanelRef}
+              className="app-overflow-menu liquid-glass-overlay"
+              role="menu"
+              aria-label="Menu Aureus"
+              style={{ position: 'fixed', top: menuAnchor.top, right: menuAnchor.right }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => runMenuAction(toggleTheme)}
+              >
+                {theme === 'light' ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}
+                <span><strong>Ganti tema</strong><small>{theme === 'light' ? 'Aktifkan tema gelap' : 'Aktifkan tema terang'}</small></span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => runMenuAction(onOpenBackup)}>
+                <DatabaseBackup aria-hidden="true" />
+                <span><strong>Backup & pulihkan</strong><small>Simpan data lokal</small></span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => runMenuAction(onOpenMore)}>
+                <PanelsTopLeft aria-hidden="true" />
+                <span><strong>Lainnya</strong><small>Laporan, kategori, dan info</small></span>
+              </button>
+            </div>,
+            document.body,
+          )}
+        </div>
+      </div>
+    </header>
+  );
+};
 
 export default Header;

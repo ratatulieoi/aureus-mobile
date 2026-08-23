@@ -25,7 +25,6 @@ function renderDashboard(onOpenEntry = vi.fn(), onPeriodChange = vi.fn()) {
       onPeriodChange={onPeriodChange}
       now={now}
       onOpenEntry={onOpenEntry}
-      onAddCategory={vi.fn()}
     />,
   );
   return { onActiveTypeChange, onPeriodChange };
@@ -72,7 +71,10 @@ describe('DashboardHome', () => {
     const trigger = screen.getByRole('button', { name: 'Hari ini' });
     fireEvent.pointerDown(trigger, { pointerId: 4, clientX: 20, clientY: 20 });
     act(() => vi.advanceTimersByTime(550));
-    expect(screen.getByRole('listbox', { name: 'Pilih periode cepat' })).toBeInTheDocument();
+    const picker = screen.getByRole('listbox', { name: 'Pilih periode cepat' });
+    expect(picker).toBeInTheDocument();
+    expect(picker).toHaveAttribute('data-anchor-period', 'today');
+    expect(picker.parentElement).toBe(document.body);
     expect(screen.getByRole('option', { name: 'Hari ini' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.pointerUp(trigger, { pointerId: 4, clientX: 20, clientY: 20 });
     expect(onPeriodChange).toHaveBeenCalledWith({ kind: 'quick', id: 'today' });

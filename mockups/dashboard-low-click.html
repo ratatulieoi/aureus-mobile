@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>Aureus dashboard layout mockup</title>
+	<style>
+		* { box-sizing: border-box; }
+
+		html {
+			font-family: Arial, sans-serif;
+			color: #000;
+			background: #fff;
+		}
+
+		body { margin: 0; }
+		button, input, select { font: inherit; color: inherit; }
+		button { background: #fff; }
+
+		.app {
+			width: min(420px, 100%);
+			min-height: 100dvh;
+			margin: 0 auto;
+			padding-bottom: 74px;
+			border-inline: 1px solid #000;
+		}
+
+		.app-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			min-height: 58px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #000;
+		}
+
+		.app-header h1 { margin: 0; font-size: 20px; }
+
+		.icon-button {
+			min-width: 44px;
+			height: 44px;
+			border: 1px solid #000;
+			border-radius: 0;
+			cursor: pointer;
+		}
+
+		main { padding: 16px; }
+
+		.summary {
+			border: 1px solid #000;
+		}
+
+		.summary div {
+			min-width: 0;
+			min-height: 72px;
+			padding: 10px;
+		}
+
+		.summary div + div { border-top: 1px solid #000; }
+		.summary p { margin: 0 0 7px; font-size: 12px; }
+		.summary strong { display: block; font-size: 24px; overflow-wrap: anywhere; }
+
+		.period-field {
+			display: grid;
+			gap: 5px;
+			margin-bottom: 10px;
+		}
+
+		.period-field label { font-size: 12px; font-weight: 700; }
+
+		.period-field select {
+			width: 100%;
+			height: 44px;
+			padding: 8px;
+			border: 1px solid #000;
+			border-radius: 0;
+			background: #fff;
+		}
+
+		.entry-section { padding-top: 20px; }
+		.entry-section h2 { margin: 0 0 5px; font-size: 18px; }
+
+		.entry-help {
+			margin: 0 0 14px;
+			font-size: 13px;
+			line-height: 1.4;
+		}
+
+		.type-tabs {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			margin-bottom: 12px;
+		}
+
+		.type-tabs button {
+			min-height: 44px;
+			border: 1px solid #000;
+			cursor: pointer;
+		}
+
+		.type-tabs button + button { border-left: 0; }
+
+		.type-tabs button[aria-selected="true"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.category-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
+		}
+
+		.category-button {
+			min-height: 68px;
+			padding: 10px;
+			border: 1px solid #000;
+			text-align: left;
+			cursor: pointer;
+			touch-action: manipulation;
+			user-select: none;
+		}
+
+		.category-name,
+		.category-total { display: block; }
+		.category-name { margin-bottom: 7px; }
+		.category-total { font-size: 12px; font-weight: 700; }
+
+		.category-button.holding {
+			border-width: 3px;
+			padding: 8px;
+		}
+
+		.add-category-button {
+			font-weight: 700;
+			text-align: center;
+		}
+
+		.bottom-nav {
+			position: fixed;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			min-height: 64px;
+			transform: translateX(-50%);
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			border: 1px solid #000;
+			background: #fff;
+		}
+
+		.bottom-nav button,
+		.bottom-nav a {
+			min-height: 62px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border: 0;
+			border-right: 1px solid #000;
+			background: #fff;
+			color: #000;
+			text-align: center;
+			text-decoration: none;
+			cursor: pointer;
+		}
+
+		.bottom-nav > :last-child { border-right: 0; }
+
+		.bottom-nav [aria-current="page"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.backdrop {
+			position: fixed;
+			z-index: 1;
+			inset: 0;
+			display: none;
+			border: 0;
+			background: rgba(255, 255, 255, .8);
+		}
+
+		.backdrop.open { display: block; }
+
+		.sheet {
+			position: fixed;
+			z-index: 2;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			max-height: 92dvh;
+			overflow: auto;
+			transform: translate(-50%, 105%);
+			padding: 16px;
+			border: 1px solid #000;
+			background: #fff;
+			transition: transform 150ms linear;
+		}
+
+		.sheet.open { transform: translate(-50%, 0); }
+
+		.sheet-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 16px;
+		}
+
+		.sheet-header h2 { margin: 0; font-size: 20px; }
+		.sheet-header p { margin: 4px 0 0; font-size: 13px; }
+
+		.field {
+			display: grid;
+			gap: 5px;
+			margin-bottom: 14px;
+		}
+
+		.field label { font-size: 13px; font-weight: 700; }
+
+		.field input,
+		.field select {
+			width: 100%;
+			height: 46px;
+			padding: 8px;
+			border: 1px solid #000;
+			border-radius: 0;
+			background: #fff;
+		}
+
+		.recent-descriptions {
+			margin: 18px 0;
+			padding-top: 14px;
+			border-top: 1px solid #000;
+		}
+
+		.recent-descriptions h3 { margin: 0 0 4px; font-size: 15px; }
+		.recent-descriptions > p { margin: 0 0 10px; font-size: 12px; }
+		.recent-list { display: grid; gap: 7px; }
+
+		.recent-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			border: 1px solid #000;
+		}
+
+		.recent-value {
+			min-height: 44px;
+			padding: 8px 10px;
+			border: 0;
+			background: #fff;
+			text-align: left;
+			cursor: pointer;
+			touch-action: manipulation;
+			user-select: none;
+		}
+
+		.recent-value + .recent-value {
+			border-left: 1px solid #000;
+			text-align: right;
+		}
+
+		.recent-value.holding {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.empty-recency {
+			margin: 0;
+			padding: 12px;
+			border: 1px solid #000;
+			font-size: 13px;
+		}
+
+		.save-button,
+		.retry-button {
+			width: 100%;
+			height: 48px;
+			border: 2px solid #000;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.retry-button {
+			margin-bottom: 10px;
+			border-width: 1px;
+		}
+
+		.voice-status {
+			margin-bottom: 16px;
+			padding: 14px;
+			border: 1px solid #000;
+		}
+
+		.voice-status strong,
+		.voice-status span { display: block; }
+		.voice-status span { margin-top: 6px; font-size: 13px; }
+
+		.voice-review[hidden] { display: none; }
+
+		.message {
+			position: fixed;
+			z-index: 3;
+			left: 50%;
+			bottom: 78px;
+			display: none;
+			width: min(390px, calc(100% - 32px));
+			transform: translateX(-50%);
+			padding: 12px;
+			border: 2px solid #000;
+			background: #fff;
+			text-align: center;
+		}
+
+		.message.visible { display: block; }
+
+		:focus-visible {
+			outline: 3px double #000;
+			outline-offset: 2px;
+		}
+
+		@media (min-width: 421px) {
+			body { padding: 20px 0; }
+			.app { min-height: calc(100dvh - 40px); border-block: 1px solid #000; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.sheet { transition: none; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="app-header">
+			<h1>Home</h1>
+			<button class="icon-button" type="button" aria-label="Buka pengaturan">Menu</button>
+		</header>
+
+		<main>
+			<div class="period-field">
+				<label for="dashboardPeriod">Periode</label>
+				<select id="dashboardPeriod"></select>
+			</div>
+
+			<section class="summary" id="summary" aria-label="Ringkasan pengeluaran">
+				<div>
+					<p id="dailySummaryLabel">Pengeluaran hari ini</p>
+					<strong id="dailyTotal">Rp184.500</strong>
+				</div>
+				<div>
+					<p id="periodSummaryLabel">Pengeluaran bulan ini</p>
+					<strong id="periodTotal">Rp0</strong>
+				</div>
+			</section>
+
+			<section class="entry-section" aria-labelledby="categoryTitle">
+				<h2 id="categoryTitle">Catat berdasarkan kategori</h2>
+				<p class="entry-help">Ketuk kategori untuk input normal. Tahan kategori untuk input suara.</p>
+				<div class="type-tabs" role="tablist" aria-label="Jenis transaksi">
+					<button id="expenseTab" type="button" role="tab" aria-selected="true">Pengeluaran</button>
+					<button id="incomeTab" type="button" role="tab" aria-selected="false">Pemasukan</button>
+				</div>
+				<div class="category-grid" id="categoryGrid" role="tabpanel" aria-live="polite"></div>
+			</section>
+		</main>
+
+		<nav class="bottom-nav" aria-label="Navigasi utama">
+			<a href="./dashboard-low-click.html" aria-current="page">Home</a>
+			<a href="./activities.html">Aktivitas</a>
+			<a href="./subscriptions.html">Langganan</a>
+			<a href="./more.html">Lainnya</a>
+		</nav>
+	</div>
+
+	<button class="backdrop" id="backdrop" type="button" aria-label="Tutup input"></button>
+
+	<section class="sheet" id="normalSheet" role="dialog" aria-modal="true" aria-labelledby="normalTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="normalTitle">Transaksi baru</h2>
+				<p id="normalType">Pengeluaran · Input normal</p>
+			</div>
+			<button class="icon-button close-sheet" type="button" aria-label="Tutup formulir">Tutup</button>
+		</div>
+
+		<form id="normalForm">
+			<div class="field">
+				<label for="normalAmount">Jumlah</label>
+				<input id="normalAmount" inputmode="numeric" autocomplete="off" required>
+			</div>
+			<div class="field">
+				<label for="normalDescription">Deskripsi</label>
+				<input id="normalDescription" autocomplete="off" maxlength="100" required>
+			</div>
+			<div class="field">
+				<label for="normalCategory">Kategori</label>
+				<select id="normalCategory" required></select>
+			</div>
+			<div class="field">
+				<label for="normalDate">Tanggal</label>
+				<input id="normalDate" type="date" required>
+			</div>
+
+			<section class="recent-descriptions" aria-labelledby="normalRecentTitle">
+				<h3 id="normalRecentTitle">Transaksi terakhir di kategori ini</h3>
+				<p>Ketuk deskripsi atau nominal untuk mengisi satu kolom. Tahan salah satunya untuk mengisi keduanya.</p>
+				<div class="recent-list" id="normalRecentList"></div>
+			</section>
+
+			<button class="save-button" type="submit">Simpan transaksi</button>
+		</form>
+	</section>
+
+	<section class="sheet" id="voiceSheet" role="dialog" aria-modal="true" aria-labelledby="voiceTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="voiceTitle">Input suara</h2>
+				<p id="voiceType">Pengeluaran</p>
+			</div>
+			<button class="icon-button close-sheet" type="button" aria-label="Tutup input suara">Tutup</button>
+		</div>
+
+		<div class="voice-status" aria-live="polite">
+			<strong id="voiceStatus">Mendengarkan...</strong>
+			<span id="voiceTranscript">Ucapkan deskripsi dan jumlah.</span>
+		</div>
+
+		<div class="voice-review" id="voiceReview" hidden>
+			<form id="voiceForm">
+				<div class="field">
+					<label for="voiceAmount">Jumlah hasil suara</label>
+					<input id="voiceAmount" inputmode="numeric" autocomplete="off" required>
+				</div>
+				<div class="field">
+					<label for="voiceDescription">Deskripsi hasil suara</label>
+					<input id="voiceDescription" autocomplete="off" maxlength="100" required>
+				</div>
+				<div class="field">
+					<label for="voiceCategory">Kategori</label>
+					<select id="voiceCategory" required></select>
+				</div>
+				<div class="field">
+					<label for="voiceDate">Tanggal</label>
+					<input id="voiceDate" type="date" required>
+				</div>
+
+				<section class="recent-descriptions" aria-labelledby="voiceRecentTitle">
+					<h3 id="voiceRecentTitle">Transaksi terakhir di kategori ini</h3>
+					<p>Ketuk deskripsi atau nominal untuk mengganti satu kolom. Tahan salah satunya untuk mengganti keduanya.</p>
+					<div class="recent-list" id="voiceRecentList"></div>
+				</section>
+
+				<button class="retry-button" id="retryVoice" type="button">Ulangi suara</button>
+				<button class="save-button" type="submit">Simpan transaksi</button>
+			</form>
+		</div>
+	</section>
+
+	<section class="sheet" id="categorySheet" role="dialog" aria-modal="true" aria-labelledby="categorySheetTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="categorySheetTitle">Tambah kategori</h2>
+				<p id="categorySheetType">Pengeluaran</p>
+			</div>
+			<button class="icon-button close-sheet" type="button" aria-label="Tutup tambah kategori">Tutup</button>
+		</div>
+
+		<form id="categoryForm">
+			<div class="field">
+				<label for="newCategoryName">Nama kategori</label>
+				<input id="newCategoryName" autocomplete="off" maxlength="100" required>
+			</div>
+			<button class="save-button" type="submit">Tambah kategori</button>
+		</form>
+	</section>
+
+	<div class="message" id="message" role="status" aria-live="polite"></div>
+
+	<script>
+		const categories = {
+			expense: [
+				'Makanan & Minuman',
+				'Transportasi',
+				'Tagihan',
+				'Belanja',
+				'Kesehatan',
+				'Hiburan',
+				'Pendidikan',
+				'Rumah Tangga',
+				'Komunikasi'
+			],
+			income: [
+				'Gaji',
+				'Freelance',
+				'Bonus',
+				'Penjualan',
+				'Investasi'
+			]
+		};
+
+		const monthlyTotals = {
+			current: {
+				expense: {
+					'Makanan & Minuman': 425000,
+					'Transportasi': 327000,
+					'Tagihan': 675000,
+					'Belanja': 343000,
+					'Kesehatan': 180000,
+					'Hiburan': 220000,
+					'Pendidikan': 450000,
+					'Rumah Tangga': 295000,
+					'Komunikasi': 155000
+				},
+				income: {
+					'Gaji': 8000000,
+					'Freelance': 2000000,
+					'Bonus': 750000,
+					'Penjualan': 425000,
+					'Investasi': 300000
+				}
+			},
+			previous: {
+				expense: {
+					'Makanan & Minuman': 510000,
+					'Transportasi': 290000,
+					'Tagihan': 640000,
+					'Belanja': 420000,
+					'Kesehatan': 95000,
+					'Hiburan': 310000,
+					'Pendidikan': 300000,
+					'Rumah Tangga': 210000,
+					'Komunikasi': 145000
+				},
+				income: {
+					'Gaji': 8000000,
+					'Freelance': 1250000,
+					'Bonus': 0,
+					'Penjualan': 600000,
+					'Investasi': 250000
+				}
+			},
+			older: {
+				expense: {
+					'Makanan & Minuman': 460000,
+					'Transportasi': 340000,
+					'Tagihan': 625000,
+					'Belanja': 250000,
+					'Kesehatan': 120000,
+					'Hiburan': 180000,
+					'Pendidikan': 200000,
+					'Rumah Tangga': 360000,
+					'Komunikasi': 150000
+				},
+				income: {
+					'Gaji': 8000000,
+					'Freelance': 900000,
+					'Bonus': 500000,
+					'Penjualan': 300000,
+					'Investasi': 400000
+				}
+			}
+		};
+
+		const usageCounts = {
+			current: {
+				expense: {
+					'Makanan & Minuman': 18,
+					'Transportasi': 14,
+					'Tagihan': 6,
+					'Belanja': 10,
+					'Kesehatan': 3,
+					'Hiburan': 7,
+					'Pendidikan': 2,
+					'Rumah Tangga': 5,
+					'Komunikasi': 4
+				},
+				income: {
+					'Gaji': 1,
+					'Freelance': 5,
+					'Bonus': 2,
+					'Penjualan': 4,
+					'Investasi': 3
+				}
+			},
+			previous: {
+				expense: {
+					'Makanan & Minuman': 16,
+					'Transportasi': 20,
+					'Tagihan': 5,
+					'Belanja': 12,
+					'Kesehatan': 2,
+					'Hiburan': 8,
+					'Pendidikan': 1,
+					'Rumah Tangga': 4,
+					'Komunikasi': 3
+				},
+				income: {
+					'Gaji': 1,
+					'Freelance': 3,
+					'Bonus': 0,
+					'Penjualan': 6,
+					'Investasi': 2
+				}
+			},
+			older: {
+				expense: {
+					'Makanan & Minuman': 19,
+					'Transportasi': 13,
+					'Tagihan': 5,
+					'Belanja': 7,
+					'Kesehatan': 4,
+					'Hiburan': 6,
+					'Pendidikan': 3,
+					'Rumah Tangga': 9,
+					'Komunikasi': 2
+				},
+				income: {
+					'Gaji': 1,
+					'Freelance': 4,
+					'Bonus': 2,
+					'Penjualan': 3,
+					'Investasi': 5
+				}
+			}
+		};
+
+		const history = {
+			'Makanan & Minuman': [
+				{ description: 'Makan siang', amount: 25000 },
+				{ description: 'Kopi susu', amount: 18000 },
+				{ description: 'Sarapan', amount: 15000 }
+			],
+			'Transportasi': [
+				{ description: 'Bensin', amount: 100000 },
+				{ description: 'Parkir', amount: 5000 },
+				{ description: 'Ojek', amount: 22000 }
+			],
+			'Belanja': [
+				{ description: 'Belanja mingguan', amount: 275000 },
+				{ description: 'Keperluan mandi', amount: 68000 }
+			],
+			'Tagihan': [
+				{ description: 'Listrik', amount: 350000 },
+				{ description: 'Internet', amount: 325000 }
+			],
+			'Gaji': [
+				{ description: 'Gaji bulanan', amount: 8000000 }
+			],
+			'Bonus': [
+				{ description: 'Bonus proyek', amount: 750000 }
+			],
+			'Freelance': [
+				{ description: 'Desain landing page', amount: 1500000 },
+				{ description: 'Revisi aplikasi', amount: 500000 }
+			]
+		};
+
+		const categoryGrid = document.querySelector('#categoryGrid');
+		const expenseTab = document.querySelector('#expenseTab');
+		const incomeTab = document.querySelector('#incomeTab');
+		const backdrop = document.querySelector('#backdrop');
+		const normalSheet = document.querySelector('#normalSheet');
+		const voiceSheet = document.querySelector('#voiceSheet');
+		const categorySheet = document.querySelector('#categorySheet');
+		const categorySheetTitle = document.querySelector('#categorySheetTitle');
+		const categorySheetType = document.querySelector('#categorySheetType');
+		const newCategoryName = document.querySelector('#newCategoryName');
+		const normalTitle = document.querySelector('#normalTitle');
+		const normalType = document.querySelector('#normalType');
+		const normalAmount = document.querySelector('#normalAmount');
+		const normalDescription = document.querySelector('#normalDescription');
+		const normalCategory = document.querySelector('#normalCategory');
+		const normalDate = document.querySelector('#normalDate');
+		const normalRecentList = document.querySelector('#normalRecentList');
+		const voiceTitle = document.querySelector('#voiceTitle');
+		const voiceType = document.querySelector('#voiceType');
+		const voiceStatus = document.querySelector('#voiceStatus');
+		const voiceTranscript = document.querySelector('#voiceTranscript');
+		const voiceReview = document.querySelector('#voiceReview');
+		const voiceAmount = document.querySelector('#voiceAmount');
+		const voiceDescription = document.querySelector('#voiceDescription');
+		const voiceCategory = document.querySelector('#voiceCategory');
+		const voiceDate = document.querySelector('#voiceDate');
+		const voiceRecentList = document.querySelector('#voiceRecentList');
+		const message = document.querySelector('#message');
+		const summary = document.querySelector('#summary');
+		const dailySummaryLabel = document.querySelector('#dailySummaryLabel');
+		const periodSummaryLabel = document.querySelector('#periodSummaryLabel');
+		const dailyTotal = document.querySelector('#dailyTotal');
+		const periodTotal = document.querySelector('#periodTotal');
+		const dashboardPeriod = document.querySelector('#dashboardPeriod');
+		const rupiah = new Intl.NumberFormat('id-ID');
+		let activeType = 'expense';
+		let entryType = 'expense';
+		let addCategoryType = 'expense';
+		let activePeriod = 'current';
+		const dailyTotals = { expense: 184500, income: 8750000 };
+		let voiceTimer;
+		let messageTimer;
+
+		function todayValue() {
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const day = String(now.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		}
+
+		function currentMonthValue(offset = 0) {
+			const date = new Date();
+			date.setDate(1);
+			date.setMonth(date.getMonth() + offset);
+			return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+		}
+
+		function periodLabel(period) {
+			if (period === 'all') return 'Semua waktu';
+			const monthOffset = period === 'current' ? 0 : period === 'previous' ? -1 : -2;
+			return new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(
+				new Date(`${currentMonthValue(monthOffset)}-01T12:00:00`)
+			);
+		}
+
+		function periodTotals(type) {
+			if (activePeriod !== 'all') return monthlyTotals[activePeriod][type];
+			const combined = {};
+			Object.values(monthlyTotals).forEach((period) => {
+				Object.entries(period[type]).forEach(([categoryName, amount]) => {
+					combined[categoryName] = (combined[categoryName] || 0) + amount;
+				});
+			});
+			return combined;
+		}
+
+		function periodUsage(type) {
+			if (activePeriod !== 'all') return usageCounts[activePeriod][type];
+			const combined = {};
+			Object.values(usageCounts).forEach((period) => {
+				Object.entries(period[type]).forEach(([categoryName, count]) => {
+					combined[categoryName] = (combined[categoryName] || 0) + count;
+				});
+			});
+			return combined;
+		}
+
+		function categoryGridOrder(type) {
+			const counts = periodUsage(type);
+			const ranked = categories[type]
+				.map((categoryName, originalIndex) => ({ categoryName, originalIndex }))
+				.sort((a, b) => (counts[b.categoryName] || 0) - (counts[a.categoryName] || 0) || a.originalIndex - b.originalIndex)
+				.map((entry) => entry.categoryName);
+			const gridOrder = [];
+			for (let index = 0; index < ranked.length; index += 2) {
+				if (ranked[index + 1]) gridOrder.push(ranked[index + 1]);
+				gridOrder.push(ranked[index]);
+			}
+			return gridOrder;
+		}
+
+		function fillPeriodOptions() {
+			const options = [
+				{ value: 'current', label: periodLabel('current') },
+				{ value: 'previous', label: periodLabel('previous') },
+				{ value: 'older', label: periodLabel('older') },
+				{ value: 'all', label: 'Semua waktu' }
+			];
+			dashboardPeriod.replaceChildren();
+			options.forEach((entry) => {
+				const option = document.createElement('option');
+				option.value = entry.value;
+				option.textContent = entry.label;
+				dashboardPeriod.append(option);
+			});
+			dashboardPeriod.value = activePeriod;
+		}
+
+		function renderSummary() {
+			const isExpense = activeType === 'expense';
+			const typeLabel = isExpense ? 'Pengeluaran' : 'Pemasukan';
+			const selectedTotals = periodTotals(activeType);
+			const selectedPeriodTotal = Object.values(selectedTotals).reduce((sum, amount) => sum + amount, 0);
+			summary.setAttribute('aria-label', `Ringkasan ${typeLabel.toLocaleLowerCase('id-ID')}`);
+			dailySummaryLabel.textContent = `${typeLabel} hari ini`;
+			periodSummaryLabel.textContent = `${typeLabel} · ${periodLabel(activePeriod)}`;
+			dailyTotal.textContent = `Rp${rupiah.format(dailyTotals[activeType])}`;
+			periodTotal.textContent = `Rp${rupiah.format(selectedPeriodTotal)}`;
+		}
+
+		function renderCategories() {
+			categoryGrid.replaceChildren();
+			const selectedTotals = periodTotals(activeType);
+			categoryGridOrder(activeType).forEach((categoryName) => {
+				const button = document.createElement('button');
+				button.className = 'category-button';
+				button.type = 'button';
+				const name = document.createElement('span');
+				name.className = 'category-name';
+				name.textContent = categoryName;
+				const total = document.createElement('span');
+				total.className = 'category-total';
+				total.textContent = `Rp${rupiah.format(selectedTotals[categoryName] || 0)}`;
+				button.append(name, total);
+				button.setAttribute('aria-label', `${categoryName}, Rp${rupiah.format(selectedTotals[categoryName] || 0)}, ${periodLabel(activePeriod)}. Ketuk untuk input normal. Tahan untuk input suara.`);
+				bindCategoryGestures(button, categoryName);
+				categoryGrid.append(button);
+			});
+
+			const addButton = document.createElement('button');
+			addButton.className = 'category-button add-category-button';
+			addButton.type = 'button';
+			addButton.textContent = '+ Tambah kategori';
+			addButton.addEventListener('click', openAddCategory);
+			categoryGrid.append(addButton);
+		}
+
+		function bindCategoryGestures(button, categoryName) {
+			let holdTimer;
+			let held = false;
+			let origin = null;
+
+			button.addEventListener('pointerdown', (event) => {
+				if (event.pointerType === 'mouse' && event.button !== 0) return;
+				held = false;
+				origin = { x: event.clientX, y: event.clientY };
+				button.classList.add('holding');
+				holdTimer = setTimeout(() => {
+					held = true;
+					button.classList.remove('holding');
+					if (navigator.vibrate) navigator.vibrate(20);
+					openVoice(categoryName);
+				}, 550);
+			});
+
+			button.addEventListener('pointermove', (event) => {
+				if (!origin) return;
+				if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 12) {
+					clearTimeout(holdTimer);
+					button.classList.remove('holding');
+					origin = null;
+				}
+			});
+
+			button.addEventListener('pointerup', () => {
+				clearTimeout(holdTimer);
+				button.classList.remove('holding');
+				if (origin && !held) openNormal(categoryName);
+				origin = null;
+			});
+
+			button.addEventListener('pointercancel', () => {
+				clearTimeout(holdTimer);
+				button.classList.remove('holding');
+				origin = null;
+			});
+
+			button.addEventListener('contextmenu', (event) => {
+				event.preventDefault();
+				openVoice(categoryName);
+			});
+
+			button.addEventListener('keydown', (event) => {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					openNormal(categoryName);
+				}
+				if (event.key.toLowerCase() === 'v') {
+					event.preventDefault();
+					openVoice(categoryName);
+				}
+			});
+		}
+
+		function setType(type) {
+			activeType = type;
+			expenseTab.setAttribute('aria-selected', String(type === 'expense'));
+			incomeTab.setAttribute('aria-selected', String(type === 'income'));
+			renderSummary();
+			renderCategories();
+		}
+
+		expenseTab.addEventListener('click', () => setType('expense'));
+		incomeTab.addEventListener('click', () => setType('income'));
+		dashboardPeriod.addEventListener('change', () => {
+			activePeriod = dashboardPeriod.value;
+			renderSummary();
+			renderCategories();
+		});
+
+		function fillCategoryOptions(select, type, selectedCategory) {
+			select.replaceChildren();
+			categories[type].forEach((categoryName) => {
+				const option = document.createElement('option');
+				option.value = categoryName;
+				option.textContent = categoryName;
+				option.selected = categoryName === selectedCategory;
+				select.append(option);
+			});
+		}
+
+		function renderRecency(container, categoryName, amountInput, descriptionInput) {
+			container.replaceChildren();
+			const recentTransactions = history[categoryName] || [];
+			if (recentTransactions.length === 0) {
+				const empty = document.createElement('p');
+				empty.className = 'empty-recency';
+				empty.textContent = 'Belum ada transaksi terakhir untuk kategori ini.';
+				container.append(empty);
+				return;
+			}
+
+			recentTransactions.forEach((transaction) => {
+				const row = document.createElement('div');
+				row.className = 'recent-row';
+
+				const descriptionButton = document.createElement('button');
+				descriptionButton.className = 'recent-value';
+				descriptionButton.type = 'button';
+				descriptionButton.textContent = transaction.description;
+				descriptionButton.setAttribute('aria-label', `Gunakan deskripsi ${transaction.description}. Tahan untuk memakai deskripsi dan nominal.`);
+
+				const amountButton = document.createElement('button');
+				amountButton.className = 'recent-value';
+				amountButton.type = 'button';
+				amountButton.textContent = `Rp${rupiah.format(transaction.amount)}`;
+				amountButton.setAttribute('aria-label', `Gunakan nominal Rp${rupiah.format(transaction.amount)}. Tahan untuk memakai nominal dan deskripsi.`);
+
+				bindRecentValue(descriptionButton, () => {
+					descriptionInput.value = transaction.description;
+					descriptionInput.focus();
+				}, () => fillRecentTransaction(transaction, amountInput, descriptionInput));
+
+				bindRecentValue(amountButton, () => {
+					amountInput.value = rupiah.format(transaction.amount);
+					amountInput.focus();
+				}, () => fillRecentTransaction(transaction, amountInput, descriptionInput));
+
+				row.append(descriptionButton, amountButton);
+				container.append(row);
+			});
+		}
+
+		function fillRecentTransaction(transaction, amountInput, descriptionInput) {
+			amountInput.value = rupiah.format(transaction.amount);
+			descriptionInput.value = transaction.description;
+			descriptionInput.focus();
+		}
+
+		function bindRecentValue(button, onTap, onHold) {
+			let holdTimer;
+			let held = false;
+			let origin = null;
+
+			button.addEventListener('pointerdown', (event) => {
+				if (event.pointerType === 'mouse' && event.button !== 0) return;
+				held = false;
+				origin = { x: event.clientX, y: event.clientY };
+				button.classList.add('holding');
+				holdTimer = setTimeout(() => {
+					held = true;
+					button.classList.remove('holding');
+					if (navigator.vibrate) navigator.vibrate(20);
+					onHold();
+				}, 550);
+			});
+
+			button.addEventListener('pointermove', (event) => {
+				if (!origin) return;
+				if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 12) {
+					clearTimeout(holdTimer);
+					button.classList.remove('holding');
+					origin = null;
+				}
+			});
+
+			button.addEventListener('pointerup', () => {
+				clearTimeout(holdTimer);
+				button.classList.remove('holding');
+				if (origin && !held) onTap();
+				origin = null;
+			});
+
+			button.addEventListener('pointercancel', () => {
+				clearTimeout(holdTimer);
+				button.classList.remove('holding');
+				origin = null;
+			});
+
+			button.addEventListener('contextmenu', (event) => {
+				event.preventDefault();
+				onHold();
+			});
+		}
+
+		function openSheet(sheet) {
+			closeSheets();
+			backdrop.classList.add('open');
+			sheet.classList.add('open');
+		}
+
+		function openNormal(categoryName) {
+			entryType = activeType;
+			normalTitle.textContent = categoryName;
+			normalType.textContent = `${entryType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} · Input normal`;
+			normalAmount.value = '';
+			normalDescription.value = '';
+			normalDate.value = todayValue();
+			fillCategoryOptions(normalCategory, entryType, categoryName);
+			renderRecency(normalRecentList, categoryName, normalAmount, normalDescription);
+			openSheet(normalSheet);
+			setTimeout(() => normalAmount.focus(), 170);
+		}
+
+		function openVoice(categoryName) {
+			entryType = activeType;
+			voiceTitle.textContent = `Input suara · ${categoryName}`;
+			voiceType.textContent = entryType === 'expense' ? 'Pengeluaran' : 'Pemasukan';
+			voiceDate.value = todayValue();
+			fillCategoryOptions(voiceCategory, entryType, categoryName);
+			renderRecency(voiceRecentList, categoryName, voiceAmount, voiceDescription);
+			openSheet(voiceSheet);
+			startVoiceDemo(categoryName);
+		}
+
+		function openAddCategory() {
+			addCategoryType = activeType;
+			const typeLabel = addCategoryType === 'expense' ? 'Pengeluaran' : 'Pemasukan';
+			categorySheetTitle.textContent = `Tambah kategori ${typeLabel.toLowerCase()}`;
+			categorySheetType.textContent = typeLabel;
+			newCategoryName.value = '';
+			openSheet(categorySheet);
+			setTimeout(() => newCategoryName.focus(), 170);
+		}
+
+		function startVoiceDemo(categoryName) {
+			clearTimeout(voiceTimer);
+			voiceStatus.textContent = 'Mendengarkan...';
+			voiceTranscript.textContent = 'Ucapkan deskripsi dan jumlah.';
+			voiceReview.hidden = true;
+			const sample = history[categoryName]?.[0] || {
+				description: entryType === 'expense' ? 'Transaksi baru' : 'Pemasukan baru',
+				amount: entryType === 'expense' ? 25000 : 500000
+			};
+			voiceTimer = setTimeout(() => {
+				voiceStatus.textContent = 'Hasil suara';
+				voiceTranscript.textContent = `“${sample.description}, Rp${rupiah.format(sample.amount)}”`;
+				voiceAmount.value = rupiah.format(sample.amount);
+				voiceDescription.value = sample.description;
+				voiceReview.hidden = false;
+			}, 900);
+		}
+
+		function closeSheets() {
+			clearTimeout(voiceTimer);
+			normalSheet.classList.remove('open');
+			voiceSheet.classList.remove('open');
+			categorySheet.classList.remove('open');
+			backdrop.classList.remove('open');
+		}
+
+		document.querySelectorAll('.close-sheet').forEach((button) => {
+			button.addEventListener('click', closeSheets);
+		});
+		backdrop.addEventListener('click', closeSheets);
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') closeSheets();
+		});
+
+		normalCategory.addEventListener('change', () => {
+			normalTitle.textContent = normalCategory.value;
+			renderRecency(normalRecentList, normalCategory.value, normalAmount, normalDescription);
+		});
+
+		voiceCategory.addEventListener('change', () => {
+			voiceTitle.textContent = `Input suara · ${voiceCategory.value}`;
+			renderRecency(voiceRecentList, voiceCategory.value, voiceAmount, voiceDescription);
+		});
+
+		function formatAmountInput(input) {
+			const digits = input.value.replace(/\D/g, '').slice(0, 15);
+			input.value = digits ? rupiah.format(Number(digits)) : '';
+		}
+
+		normalAmount.addEventListener('input', () => formatAmountInput(normalAmount));
+		voiceAmount.addEventListener('input', () => formatAmountInput(voiceAmount));
+		document.querySelector('#retryVoice').addEventListener('click', () => startVoiceDemo(voiceCategory.value));
+
+		function recordTransaction(type, categoryName, amount, description, date) {
+			history[categoryName] = history[categoryName] || [];
+			history[categoryName].unshift({ description, amount });
+			history[categoryName] = history[categoryName].slice(0, 3);
+
+			const currentMonth = todayValue().slice(0, 7);
+			if (date.startsWith(currentMonth)) {
+				monthlyTotals.current[type][categoryName] = (monthlyTotals.current[type][categoryName] || 0) + amount;
+				usageCounts.current[type][categoryName] = (usageCounts.current[type][categoryName] || 0) + 1;
+			}
+
+			if (date === todayValue()) {
+				dailyTotals[type] += amount;
+			}
+
+			closeSheets();
+			renderSummary();
+			renderCategories();
+			clearTimeout(messageTimer);
+			message.textContent = `${description} disimpan pada ${categoryName}.`;
+			message.classList.add('visible');
+			messageTimer = setTimeout(() => message.classList.remove('visible'), 2500);
+		}
+
+		document.querySelector('#normalForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const amount = Number(normalAmount.value.replace(/\D/g, ''));
+			const description = normalDescription.value.trim();
+			if (!amount || !description) return;
+			recordTransaction(entryType, normalCategory.value, amount, description, normalDate.value);
+		});
+
+		document.querySelector('#voiceForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const amount = Number(voiceAmount.value.replace(/\D/g, ''));
+			const description = voiceDescription.value.trim();
+			if (!amount || !description) return;
+			recordTransaction(entryType, voiceCategory.value, amount, description, voiceDate.value);
+		});
+
+		document.querySelector('#categoryForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const categoryName = newCategoryName.value.trim();
+			if (!categoryName) return;
+
+			const duplicate = categories[addCategoryType].some(
+				(existingName) => existingName.toLocaleLowerCase('id-ID') === categoryName.toLocaleLowerCase('id-ID')
+			);
+			if (duplicate) {
+				newCategoryName.setCustomValidity('Kategori ini sudah ada.');
+				newCategoryName.reportValidity();
+				return;
+			}
+
+			newCategoryName.setCustomValidity('');
+			categories[addCategoryType].push(categoryName);
+			Object.values(monthlyTotals).forEach((period) => {
+				period[addCategoryType][categoryName] = 0;
+			});
+			Object.values(usageCounts).forEach((period) => {
+				period[addCategoryType][categoryName] = 0;
+			});
+			closeSheets();
+			renderCategories();
+			clearTimeout(messageTimer);
+			message.textContent = `Kategori ${categoryName} ditambahkan.`;
+			message.classList.add('visible');
+			messageTimer = setTimeout(() => message.classList.remove('visible'), 2500);
+		});
+
+		newCategoryName.addEventListener('input', () => newCategoryName.setCustomValidity(''));
+
+		fillPeriodOptions();
+		renderSummary();
+		renderCategories();
+	</script>
+</body>
+</html>

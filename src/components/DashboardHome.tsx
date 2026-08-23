@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { List, Plus } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { List } from 'lucide-react';
 import type { CategoryCatalog, Transaction, TransactionType } from '@/domain/types';
 import {
   canSelectDashboardMonth,
@@ -22,7 +23,6 @@ interface DashboardHomeProps {
   onPeriodChange: (period: DashboardPeriod) => void;
   now: Date;
   onOpenEntry: (category: string, voice: boolean) => void;
-  onAddCategory: () => void;
 }
 
 const MONTHS = [
@@ -42,14 +42,16 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   onPeriodChange,
   now,
   onOpenEntry,
-  onAddCategory,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
   const [quickPickerOpen, setQuickPickerOpen] = useState(false);
+  const [quickPickerAnchor, setQuickPickerAnchor] = useState<{ left: number; labelCenterY: number } | null>(null);
   const [highlightedQuick, setHighlightedQuick] = useState<QuickPeriodId | null>(null);
+  const periodControlRef = useRef<HTMLDivElement | null>(null);
+  const periodLabelRef = useRef<HTMLSpanElement | null>(null);
   const periodHoldRef = useRef<number | null>(null);
   const periodOriginRef = useRef<{ x: number; y: number } | null>(null);
   const periodHeldRef = useRef(false);
@@ -113,6 +115,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     periodHoldRef.current = window.setTimeout(() => {
       periodHeldRef.current = true;
       const current = period.kind === 'quick' ? period.id : null;
+      const controlRect = periodControlRef.current?.getBoundingClientRect();
+      const labelRect = periodLabelRef.current?.getBoundingClientRect();
+      if (controlRect && labelRect) {
+        setQuickPickerAnchor({
+          left: controlRect.left,
+          labelCenterY: labelRect.top + labelRect.height / 2,
+        });
+      }
       highlightedQuickRef.current = current;
       setQuickPickerOpen(true);
       setHighlightedQuick(current);
@@ -141,6 +151,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     if (held) {
       if (selected) onPeriodChange({ kind: 'quick', id: selected });
       setQuickPickerOpen(false);
+      setQuickPickerAnchor(null);
       highlightedQuickRef.current = null;
       setHighlightedQuick(null);
       window.setTimeout(() => { periodHeldRef.current = false; }, 0);
@@ -151,6 +162,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     clearPeriodHold();
     periodHeldRef.current = false;
     setQuickPickerOpen(false);
+    setQuickPickerAnchor(null);
     highlightedQuickRef.current = null;
     setHighlightedQuick(null);
   };
@@ -159,20 +171,22 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     <div className="dashboard-home">
       <section className="dashboard-summary" aria-label="Ringkasan transaksi">
         <div className="dashboard-summary-copy">
-          <button
-            type="button"
-            className="period-trigger"
-            aria-haspopup="dialog"
-            aria-expanded={monthPickerOpen || quickPickerOpen}
-            onClick={openMonthPicker}
-            onPointerDown={handlePeriodPointerDown}
-            onPointerMove={handlePeriodPointerMove}
-            onPointerUp={finishPeriodGesture}
-            onPointerCancel={cancelPeriodGesture}
-          >
-            <List aria-hidden="true" className="h-4 w-4" />
-            {dashboardPeriodLabel(period)}
-          </button>
+          <div ref={periodControlRef} className="period-control">
+            <button
+              type="button"
+              className="period-trigger"
+              aria-haspopup="dialog"
+              aria-expanded={monthPickerOpen || quickPickerOpen}
+              onClick={openMonthPicker}
+              onPointerDown={handlePeriodPointerDown}
+              onPointerMove={handlePeriodPointerMove}
+              onPointerUp={finishPeriodGesture}
+              onPointerCancel={cancelPeriodGesture}
+            >
+              <List aria-hidden="true" className="h-4 w-4" />
+              <span ref={periodLabelRef}>{dashboardPeriodLabel(period)}</span>
+            </button>
+          </div>
           <p className={cn('dashboard-primary-total', activeType === 'income' && 'is-income')}>
             <span aria-hidden="true">{activeType === 'expense' ? '−' : '+'}</span> Rp{primaryTotal.toLocaleString('id-ID')}
           </p>
@@ -212,23 +226,47 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </section>
 
-      <section className="dashboard-activity" aria-labelledby="dashboard-activity-title">
-        <h2 id="dashboard-activity-title">Aktivitas terkini</h2>
-        <div className="activity-placeholder" role="img" aria-label="Aktivitas terkini belum tersedia">
-          <svg viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M5 76 C18 73 20 52 31 59 S45 78 58 58 S75 20 90 31 S101 43 114 42 S127 67 145 69 S169 70 185 68 S194 66 199 64 L203 28 L208 68 C226 68 241 70 255 67 S272 78 284 70 S294 48 298 56 C303 72 309 102 317 142" />
-          </svg>
-        </div>
-      </section>
-
-      <div className="dashboard-tools">
-        <input type="text" aria-label="Pencarian" placeholder="Pencarian" disabled />
-        <button type="button" aria-label="Tambah kategori" onClick={onAddCategory}><Plus aria-hidden="true" className="h-5 w-5" /></button>
-      </div>
+      {quickPickerOpen && quickPickerAnchor && createPortal(
+        <div
+          className="quick-period-picker liquid-glass-overlay"
+          role="listbox"
+          aria-label="Pilih periode cepat"
+          data-anchor-period="today"
+          style={{ left: quickPickerAnchor.left, top: quickPickerAnchor.labelCenterY }}
+        >
+          {QUICK_PERIOD_OPTIONS.map(({ id, label }) => (
+            <div
+              key={id}
+              data-quick-period={id}
+              role="option"
+              aria-selected={highlightedQuick === id}
+              className={highlightedQuick === id ? 'is-highlighted' : undefined}
+              onPointerEnter={() => {
+                if (!periodHeldRef.current) return;
+                highlightedQuickRef.current = id;
+                setHighlightedQuick(id);
+              }}
+              onPointerUp={() => {
+                if (!periodHeldRef.current) return;
+                onPeriodChange({ kind: 'quick', id });
+                periodHeldRef.current = false;
+                clearPeriodHold();
+                setQuickPickerOpen(false);
+                setQuickPickerAnchor(null);
+                highlightedQuickRef.current = null;
+                setHighlightedQuick(null);
+              }}
+            >
+              {label}
+            </div>
+          ))}
+        </div>,
+        document.body,
+      )}
 
       {monthPickerOpen && (
         <div className="picker-backdrop" role="presentation" onPointerDown={() => setMonthPickerOpen(false)}>
-          <section className="month-picker" role="dialog" aria-modal="true" aria-label="Pilih bulan" onPointerDown={(event) => event.stopPropagation()}>
+          <section className="month-picker liquid-glass-overlay" role="dialog" aria-modal="true" aria-label="Pilih bulan" onPointerDown={(event) => event.stopPropagation()}>
             <button type="button" className="year-trigger" aria-expanded={yearPickerOpen} onClick={() => setYearPickerOpen((value) => !value)}>{pickerYear}</button>
             {yearPickerOpen ? (
               <div className="year-list">
@@ -252,35 +290,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       )}
 
-      {quickPickerOpen && (
-        <div className="quick-period-picker" role="listbox" aria-label="Pilih periode cepat">
-          {QUICK_PERIOD_OPTIONS.map(({ id, label }) => (
-            <div
-              key={id}
-              data-quick-period={id}
-              role="option"
-              aria-selected={highlightedQuick === id}
-              className={highlightedQuick === id ? 'is-highlighted' : undefined}
-              onPointerEnter={() => {
-                if (!periodHeldRef.current) return;
-                highlightedQuickRef.current = id;
-                setHighlightedQuick(id);
-              }}
-              onPointerUp={() => {
-                if (!periodHeldRef.current) return;
-                onPeriodChange({ kind: 'quick', id });
-                periodHeldRef.current = false;
-                clearPeriodHold();
-                setQuickPickerOpen(false);
-                highlightedQuickRef.current = null;
-                setHighlightedQuick(null);
-              }}
-            >
-              {label}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

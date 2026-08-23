@@ -1,7 +1,7 @@
 import { addCalendarDays, calendarDateToLocalInstant, compareCalendarDates, formatLocalCalendarDate, normalizePersistedCalendarDate } from '@/domain/calendar-date';
 import { generateId, renewalTransactionId } from '@/domain/id';
 import type { Subscription, Transaction } from '@/domain/types';
-import { isValidIdentifier, MAX_TRANSACTION_ID_LENGTH, parseRupiahAmount } from '@/domain/transaction-validation';
+import { isValidIdentifier, MAX_TRANSACTION_AMOUNT, MAX_TRANSACTION_ID_LENGTH } from '@/domain/transaction-validation';
 
 export const SUBSCRIPTION_STORAGE_KEY = 'subscriptions';
 export const MAX_SUBSCRIPTIONS = 5_000;
@@ -46,8 +46,8 @@ export function validateAndNormalizeSubscription(
   if (!name) return { ok: false, error: 'Nama langganan wajib diisi' };
   if (name.length > MAX_SUBSCRIPTION_NAME_LENGTH) return { ok: false, error: 'Nama langganan terlalu panjang' };
 
-  const amount = parseRupiahAmount(value.amount);
-  if (amount === null) return { ok: false, error: 'Biaya langganan harus berupa Rupiah bulat positif' };
+  const amount = parseSubscriptionAmount(value.amount);
+  if (amount === null) return { ok: false, error: 'Biaya langganan harus berupa Rupiah bulat mulai dari Rp0' };
 
   const cycleDays = typeof value.cycleDays === 'number'
     ? value.cycleDays
@@ -152,20 +152,24 @@ export function reconcileSubscriptions(
     if (!validation.ok) continue;
     const subscription = validation.value;
     let dueDate = subscription.nextPaymentDate;
+    let occurrences = 0;
     const planned: Transaction[] = [];
 
-    while (compareCalendarDates(dueDate, today) <= 0 && planned.length < maxRenewals) {
+    while (compareCalendarDates(dueDate, today) <= 0 && occurrences < maxRenewals) {
       const date = calendarDateToLocalInstant(dueDate, new Date(2000, 0, 1, 12, 0, 0, 0));
       const nextDate = addCalendarDays(dueDate, subscription.cycleDays);
       if (!date || !nextDate || compareCalendarDates(nextDate, dueDate) <= 0) break;
-      planned.push({
-        id: renewalTransactionId(subscription.id, dueDate),
-        type: 'expense',
-        amount: subscription.amount,
-        category: 'Langganan',
-        description: `Perpanjangan: ${subscription.name}`,
-        date,
-      });
+      if (subscription.amount > 0) {
+        planned.push({
+          id: renewalTransactionId(subscription.id, dueDate),
+          type: 'expense',
+          amount: subscription.amount,
+          category: 'Langganan',
+          description: `Perpanjangan: ${subscription.name}`,
+          date,
+        });
+      }
+      occurrences += 1;
       dueDate = nextDate;
     }
 
@@ -182,4 +186,12 @@ export function reconcileSubscriptions(
   }
 
   return { subscriptions: nextSubscriptions, transactions, blockedSubscriptionIds };
+}
+
+function parseSubscriptionAmount(value: unknown): number | null {
+  let amount: number;
+  if (typeof value === 'number') amount = value;
+  else if (typeof value === 'string' && /^\s*\d+\s*$/.test(value)) amount = Number(value.trim());
+  else return null;
+  return Number.isSafeInteger(amount) && amount >= 0 && amount <= MAX_TRANSACTION_AMOUNT ? amount : null;
 }

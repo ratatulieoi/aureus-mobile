@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relativePath) => readFile(path.join(root, relativePath), 'utf8');
 
-const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGradle, styles, api27Styles, capacitorConfig] = await Promise.all([
+const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGradle, styles, api27Styles, capacitorConfig, launcherBackground, adaptiveIcon, adaptiveRoundIcon, vectorForeground] = await Promise.all([
   read('android/app/src/main/AndroidManifest.xml'),
   read('android/app/src/main/res/xml/file_paths.xml'),
   read('android/app/src/main/res/xml/backup_rules.xml'),
@@ -17,6 +17,10 @@ const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGr
   read('android/app/src/main/res/values/styles.xml'),
   read('android/app/src/main/res/values-v27/styles.xml'),
   read('capacitor.config.ts'),
+  read('android/app/src/main/res/values/ic_launcher_background.xml'),
+  read('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml'),
+  read('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml'),
+  read('android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml'),
 ]);
 
 const application = tag(manifest, 'application');
@@ -56,7 +60,42 @@ assert.doesNotMatch(styles, /android:windowLayoutInDisplayCutoutMode/, 'API 24 b
 assert.equal(count(api27Styles, /android:windowLayoutInDisplayCutoutMode">always</g), 2);
 assert.match(capacitorConfig, /SystemBars:[\s\S]*insetsHandling:\s*['"]css['"]/);
 
-console.log('Tracked Android privacy/security assertions passed.');
+assert.match(styles, /colorPrimary">#D7DF70</);
+assert.match(styles, /colorPrimaryDark">#0D110E</);
+assert.match(styles, /android:statusBarColor">#0D110E</);
+assert.match(styles, /android:navigationBarColor">#0D110E</);
+assert.match(launcherBackground, /<color\s+name="ic_launcher_background">#0D110E<\/color>/);
+for (const adaptive of [adaptiveIcon, adaptiveRoundIcon]) {
+  assert.match(adaptive, /<background\s+android:drawable="@color\/ic_launcher_background"\s*\/>/);
+  assert.match(adaptive, /<foreground\s+android:drawable="@mipmap\/ic_launcher_foreground"\s*\/>/);
+}
+assert.match(vectorForeground, /android:fillColor="#D7DF70"/);
+assert.doesNotMatch(vectorForeground, /M66\.94,46\.02/, 'Default Android launcher artwork must not return');
+
+const brandedRasterDirectories = [
+  'drawable',
+  'drawable-land-hdpi',
+  'drawable-land-mdpi',
+  'drawable-land-xhdpi',
+  'drawable-land-xxhdpi',
+  'drawable-land-xxxhdpi',
+  'drawable-port-hdpi',
+  'drawable-port-mdpi',
+  'drawable-port-xhdpi',
+  'drawable-port-xxhdpi',
+  'drawable-port-xxxhdpi',
+  'mipmap-hdpi',
+  'mipmap-mdpi',
+  'mipmap-xhdpi',
+  'mipmap-xxhdpi',
+  'mipmap-xxxhdpi',
+];
+for (const directory of brandedRasterDirectories) {
+  const entries = await readdir(path.join(root, 'android/app/src/main/res', directory));
+  assert.ok(entries.some((entry) => entry === 'splash.png' || entry === 'ic_launcher.png'), `${directory} must retain its Aureus raster asset`);
+}
+
+console.log('Tracked Android privacy, security, and branding assertions passed.');
 
 function tag(xml, name) {
   const match = xml.match(new RegExp(`<${name}\\b[\\s\\S]*?>`));

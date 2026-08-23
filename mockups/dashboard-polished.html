@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Aureus · Dashboard polished</title>
+	<style>
+		:root {
+			--surround: #d8d5ce;
+			--surface: #faf8f2;
+			--ink: #20252a;
+			--muted: #73777b;
+			--line: #a8aaac;
+			--line-strong: #353b40;
+			--expense: #365d7d;
+			--income: #a96f2b;
+			--soft-expense: #dce5eb;
+			--soft-income: #eee1cf;
+		}
+
+		* { box-sizing: border-box; }
+
+		html {
+			min-width: 320px;
+			background: var(--surround);
+			color: var(--ink);
+			font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+		}
+
+		body {
+			min-height: 100dvh;
+			margin: 0;
+			display: grid;
+			place-items: start center;
+			padding: 12px;
+			background: var(--surround);
+		}
+
+		button,
+		input { font: inherit; }
+
+		button { color: inherit; }
+
+		.dashboard {
+			width: min(390px, 100%);
+			min-height: calc(100dvh - 24px);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			border: 1.5px solid var(--line-strong);
+			border-radius: 22px;
+			background: var(--surface);
+			box-shadow: 0 10px 30px rgba(32, 37, 42, .08);
+		}
+
+		.topbar {
+			display: grid;
+			grid-template-columns: 42px repeat(3, minmax(0, 1fr));
+			align-items: center;
+			gap: 7px;
+			padding: 13px 14px 8px;
+		}
+
+		.avatar,
+		.top-tab,
+		.type-switch,
+		.category-row,
+		.more-categories,
+		.add-control {
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.avatar {
+			width: 38px;
+			height: 38px;
+			display: grid;
+			place-items: center;
+			padding: 0;
+			border: 1.5px solid var(--line-strong);
+			border-radius: 50%;
+			background: transparent;
+		}
+
+		.avatar svg {
+			width: 27px;
+			height: 27px;
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 1.5;
+		}
+
+		.top-tab {
+			height: 31px;
+			padding: 0 8px;
+			border: 1px solid var(--line-strong);
+			border-radius: 7px;
+			background: transparent;
+			font-size: 10px;
+			font-weight: 650;
+			letter-spacing: -.1px;
+		}
+
+		.top-tab[aria-current="page"] {
+			border-color: var(--expense);
+			background: var(--soft-expense);
+			color: #294b66;
+		}
+
+		.summary {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 58px;
+			align-items: center;
+			gap: 13px;
+			padding: 7px 20px 14px;
+		}
+
+		.summary-kicker {
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			margin: 0 0 3px;
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--muted);
+		}
+
+		.kicker-mark {
+			position: relative;
+			width: 13px;
+			height: 10px;
+			border-top: 1.5px solid var(--expense);
+			border-bottom: 1.5px solid var(--expense);
+		}
+
+		.kicker-mark::after {
+			content: "";
+			position: absolute;
+			left: 0;
+			top: 3px;
+			width: 13px;
+			border-top: 1.5px solid var(--expense);
+		}
+
+		.primary-amount {
+			margin: 0;
+			font-size: clamp(34px, 10.6vw, 43px);
+			font-weight: 500;
+			letter-spacing: -2.2px;
+			line-height: 1;
+			color: var(--expense);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.secondary-amount {
+			margin: 7px 0 0;
+			font-size: 12px;
+			font-weight: 700;
+			color: var(--income);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.summary[data-type="income"] .primary-amount { color: var(--income); }
+		.summary[data-type="income"] .secondary-amount { color: var(--expense); }
+
+		.type-switch {
+			position: relative;
+			width: 52px;
+			height: 52px;
+			padding: 0;
+			border: 1.5px solid var(--expense);
+			border-radius: 50%;
+			background: var(--soft-expense);
+			transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+		}
+
+
+		.summary[data-type="income"] .type-switch {
+			border-color: var(--income);
+			background: var(--soft-income);
+			color: var(--income);
+		}
+
+		.type-switch:active { transform: scale(.94); }
+
+		.categories {
+			padding: 0 18px;
+		}
+
+		.category-list {
+			display: grid;
+			gap: 5px;
+		}
+
+		.category-row,
+		.more-categories {
+			width: 100%;
+			border: 1px solid var(--line-strong);
+			border-radius: 6px;
+			background: transparent;
+		}
+
+		.category-row {
+			min-height: 35px;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 12px;
+			padding: 6px 10px;
+			text-align: left;
+			transition: background 100ms ease, transform 100ms ease;
+		}
+
+		.category-name {
+			overflow: hidden;
+			font-size: 11px;
+			font-weight: 600;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.category-amount {
+			font-size: 10px;
+			font-weight: 750;
+			color: var(--expense);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.category-amount.empty {
+			letter-spacing: 2px;
+			color: var(--muted);
+		}
+
+		.category-list[data-type="income"] .category-amount:not(.empty) { color: var(--income); }
+
+		.category-row:active,
+		.category-row.pressed { background: #ebeae5; }
+
+		.category-row.holding {
+			border-color: var(--expense);
+			background: var(--soft-expense);
+			transform: scale(.985);
+		}
+
+		.category-list[data-type="income"] .category-row.holding {
+			border-color: var(--income);
+			background: var(--soft-income);
+		}
+
+		.more-categories {
+			min-height: 31px;
+			padding: 5px 10px;
+			border-style: dashed;
+			font-size: 10px;
+			font-weight: 700;
+			color: var(--muted);
+		}
+
+		.activity {
+			flex: 1;
+			min-height: 178px;
+			padding: 18px 28px 14px;
+		}
+
+		.activity h2 {
+			margin: 0 0 12px;
+			font-size: 11px;
+			font-weight: 650;
+			letter-spacing: -.1px;
+		}
+
+		.activity-visual {
+			height: 118px;
+			padding: 8px 7px 4px;
+			border: 1.5px dashed var(--line-strong);
+			border-radius: 13px;
+		}
+
+		.activity-visual svg {
+			width: 100%;
+			height: 100%;
+			overflow: visible;
+		}
+
+		.chart-line {
+			fill: none;
+			stroke: var(--expense);
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			stroke-width: 2.25;
+			vector-effect: non-scaling-stroke;
+		}
+
+		.bottom-tools {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 30px;
+			align-items: center;
+			gap: 7px;
+			padding: 7px 10px 10px;
+		}
+
+		.search-visual {
+			width: 100%;
+			height: 29px;
+			padding: 4px 10px;
+			border: 1px solid var(--line-strong);
+			border-radius: 5px;
+			background: transparent;
+			color: var(--muted);
+			font-size: 10px;
+			outline: none;
+		}
+
+		.search-visual::placeholder { color: var(--muted); opacity: 1; }
+
+		.add-control {
+			width: 30px;
+			height: 30px;
+			display: grid;
+			place-items: center;
+			padding: 0;
+			border: 1px solid var(--line-strong);
+			border-radius: 50%;
+			background: transparent;
+			font-size: 20px;
+			font-weight: 350;
+			line-height: 1;
+		}
+
+		.toast {
+			position: fixed;
+			left: 50%;
+			bottom: 28px;
+			z-index: 10;
+			max-width: min(340px, calc(100% - 40px));
+			padding: 9px 13px;
+			border-radius: 7px;
+			background: var(--ink);
+			color: var(--surface);
+			font-size: 11px;
+			font-weight: 650;
+			line-height: 1.35;
+			opacity: 0;
+			pointer-events: none;
+			transform: translate(-50%, 8px);
+			transition: opacity 140ms ease, transform 140ms ease;
+		}
+
+		.toast.visible {
+			opacity: 1;
+			transform: translate(-50%, 0);
+		}
+
+		.visually-hidden {
+			position: absolute !important;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		button:focus-visible,
+		input:focus-visible {
+			outline: 2px solid var(--expense);
+			outline-offset: 2px;
+		}
+
+		@media (max-width: 350px) {
+			body { padding: 7px; }
+			.dashboard { min-height: calc(100dvh - 14px); border-radius: 18px; }
+			.topbar { grid-template-columns: 38px repeat(3, minmax(0, 1fr)); gap: 5px; padding-inline: 11px; }
+			.avatar { width: 35px; height: 35px; }
+			.top-tab { padding-inline: 5px; font-size: 9px; }
+			.summary { padding-inline: 16px; }
+			.categories { padding-inline: 14px; }
+			.activity { padding-inline: 22px; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { transition: none !important; }
+		}
+	</style>
+</head>
+<body>
+	<main class="dashboard" aria-label="Dasbor Aureus">
+		<header class="topbar" aria-label="Navigasi utama">
+			<button class="avatar" type="button" aria-label="Profil" aria-disabled="true">
+				<svg viewBox="0 0 32 32" aria-hidden="true">
+					<circle cx="16" cy="11" r="5"></circle>
+					<path d="M6.5 26.2c1.2-5.4 4.2-8.1 9.5-8.1s8.3 2.7 9.5 8.1"></path>
+				</svg>
+			</button>
+			<button class="top-tab" type="button" aria-current="page" aria-disabled="true">Home</button>
+			<button class="top-tab" type="button" aria-disabled="true">Aktivitas</button>
+			<button class="top-tab" type="button" aria-disabled="true">Langganan</button>
+		</header>
+
+		<section class="summary" id="summary" data-type="expense" aria-label="Pengeluaran hari ini Rp190.000, pemasukan hari ini Rp25.500">
+			<div>
+				<p class="summary-kicker"><span class="kicker-mark" aria-hidden="true"></span>Hari ini</p>
+				<p class="primary-amount" id="primaryAmount">− Rp190.000</p>
+				<p class="secondary-amount" id="secondaryAmount">+ Rp25.500</p>
+			</div>
+			<button class="type-switch" id="typeSwitch" type="button" aria-label="Tampilkan pemasukan" aria-pressed="false">
+				<span class="visually-hidden">Ganti antara pengeluaran dan pemasukan</span>
+			</button>
+		</section>
+
+		<section class="categories" aria-label="Kategori berdasarkan frekuensi terkini">
+			<div class="category-list" id="categoryList" data-type="expense"></div>
+		</section>
+
+		<section class="activity" aria-labelledby="activityTitle">
+			<h2 id="activityTitle">Aktivitas terkini</h2>
+			<div class="activity-visual" role="img" aria-label="Ilustrasi statis aktivitas transaksi terkini">
+				<svg viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
+					<path class="chart-line" d="M5 75 C16 72, 19 50, 30 58 S44 77, 56 59 S75 20, 89 30 S98 43, 112 42 S126 66, 143 69 S166 70, 181 68 S192 67, 198 65 L202 29 L207 68 C225 68, 239 70, 254 67 S270 77, 283 70 S292 47, 296 55 C300 66, 303 88, 307 105 L317 143"></path>
+				</svg>
+			</div>
+		</section>
+
+		<footer class="bottom-tools" aria-label="Alat bawah">
+			<label class="visually-hidden" for="searchVisual">Pencarian</label>
+			<input class="search-visual" id="searchVisual" type="text" placeholder="Pencarian" readonly aria-disabled="true">
+			<button class="add-control" type="button" aria-label="Tambah" aria-disabled="true">+</button>
+		</footer>
+	</main>
+
+	<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+	<script>
+		const rupiah = new Intl.NumberFormat('id-ID');
+
+		const dashboardData = {
+			expense: {
+				total: 190000,
+				categories: [
+					{ name: 'Makanan & Minuman', amount: 100000, frequency: 5, order: 0 },
+					{ name: 'Transportasi', amount: 50000, frequency: 4, order: 1 },
+					{ name: 'Belanja', amount: 40000, frequency: 3, order: 2 },
+					{ name: 'Rumah Tangga', amount: 0, frequency: 0, order: 3 },
+					{ name: 'Tagihan', amount: 0, frequency: 0, order: 4 },
+					{ name: 'Kesehatan', amount: 0, frequency: 0, order: 5 },
+					{ name: 'Hiburan', amount: 0, frequency: 0, order: 6 },
+					{ name: 'Pendidikan', amount: 0, frequency: 0, order: 7 },
+					{ name: 'Komunikasi', amount: 0, frequency: 0, order: 8 }
+				]
+			},
+			income: {
+				total: 25500,
+				categories: [
+					{ name: 'Freelance', amount: 15000, frequency: 3, order: 0 },
+					{ name: 'Penjualan', amount: 10500, frequency: 2, order: 1 },
+					{ name: 'Gaji', amount: 0, frequency: 0, order: 2 },
+					{ name: 'Bonus', amount: 0, frequency: 0, order: 3 },
+					{ name: 'Investasi', amount: 0, frequency: 0, order: 4 }
+				]
+			}
+		};
+
+		const summary = document.querySelector('#summary');
+		const primaryAmount = document.querySelector('#primaryAmount');
+		const secondaryAmount = document.querySelector('#secondaryAmount');
+		const typeSwitch = document.querySelector('#typeSwitch');
+		const categoryList = document.querySelector('#categoryList');
+		const toast = document.querySelector('#toast');
+
+		let activeType = 'expense';
+		let expanded = false;
+		let toastTimer;
+
+		function formatAmount(amount) {
+			return `Rp${rupiah.format(amount)}`;
+		}
+
+		function sortedCategories(type) {
+			return [...dashboardData[type].categories].sort(
+				(a, b) => b.frequency - a.frequency || a.order - b.order
+			);
+		}
+
+		function showToast(text) {
+			window.clearTimeout(toastTimer);
+			toast.textContent = text;
+			toast.classList.add('visible');
+			toastTimer = window.setTimeout(() => toast.classList.remove('visible'), 1800);
+		}
+
+		function bindCategoryFeedback(button, categoryName) {
+			let holdTimer = 0;
+			let held = false;
+
+			button.addEventListener('pointerdown', (event) => {
+				if (event.button !== 0) return;
+				held = false;
+				button.classList.add('pressed');
+				holdTimer = window.setTimeout(() => {
+					held = true;
+				button.classList.remove('pressed');
+				button.classList.add('holding');
+				showToast(`Input suara untuk ${categoryName}`);
+			}, 550);
+			});
+
+			button.addEventListener('pointerup', () => {
+				window.clearTimeout(holdTimer);
+				button.classList.remove('pressed', 'holding');
+				if (!held) showToast(`Input normal untuk ${categoryName}`);
+			});
+
+			button.addEventListener('pointercancel', () => {
+				window.clearTimeout(holdTimer);
+				button.classList.remove('pressed', 'holding');
+			});
+
+			button.addEventListener('pointerleave', () => {
+				if (!button.matches(':active')) {
+					window.clearTimeout(holdTimer);
+					button.classList.remove('pressed', 'holding');
+				}
+			});
+
+			button.addEventListener('contextmenu', (event) => {
+				event.preventDefault();
+				window.clearTimeout(holdTimer);
+				button.classList.remove('pressed', 'holding');
+				showToast(`Input suara untuk ${categoryName}`);
+			});
+
+			button.addEventListener('keydown', (event) => {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					showToast(`Input normal untuk ${categoryName}`);
+				}
+				if (event.key.toLowerCase() === 'v') {
+					event.preventDefault();
+					showToast(`Input suara untuk ${categoryName}`);
+				}
+			});
+		}
+
+		function renderCategories() {
+			const ranked = sortedCategories(activeType);
+			const visible = expanded ? ranked : ranked.slice(0, 5);
+			categoryList.dataset.type = activeType;
+			categoryList.replaceChildren();
+
+			visible.forEach((category) => {
+				const button = document.createElement('button');
+				button.type = 'button';
+				button.className = 'category-row';
+
+				const name = document.createElement('span');
+				name.className = 'category-name';
+				name.textContent = category.name;
+
+				const amount = document.createElement('span');
+				amount.className = `category-amount${category.amount === 0 ? ' empty' : ''}`;
+				amount.textContent = category.amount === 0 ? '••••' : formatAmount(category.amount);
+
+				button.setAttribute(
+					'aria-label',
+					category.amount === 0
+						? `${category.name}, belum ada transaksi. Ketuk untuk input normal, tahan untuk input suara.`
+						: `${category.name}, ${formatAmount(category.amount)}. Ketuk untuk input normal, tahan untuk input suara.`
+				);
+				button.append(name, amount);
+				bindCategoryFeedback(button, category.name);
+				categoryList.append(button);
+			});
+
+			if (ranked.length > 5) {
+				const more = document.createElement('button');
+				more.type = 'button';
+				more.className = 'more-categories';
+				more.textContent = expanded ? 'Tampilkan lebih sedikit' : 'Lihat kategori lainnya';
+				more.setAttribute('aria-expanded', String(expanded));
+				more.addEventListener('click', () => {
+					expanded = !expanded;
+					renderCategories();
+				});
+				categoryList.append(more);
+			}
+		}
+
+		function renderSummary() {
+			const isExpense = activeType === 'expense';
+			const primary = dashboardData[activeType].total;
+			const secondaryType = isExpense ? 'income' : 'expense';
+			const secondary = dashboardData[secondaryType].total;
+
+			summary.dataset.type = activeType;
+			primaryAmount.textContent = `${isExpense ? '−' : '+'} ${formatAmount(primary)}`;
+			secondaryAmount.textContent = `${isExpense ? '+' : '−'} ${formatAmount(secondary)}`;
+			summary.setAttribute(
+				'aria-label',
+				`Pengeluaran hari ini ${formatAmount(dashboardData.expense.total)}, pemasukan hari ini ${formatAmount(dashboardData.income.total)}`
+			);
+			typeSwitch.setAttribute('aria-pressed', String(!isExpense));
+			typeSwitch.setAttribute('aria-label', isExpense ? 'Tampilkan pemasukan' : 'Tampilkan pengeluaran');
+		}
+
+		typeSwitch.addEventListener('click', () => {
+			activeType = activeType === 'expense' ? 'income' : 'expense';
+			expanded = false;
+			renderSummary();
+			renderCategories();
+		});
+
+		renderSummary();
+		renderCategories();
+	</script>
+</body>
+</html>

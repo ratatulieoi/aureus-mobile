@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>Aureus activities layout mockup</title>
+	<style>
+		* { box-sizing: border-box; }
+
+		html {
+			font-family: Arial, sans-serif;
+			color: #000;
+			background: #fff;
+		}
+
+		body { margin: 0; }
+		button, input, select { font: inherit; color: inherit; }
+		button { background: #fff; }
+
+		.app {
+			width: min(420px, 100%);
+			min-height: 100dvh;
+			margin: 0 auto;
+			padding-bottom: 74px;
+			border-inline: 1px solid #000;
+		}
+
+		.app-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			min-height: 58px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #000;
+		}
+
+		.app-header h1 { margin: 0; font-size: 20px; }
+
+		.icon-button {
+			min-width: 44px;
+			height: 44px;
+			border: 1px solid #000;
+			border-radius: 0;
+			cursor: pointer;
+		}
+
+		main { padding: 16px; }
+
+		.filters {
+			padding-bottom: 16px;
+			border-bottom: 1px solid #000;
+		}
+
+		.search-field {
+			display: grid;
+			gap: 5px;
+			margin-bottom: 10px;
+		}
+
+		.search-field label,
+		.month-field label {
+			font-size: 13px;
+			font-weight: 700;
+		}
+
+		.search-field input,
+		.month-field select {
+			width: 100%;
+			height: 46px;
+			padding: 8px;
+			border: 1px solid #000;
+			border-radius: 0;
+			background: #fff;
+		}
+
+		.type-filters {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			margin-bottom: 10px;
+		}
+
+		.type-filters button {
+			min-height: 44px;
+			border: 1px solid #000;
+			cursor: pointer;
+		}
+
+		.type-filters button + button { border-left: 0; }
+
+		.type-filters button[aria-pressed="true"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.month-field { display: grid; gap: 5px; margin-bottom: 10px; }
+
+		.period-summary {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			margin-top: 14px;
+			border: 1px solid #000;
+		}
+
+		.period-summary div {
+			min-height: 65px;
+			padding: 10px;
+		}
+
+		.period-summary div + div { border-left: 1px solid #000; }
+		.period-summary.single { grid-template-columns: 1fr; }
+		.period-summary.single div { border-left: 0; }
+		.period-summary span, .period-summary strong { display: block; }
+		.period-summary span { margin-bottom: 6px; font-size: 12px; }
+
+		.history { padding-top: 18px; }
+
+		.date-group { margin-bottom: 20px; }
+		.date-group h2 { margin: 0 0 8px; font-size: 16px; }
+		.transaction-list { border: 1px solid #000; }
+
+		.transaction-row {
+			width: 100%;
+			min-height: 64px;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 12px;
+			padding: 10px;
+			border: 0;
+			border-bottom: 1px solid #000;
+			background: #fff;
+			text-align: left;
+			cursor: pointer;
+		}
+
+		.transaction-row:last-child { border-bottom: 0; }
+		.transaction-copy { min-width: 0; }
+
+		.transaction-copy strong,
+		.transaction-copy span {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.transaction-copy span { margin-top: 5px; font-size: 12px; }
+		.transaction-amount { font-weight: 700; white-space: nowrap; }
+
+		.empty-state {
+			margin: 0;
+			padding: 24px 12px;
+			border: 1px solid #000;
+			text-align: center;
+		}
+
+		.bottom-nav {
+			position: fixed;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			min-height: 64px;
+			transform: translateX(-50%);
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			border: 1px solid #000;
+			background: #fff;
+		}
+
+		.bottom-nav button,
+		.bottom-nav a {
+			min-height: 62px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border: 0;
+			border-right: 1px solid #000;
+			background: #fff;
+			color: #000;
+			text-align: center;
+			text-decoration: none;
+			cursor: pointer;
+		}
+
+		.bottom-nav > :last-child { border-right: 0; }
+
+		.bottom-nav [aria-current="page"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.backdrop {
+			position: fixed;
+			z-index: 1;
+			inset: 0;
+			display: none;
+			border: 0;
+			background: rgba(255, 255, 255, .8);
+		}
+
+		.backdrop.open { display: block; }
+
+		.sheet {
+			position: fixed;
+			z-index: 2;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			max-height: 92dvh;
+			overflow: auto;
+			transform: translate(-50%, 105%);
+			padding: 16px;
+			border: 1px solid #000;
+			background: #fff;
+			transition: transform 150ms linear;
+		}
+
+		.sheet.open { transform: translate(-50%, 0); }
+
+		.sheet-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 16px;
+		}
+
+		.sheet-header h2 { margin: 0; font-size: 20px; }
+		.sheet-header p { margin: 4px 0 0; font-size: 13px; }
+
+		.field {
+			display: grid;
+			gap: 5px;
+			margin-bottom: 14px;
+		}
+
+		.field label { font-size: 13px; font-weight: 700; }
+
+		.field input,
+		.field select {
+			width: 100%;
+			height: 46px;
+			padding: 8px;
+			border: 1px solid #000;
+			border-radius: 0;
+			background: #fff;
+		}
+
+		.form-actions {
+			display: grid;
+			grid-template-columns: 1fr 2fr;
+			gap: 8px;
+			margin-top: 20px;
+		}
+
+		.form-actions button {
+			min-height: 48px;
+			border: 1px solid #000;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.form-actions .save-button { border-width: 2px; }
+
+		.message {
+			position: fixed;
+			z-index: 3;
+			left: 50%;
+			bottom: 78px;
+			display: none;
+			width: min(390px, calc(100% - 32px));
+			transform: translateX(-50%);
+			padding: 12px;
+			border: 2px solid #000;
+			background: #fff;
+			text-align: center;
+		}
+
+		.message.visible { display: block; }
+
+		:focus-visible {
+			outline: 3px double #000;
+			outline-offset: 2px;
+		}
+
+		@media (min-width: 421px) {
+			body { padding: 20px 0; }
+			.app { min-height: calc(100dvh - 40px); border-block: 1px solid #000; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.sheet { transition: none; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="app-header">
+			<h1>Aktivitas</h1>
+			<button class="icon-button" type="button" aria-label="Buka pengaturan aktivitas">Menu</button>
+		</header>
+
+		<main>
+			<section class="filters" aria-label="Cari dan filter transaksi">
+				<div class="month-field">
+					<label for="monthFilter">Periode</label>
+					<select id="monthFilter"></select>
+				</div>
+
+				<div class="search-field">
+					<label for="searchInput">Cari transaksi</label>
+					<input id="searchInput" type="search" autocomplete="off" placeholder="Deskripsi atau kategori">
+				</div>
+
+				<div class="type-filters" aria-label="Filter jenis transaksi">
+					<button type="button" data-filter="all" aria-pressed="true">Semua</button>
+					<button type="button" data-filter="expense" aria-pressed="false">Pengeluaran</button>
+					<button type="button" data-filter="income" aria-pressed="false">Pemasukan</button>
+				</div>
+
+				<div class="period-summary" id="periodSummary" aria-live="polite">
+					<div id="incomeSummary"><span>Pemasukan</span><strong id="incomeTotal">Rp0</strong></div>
+					<div id="expenseSummary"><span>Pengeluaran</span><strong id="expenseTotal">Rp0</strong></div>
+				</div>
+			</section>
+
+			<section class="history" id="history" aria-label="Riwayat transaksi"></section>
+		</main>
+
+		<nav class="bottom-nav" aria-label="Navigasi utama">
+			<a href="./dashboard-low-click.html">Home</a>
+			<a href="./activities.html" aria-current="page">Aktivitas</a>
+			<a href="./subscriptions.html">Langganan</a>
+			<a href="./more.html">Lainnya</a>
+		</nav>
+	</div>
+
+	<button class="backdrop" id="backdrop" type="button" aria-label="Tutup edit transaksi"></button>
+
+	<section class="sheet" id="editSheet" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="editTitle">Edit transaksi</h2>
+				<p>Ubah atau hapus transaksi ini.</p>
+			</div>
+			<button class="icon-button" id="closeEdit" type="button" aria-label="Tutup edit transaksi">Tutup</button>
+		</div>
+
+		<form id="editForm">
+			<div class="field">
+				<label for="editType">Jenis</label>
+				<select id="editType" required>
+					<option value="expense">Pengeluaran</option>
+					<option value="income">Pemasukan</option>
+				</select>
+			</div>
+			<div class="field">
+				<label for="editAmount">Jumlah</label>
+				<input id="editAmount" inputmode="numeric" autocomplete="off" required>
+			</div>
+			<div class="field">
+				<label for="editDescription">Deskripsi</label>
+				<input id="editDescription" autocomplete="off" maxlength="100" required>
+			</div>
+			<div class="field">
+				<label for="editCategory">Kategori</label>
+				<input id="editCategory" autocomplete="off" maxlength="100" required>
+			</div>
+			<div class="field">
+				<label for="editDate">Tanggal</label>
+				<input id="editDate" type="date" required>
+			</div>
+
+			<div class="form-actions">
+				<button id="deleteTransaction" type="button">Hapus</button>
+				<button class="save-button" type="submit">Simpan perubahan</button>
+			</div>
+		</form>
+	</section>
+
+	<div class="message" id="message" role="status" aria-live="polite"></div>
+
+	<script>
+		const STORAGE_KEY = 'aureusLayoutMockTransactionsV1';
+		const rupiah = new Intl.NumberFormat('id-ID');
+		const monthLabel = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
+		const dateLabel = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+		const historyElement = document.querySelector('#history');
+		const searchInput = document.querySelector('#searchInput');
+		const monthFilter = document.querySelector('#monthFilter');
+		const periodSummary = document.querySelector('#periodSummary');
+		const incomeSummary = document.querySelector('#incomeSummary');
+		const expenseSummary = document.querySelector('#expenseSummary');
+		const incomeTotal = document.querySelector('#incomeTotal');
+		const expenseTotal = document.querySelector('#expenseTotal');
+		const backdrop = document.querySelector('#backdrop');
+		const editSheet = document.querySelector('#editSheet');
+		const editType = document.querySelector('#editType');
+		const editAmount = document.querySelector('#editAmount');
+		const editDescription = document.querySelector('#editDescription');
+		const editCategory = document.querySelector('#editCategory');
+		const editDate = document.querySelector('#editDate');
+		const message = document.querySelector('#message');
+		let transactions = loadTransactions();
+		let activeType = 'all';
+		let editingId = null;
+		let messageTimer;
+
+		function localDate(offset = 0, monthOffset = 0) {
+			const date = new Date();
+			date.setHours(12, 0, 0, 0);
+			date.setMonth(date.getMonth() + monthOffset);
+			date.setDate(date.getDate() + offset);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		}
+
+		function defaultTransactions() {
+			return [
+				{ id: 'mock-1', type: 'expense', amount: 25000, description: 'Makan siang', category: 'Makanan & Minuman', date: localDate(0), time: '12:30' },
+				{ id: 'mock-2', type: 'expense', amount: 54500, description: 'Belanja harian', category: 'Belanja', date: localDate(0), time: '10:15' },
+				{ id: 'mock-3', type: 'expense', amount: 5000, description: 'Parkir', category: 'Transportasi', date: localDate(0), time: '09:12' },
+				{ id: 'mock-4', type: 'expense', amount: 100000, description: 'Bensin', category: 'Transportasi', date: localDate(0), time: '07:40' },
+				{ id: 'mock-5', type: 'income', amount: 8000000, description: 'Gaji bulanan', category: 'Gaji', date: localDate(0), time: '07:00' },
+				{ id: 'mock-6', type: 'expense', amount: 18000, description: 'Kopi susu', category: 'Makanan & Minuman', date: localDate(-1), time: '16:20' },
+				{ id: 'mock-7', type: 'expense', amount: 325000, description: 'Internet', category: 'Tagihan', date: localDate(-2), time: '11:05' },
+				{ id: 'mock-8', type: 'income', amount: 750000, description: 'Bonus proyek', category: 'Bonus', date: localDate(-5), time: '18:10' },
+				{ id: 'mock-9', type: 'expense', amount: 275000, description: 'Belanja mingguan', category: 'Belanja', date: localDate(-8), time: '14:25' },
+				{ id: 'mock-10', type: 'income', amount: 1500000, description: 'Desain landing page', category: 'Freelance', date: localDate(-3, -1), time: '19:30' },
+				{ id: 'mock-11', type: 'expense', amount: 350000, description: 'Listrik', category: 'Tagihan', date: localDate(-6, -1), time: '08:15' }
+			];
+		}
+
+		function loadTransactions() {
+			try {
+				const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+				if (Array.isArray(stored)) return stored;
+			} catch {}
+			const initial = defaultTransactions();
+			persistTransactions(initial);
+			return initial;
+		}
+
+		function persistTransactions(value = transactions) {
+			try {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+			} catch {}
+		}
+
+		function currentMonthValue() {
+			const date = new Date();
+			return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+		}
+
+		function fillMonthOptions() {
+			const selected = monthFilter.value || currentMonthValue();
+			const months = [...new Set(transactions.map((transaction) => transaction.date.slice(0, 7)))].sort().reverse();
+			monthFilter.replaceChildren();
+			const allOption = document.createElement('option');
+			allOption.value = 'all';
+			allOption.textContent = 'Semua bulan';
+			monthFilter.append(allOption);
+			months.forEach((month) => {
+				const option = document.createElement('option');
+				option.value = month;
+				option.textContent = monthLabel.format(new Date(`${month}-01T12:00:00`));
+				monthFilter.append(option);
+			});
+			monthFilter.value = [...monthFilter.options].some((option) => option.value === selected) ? selected : 'all';
+		}
+
+		function periodTransactions() {
+			return transactions.filter(
+				(transaction) => monthFilter.value === 'all' || transaction.date.startsWith(monthFilter.value)
+			);
+		}
+
+		function filteredTransactions() {
+			const query = searchInput.value.trim().toLocaleLowerCase('id-ID');
+			return periodTransactions()
+				.filter((transaction) => activeType === 'all' || transaction.type === activeType)
+				.filter((transaction) => !query || `${transaction.description} ${transaction.category}`.toLocaleLowerCase('id-ID').includes(query))
+				.sort((a, b) => `${b.date}T${b.time || '00:00'}`.localeCompare(`${a.date}T${a.time || '00:00'}`));
+		}
+
+		function displayDate(dateValue) {
+			if (dateValue === localDate(0)) return 'Hari ini';
+			if (dateValue === localDate(-1)) return 'Kemarin';
+			return dateLabel.format(new Date(`${dateValue}T12:00:00`));
+		}
+
+		function renderHistory() {
+			const visible = filteredTransactions();
+			const period = periodTransactions();
+			historyElement.replaceChildren();
+			const income = period.filter((transaction) => transaction.type === 'income').reduce((sum, transaction) => sum + transaction.amount, 0);
+			const expense = period.filter((transaction) => transaction.type === 'expense').reduce((sum, transaction) => sum + transaction.amount, 0);
+			incomeTotal.textContent = `Rp${rupiah.format(income)}`;
+			expenseTotal.textContent = `Rp${rupiah.format(expense)}`;
+			incomeSummary.hidden = activeType === 'expense';
+			expenseSummary.hidden = activeType === 'income';
+			periodSummary.classList.toggle('single', activeType !== 'all');
+
+			if (visible.length === 0) {
+				const empty = document.createElement('p');
+				empty.className = 'empty-state';
+				empty.textContent = 'Tidak ada transaksi yang cocok.';
+				historyElement.append(empty);
+				return;
+			}
+
+			const groups = new Map();
+			visible.forEach((transaction) => {
+				if (!groups.has(transaction.date)) groups.set(transaction.date, []);
+				groups.get(transaction.date).push(transaction);
+			});
+
+			groups.forEach((groupTransactions, date) => {
+				const section = document.createElement('section');
+				section.className = 'date-group';
+				const heading = document.createElement('h2');
+				heading.textContent = displayDate(date);
+				const list = document.createElement('div');
+				list.className = 'transaction-list';
+				groupTransactions.forEach((transaction) => list.append(createTransactionRow(transaction)));
+				section.append(heading, list);
+				historyElement.append(section);
+			});
+		}
+
+		function createTransactionRow(transaction) {
+			const button = document.createElement('button');
+			button.className = 'transaction-row';
+			button.type = 'button';
+			button.addEventListener('click', () => openEdit(transaction.id));
+
+			const copy = document.createElement('span');
+			copy.className = 'transaction-copy';
+			const description = document.createElement('strong');
+			description.textContent = transaction.description;
+			const detail = document.createElement('span');
+			detail.textContent = `${transaction.category} · ${transaction.time || '00:00'}`;
+			copy.append(description, detail);
+
+			const amount = document.createElement('span');
+			amount.className = 'transaction-amount';
+			amount.textContent = `${transaction.type === 'income' ? '+' : '−'}Rp${rupiah.format(transaction.amount)}`;
+			button.append(copy, amount);
+			return button;
+		}
+
+		function openEdit(id) {
+			const transaction = transactions.find((entry) => entry.id === id);
+			if (!transaction) return;
+			editingId = id;
+			editType.value = transaction.type;
+			editAmount.value = rupiah.format(transaction.amount);
+			editDescription.value = transaction.description;
+			editCategory.value = transaction.category;
+			editDate.value = transaction.date;
+			backdrop.classList.add('open');
+			editSheet.classList.add('open');
+			setTimeout(() => editAmount.focus(), 170);
+		}
+
+		function closeEdit() {
+			editingId = null;
+			backdrop.classList.remove('open');
+			editSheet.classList.remove('open');
+		}
+
+		function showMessage(text) {
+			clearTimeout(messageTimer);
+			message.textContent = text;
+			message.classList.add('visible');
+			messageTimer = setTimeout(() => message.classList.remove('visible'), 2500);
+		}
+
+		function refresh() {
+			fillMonthOptions();
+			renderHistory();
+		}
+
+		document.querySelectorAll('.type-filters button').forEach((button) => {
+			button.addEventListener('click', () => {
+				activeType = button.dataset.filter;
+				document.querySelectorAll('.type-filters button').forEach((entry) => {
+					entry.setAttribute('aria-pressed', String(entry === button));
+				});
+				renderHistory();
+			});
+		});
+
+		searchInput.addEventListener('input', renderHistory);
+		monthFilter.addEventListener('change', renderHistory);
+		editAmount.addEventListener('input', () => {
+			const digits = editAmount.value.replace(/\D/g, '').slice(0, 15);
+			editAmount.value = digits ? rupiah.format(Number(digits)) : '';
+		});
+
+		document.querySelector('#closeEdit').addEventListener('click', closeEdit);
+		backdrop.addEventListener('click', closeEdit);
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') closeEdit();
+		});
+
+		document.querySelector('#editForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const transaction = transactions.find((entry) => entry.id === editingId);
+			const amount = Number(editAmount.value.replace(/\D/g, ''));
+			const description = editDescription.value.trim();
+			const category = editCategory.value.trim();
+			if (!transaction || !amount || !description || !category) return;
+			Object.assign(transaction, {
+				type: editType.value,
+				amount,
+				description,
+				category,
+				date: editDate.value
+			});
+			persistTransactions();
+			closeEdit();
+			refresh();
+			showMessage('Perubahan transaksi disimpan.');
+		});
+
+		document.querySelector('#deleteTransaction').addEventListener('click', () => {
+			if (!editingId) return;
+			transactions = transactions.filter((transaction) => transaction.id !== editingId);
+			persistTransactions();
+			closeEdit();
+			refresh();
+			showMessage('Transaksi dihapus.');
+		});
+
+		refresh();
+	</script>
+</body>
+</html>

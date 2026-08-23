@@ -6,6 +6,8 @@ This file is the single project document for coding agents. It maps the codebase
 
 Aureus is an Indonesian Rupiah money tracker for the browser and Android. The application records income, expenses, and recurring subscriptions. It also provides statistics, CSV export, printable reports, and JSON backup and restore.
 
+The product identity uses the approved three-part Aureus mark and the fixed core palette: lime `#D7DF70`, ink `#0D110E`, and paper `#F7F5EF`. Browser icons, the web manifest, Android launcher icons, Android adaptive icons, Android splash screens, and the in-app header all derive from this identity. Keep destructive red limited to dangerous actions; do not reintroduce Lovable, default Capacitor, or generic template branding.
+
 The application has these boundaries:
 
 - Financial data stays on the device. There is no backend, account system, cloud sync, or analytics integration.
@@ -13,7 +15,7 @@ The application has these boundaries:
 - The Android build runs the same React application in a Capacitor WebView.
 - Android cloud backup and device transfer are disabled for app data.
 - Voice recognition uses the browser or Android speech-recognition service. Speech processing can depend on the platform and a network connection.
-- All money values are positive whole Rupiah amounts. The application has no multi-currency model.
+- Transaction values are positive whole Rupiah amounts. Subscription costs are whole Rupiah amounts from Rp0 upward. The application has no multi-currency model.
 - The active application has no budget feature. `BudgetManager.tsx` and the `Budget` type are dormant code.
 - The repository builds release artifacts but does not publish them to Google Play.
 
@@ -63,7 +65,7 @@ index.html
 
 - the transaction, subscription, and category state,
 - `localStorage` hydration and persistence,
-- the active top-navigation tab,
+- the active primary navigation destination,
 - the Home dashboard period and transaction type,
 - the Activity month and year,
 - the shared quick-entry panel,
@@ -73,14 +75,16 @@ The page loads expensive feature sections with `React.lazy`. `src/components/Laz
 
 ## Active UI map
 
-`src/components/Header.tsx` defines the `NavTab` union and the four active top-navigation sections.
+`src/components/BottomNav.tsx` defines the `NavTab` union. It renders the fixed liquid-glass primary navigation in the physical order Subs, Home, then History. The center Home control shows only the Aureus mark. `src/components/Header.tsx` renders the Aureus lockup and a three-dot utility menu for theme switching, direct backup access, and Lainnya.
 
-| Tab | Active components | Purpose |
-| --- | --- | --- |
-| `home` | `DashboardHome`, `QuickTransactionEntry` | Show period totals, switch transaction type, rank categories, and create transactions. |
-| `activity` | `TransactionTable`, `StatisticsChart`, `TransactionByCategory` | Inspect transactions by month, type, category, and chart bucket. |
-| `subs` | `SubscriptionManager` | Create subscriptions and reconcile due payments. |
-| `more` | `MoreMenu`, `CategoryManager`, `MonthlyReports`, `BackupRestore`, `ThemeToggle`, `AboutSection` | Manage categories and open reports, backup, appearance, or application information. |
+| Destination | Entry point | Active components | Purpose |
+| --- | --- | --- | --- |
+| `home` | Center Aureus mark | `DashboardHome`, `QuickTransactionEntry` | Show period totals, switch transaction type, rank categories, and create transactions. |
+| `activity` | `History` in the bottom dock | `ActivityScreen` | Search and filter monthly transactions, show type-aware totals, group rows by date, and edit or delete a transaction. |
+| `subs` | `Subs` in the bottom dock | `SubscriptionManager` | Create subscriptions and reconcile due payments. |
+| `more` | `Lainnya` in the three-dot menu | `MoreMenu`, `CategoryManager`, `MonthlyReports`, `BackupRestore`, `ThemeToggle`, `AboutSection` | Manage categories and open reports, backup, appearance, or application information. |
+
+Horizontal swiping follows the bottom dock: Subs, Home, History. `more` is not part of the swipe sequence. The utility menu can open Backup directly in the `more` view.
 
 The shared component layers are:
 
@@ -95,9 +99,11 @@ These files are not in the active runtime path:
 | File | Current status |
 | --- | --- |
 | `src/components/BudgetManager.tsx` | Tested, but not mounted and not persisted. |
-| `src/components/TransactionHistory.tsx` | Tested, but replaced in the active UI by `TransactionTable`. |
+| `src/components/TransactionHistory.tsx` | Tested, but not mounted in the active UI. |
+| `src/components/TransactionTable.tsx` | Tested, but replaced in the active UI by `ActivityScreen`. |
+| `src/components/StatisticsChart.tsx` | Not mounted in the active UI. |
+| `src/components/TransactionByCategory.tsx` | Not mounted in the active UI. |
 | `src/domain/subscription-storage.ts` | Tested compatibility helper, but `Index` hydrates subscriptions through `ledger.ts`. |
-| `src/App.css` | Vite starter CSS. No active file imports it. |
 
 Do not treat dormant code as a shipped feature. A feature becomes active only after the composition root, state model, persistence schema, backup schema, and tests all include it.
 
@@ -166,7 +172,7 @@ interface Subscription {
 `src/domain/subscription.ts` enforces the subscription rules:
 
 - `name` is required and has a 100-character limit.
-- `amount` follows the transaction Rupiah policy.
+- `amount` is a whole Rupiah value from Rp0 through the shared maximum transaction amount.
 - `cycleDays` is an integer from `1` through `36_600`.
 - `startDate` and `nextPaymentDate` are valid `YYYY-MM-DD` calendar dates.
 - `nextPaymentDate` cannot precede `startDate`.
@@ -281,7 +287,8 @@ The user reviews the parsed amount and description before saving. In the active 
 
 `reconcileSubscriptions` applies this renewal policy:
 
-- Every occurrence due on or before the local current day becomes an expense.
+- Every paid occurrence due on or before the local current day becomes an expense.
+- An Rp0 occurrence advances the subscription schedule without creating a zero-value transaction.
 - Each expense uses its scheduled due date, not the reconciliation time.
 - Each occurrence uses its deterministic renewal ID.
 - The function advances `nextPaymentDate` in one pass.
@@ -413,7 +420,8 @@ The active style contracts include:
 - AA-tested text and status colors,
 - a visible global `focus-visible` outline,
 - at least 44 CSS-pixel touch targets for common controls,
-- safe-area utilities for the fixed header, bottom navigation, dialogs, and content offsets,
+- safe-area utilities for the sticky header, fixed bottom navigation, dialogs, and content offsets,
+- a neutral liquid-glass bottom dock with geometry-matched displacement maps, low-opacity white surfaces, edge-weighted refraction, soft blur, bright rims, readable labels, no colored glow, and no visual active-page cue,
 - `viewport-fit=cover` in `index.html`,
 - a global `prefers-reduced-motion: reduce` override.
 
@@ -545,12 +553,10 @@ Use this map to find the first relevant implementation and regression tests.
 | Storage or migration | `ledger.ts`, `backup.ts`, `subscription.ts` | `ledger.test.ts`, `backup.test.ts`, `subscription-storage.test.ts` |
 | Backup schema or restore UX | `backup.ts`, `BackupRestore.tsx`, `Index.tsx` | `backup.test.ts`, `BackupRestore.test.tsx` |
 | Date or period behavior | `calendar-date.ts`, `period.ts`, `dashboard-period.ts` | `calendar-date.test.ts`, `period.test.ts`, `dashboard-period.test.ts`, affected component tests |
-| Statistics table | `TransactionTable.tsx`, `period.ts` | `TransactionTable.test.tsx`, `period.test.ts` |
-| Chart | `StatisticsChart.tsx`, `components/ui/chart.tsx` | Vitest plus the bundle check |
-| Category breakdown | `TransactionByCategory.tsx`, `period.ts` | `period.test.ts`, accessibility checks |
+| Activity history, filters, edit, or delete | `ActivityScreen.tsx` | `ActivityScreen.test.tsx`, `Index.test.tsx` |
 | CSV export | `csv.ts`, `MonthlyReports.tsx`, `export-file.ts` | `csv.test.ts`, `export-file.test.ts` |
 | Printable report | `report.ts`, `MonthlyReports.tsx` | `report.test.ts` |
-| Navigation or tab composition | `Header.tsx`, `Index.tsx` | `BottomNav.test.tsx`, `Index.test.tsx` |
+| Navigation or tab composition | `Header.tsx`, `BottomNav.tsx`, `Index.tsx` | `Header.test.tsx`, `BottomNav.test.tsx`, `Index.test.tsx` |
 | Theme, safe areas, contrast, or motion | `index.css`, `tailwind.config.ts`, `ThemeToggle.tsx`, `index.html` | `styles.test.ts`, `ControlSizing.test.tsx`, `npm run android:assert` |
 | Shared controls | `src/components/ui/` | Component tests and `Index.test.tsx` axe coverage |
 | Android privacy or file sharing | Manifest and XML resources, `export-file.ts`, `capacitor.config.ts` | `assert-android.mjs`, `assert-merged-manifest.mjs`, `export-file.test.ts` |

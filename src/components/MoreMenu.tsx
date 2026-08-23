@@ -9,7 +9,7 @@ const MonthlyReports = lazy(() => import('@/components/MonthlyReports'));
 const BackupRestore = lazy(() => import('@/components/BackupRestore'));
 const AboutSection = lazy(() => import('@/components/AboutSection'));
 
-type MoreSection = 'menu' | 'reports' | 'categories' | 'backup' | 'appearance' | 'about';
+export type MoreSection = 'menu' | 'reports' | 'categories' | 'backup' | 'appearance' | 'about';
 
 interface MoreMenuProps {
   transactions: Transaction[];
@@ -17,8 +17,7 @@ interface MoreMenuProps {
   categories: CategoryCatalog;
   onCategoriesChange: (categories: CategoryCatalog) => void;
   onRestore: (snapshot: { transactions: Transaction[]; subscriptions: Subscription[]; categories: CategoryCatalog }) => void;
-  openCategoryAdd: boolean;
-  onCloseCategoryAdd: () => void;
+  initialSection?: MoreSection;
 }
 
 const MoreMenu: React.FC<MoreMenuProps> = ({
@@ -27,17 +26,16 @@ const MoreMenu: React.FC<MoreMenuProps> = ({
   categories,
   onCategoriesChange,
   onRestore,
-  openCategoryAdd,
-  onCloseCategoryAdd,
+  initialSection = 'menu',
 }) => {
-  const [section, setSection] = useState<MoreSection>(openCategoryAdd ? 'categories' : 'menu');
+  const [section, setSection] = useState<MoreSection>(initialSection);
 
   if (section !== 'menu') {
     return (
       <div className="utility-page">
         <button type="button" className="utility-back" onClick={() => setSection('menu')}><ChevronLeft aria-hidden="true" />Kembali ke Lainnya</button>
         {section === 'reports' && <LazyFeature featureName="Laporan" resetKey={section}><MonthlyReports transactions={transactions} /></LazyFeature>}
-        {section === 'categories' && <CategoryManager categories={categories} onCategoriesChange={onCategoriesChange} initialAddOpen={openCategoryAdd} onCloseAdd={onCloseCategoryAdd} />}
+        {section === 'categories' && <CategoryManager categories={categories} onCategoriesChange={onCategoriesChange} />}
         {section === 'backup' && <LazyFeature featureName="Backup" resetKey={section}><BackupRestore transactions={transactions} subscriptions={subscriptions} categories={categories} onRestore={onRestore} /></LazyFeature>}
         {section === 'appearance' && <section className="appearance-section"><h2>Tampilan</h2><p>Ganti tema Aureus.</p><ThemeToggle /></section>}
         {section === 'about' && <LazyFeature featureName="Tentang Aureus" resetKey={section}><AboutSection /></LazyFeature>}

@@ -7,6 +7,8 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const buttonSource = readFileSync(new URL('./components/ui/button.tsx', import.meta.url), 'utf8');
 const aboutSource = readFileSync(new URL('./components/AboutSection.tsx', import.meta.url), 'utf8');
 const budgetSource = readFileSync(new URL('./components/BudgetManager.tsx', import.meta.url), 'utf8');
+const bottomNavSource = readFileSync(new URL('./components/BottomNav.tsx', import.meta.url), 'utf8');
+const liquidGlassSource = readFileSync(new URL('./components/LiquidGlassFilter.tsx', import.meta.url), 'utf8');
 
 type Hsl = readonly [number, number, number];
 
@@ -53,6 +55,24 @@ describe('global accessibility CSS', () => {
     expect(buttonSource).toContain('link: "text-accent-text');
     expect(aboutSource).toContain('hover:text-accent-text');
     expect(budgetSource).toContain('text-accent-text');
+  });
+
+  it('keeps the fixed refractive glass navigation safe, neutral, and cue-free', () => {
+    expect(css).toMatch(/\.bottom-nav-positioner\s*\{[^}]*position:\s*fixed/s);
+    expect(css).toMatch(/\.bottom-nav-liquid\s*\{[^}]*background:\s*transparent/s);
+    expect(css).toMatch(/\.bottom-nav-liquid::before\s*\{[^}]*z-index:\s*0;[^}]*box-shadow:[^}]*inset 1px 1px/s);
+    expect(css).toMatch(/\.bottom-nav-liquid::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#container-glass"\)/s);
+    expect(css).toMatch(/\.bottom-nav-home\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/s);
+    expect(css).toMatch(/\.bottom-nav-home::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#btn-glass"\)/s);
+    expect(css).toMatch(/\.app-content\s*\{[^}]*padding-bottom:\s*calc\(/s);
+    expect(css).toMatch(/\.dashboard-home\s*\{[^}]*safe-area-inset-bottom/s);
+    expect(css).not.toMatch(/\.bottom-nav-liquid\s*\{[^}]*(brand-lime|brand-paper)/s);
+    expect(css).not.toMatch(/\.bottom-nav-(?:side|home)\.is-active/);
+    expect(bottomNavSource).not.toContain('is-active');
+    expect(liquidGlassSource).toContain('id="container-glass"');
+    expect(liquidGlassSource).toContain('stitchTiles="stitch"');
+    expect(liquidGlassSource).toContain('scale="40"');
+    expect(liquidGlassSource).toContain('/brand/liquid-glass-button-map.png');
   });
 
   it('comprehensively disables decorative motion when reduced motion is requested', () => {

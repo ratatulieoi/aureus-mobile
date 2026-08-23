@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>Aureus more layout mockup</title>
+	<style>
+		* { box-sizing: border-box; }
+
+		html {
+			font-family: Arial, sans-serif;
+			color: #000;
+			background: #fff;
+		}
+
+		body { margin: 0; }
+		button, input, select { font: inherit; color: inherit; }
+		button { background: #fff; }
+
+		.app {
+			width: min(420px, 100%);
+			min-height: 100dvh;
+			margin: 0 auto;
+			padding-bottom: 74px;
+			border-inline: 1px solid #000;
+		}
+
+		.app-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			min-height: 58px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #000;
+		}
+
+		.app-header h1 { margin: 0; font-size: 20px; }
+
+		.icon-button {
+			min-width: 44px;
+			height: 44px;
+			border: 1px solid #000;
+			border-radius: 0;
+			cursor: pointer;
+		}
+
+		main { padding: 16px; }
+		.menu-section + .menu-section { margin-top: 24px; }
+		.menu-section h2 { margin: 0 0 9px; font-size: 17px; }
+		.menu-list { border: 1px solid #000; }
+
+		.menu-row {
+			width: 100%;
+			min-height: 62px;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 12px;
+			padding: 10px 12px;
+			border: 0;
+			border-bottom: 1px solid #000;
+			background: #fff;
+			text-align: left;
+			text-decoration: none;
+			cursor: pointer;
+		}
+
+		.menu-row:last-child { border-bottom: 0; }
+		.menu-copy { min-width: 0; }
+
+		.menu-copy strong,
+		.menu-copy span {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.menu-copy span { margin-top: 4px; font-size: 12px; }
+		.menu-arrow { font-size: 20px; }
+
+		.bottom-nav {
+			position: fixed;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			min-height: 64px;
+			transform: translateX(-50%);
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			border: 1px solid #000;
+			background: #fff;
+		}
+
+		.bottom-nav a {
+			min-height: 62px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border-right: 1px solid #000;
+			background: #fff;
+			color: #000;
+			text-align: center;
+			text-decoration: none;
+		}
+
+		.bottom-nav > :last-child { border-right: 0; }
+
+		.bottom-nav [aria-current="page"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.backdrop {
+			position: fixed;
+			z-index: 1;
+			inset: 0;
+			display: none;
+			border: 0;
+			background: rgba(255, 255, 255, .8);
+		}
+
+		.backdrop.open { display: block; }
+
+		.sheet {
+			position: fixed;
+			z-index: 2;
+			left: 50%;
+			bottom: 0;
+			width: min(420px, 100%);
+			max-height: 92dvh;
+			overflow: auto;
+			transform: translate(-50%, 105%);
+			padding: 16px;
+			border: 1px solid #000;
+			background: #fff;
+			transition: transform 150ms linear;
+		}
+
+		.sheet.open { transform: translate(-50%, 0); }
+
+		.sheet-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 16px;
+		}
+
+		.sheet-header h2 { margin: 0; font-size: 20px; }
+		.sheet-header p { margin: 4px 0 0; font-size: 13px; }
+
+		.field {
+			display: grid;
+			gap: 5px;
+			margin-bottom: 14px;
+		}
+
+		.field label { font-size: 13px; font-weight: 700; }
+
+		.field input,
+		.field select {
+			width: 100%;
+			height: 46px;
+			padding: 8px;
+			border: 1px solid #000;
+			border-radius: 0;
+			background: #fff;
+		}
+
+		.sheet-note {
+			margin: 0 0 16px;
+			padding: 12px;
+			border: 1px solid #000;
+			font-size: 13px;
+			line-height: 1.4;
+		}
+
+		.category-tabs,
+		.theme-options {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			margin-bottom: 12px;
+		}
+
+		.theme-options { grid-template-columns: repeat(3, 1fr); }
+
+		.category-tabs button,
+		.theme-options button {
+			min-height: 44px;
+			border: 1px solid #000;
+			cursor: pointer;
+		}
+
+		.category-tabs button + button,
+		.theme-options button + button { border-left: 0; }
+
+		.category-tabs button[aria-selected="true"],
+		.theme-options button[aria-pressed="true"] {
+			font-weight: 700;
+			text-decoration: underline;
+		}
+
+		.category-list { border: 1px solid #000; }
+
+		.category-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto auto;
+			align-items: center;
+			gap: 7px;
+			min-height: 55px;
+			padding: 7px 8px;
+			border-bottom: 1px solid #000;
+		}
+
+		.category-row:last-child { border-bottom: 0; }
+		.category-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+		.category-row button {
+			min-height: 38px;
+			padding: 6px 9px;
+			border: 1px solid #000;
+			cursor: pointer;
+		}
+
+		.add-category,
+		.primary-button,
+		.secondary-button {
+			width: 100%;
+			min-height: 48px;
+			border: 1px solid #000;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.add-category,
+		.primary-button { margin-top: 12px; border-width: 2px; }
+		.secondary-button { margin-top: 8px; }
+
+		.about-table { border: 1px solid #000; }
+
+		.about-row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 12px;
+			padding: 10px;
+			border-bottom: 1px solid #000;
+		}
+
+		.about-row:last-child { border-bottom: 0; }
+		.about-row span:last-child { text-align: right; font-weight: 700; }
+
+		.message {
+			position: fixed;
+			z-index: 3;
+			left: 50%;
+			bottom: 78px;
+			display: none;
+			width: min(390px, calc(100% - 32px));
+			transform: translateX(-50%);
+			padding: 12px;
+			border: 2px solid #000;
+			background: #fff;
+			text-align: center;
+		}
+
+		.message.visible { display: block; }
+
+		:focus-visible {
+			outline: 3px double #000;
+			outline-offset: 2px;
+		}
+
+		@media (min-width: 421px) {
+			body { padding: 20px 0; }
+			.app { min-height: calc(100dvh - 40px); border-block: 1px solid #000; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.sheet { transition: none; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="app-header">
+			<h1>Lainnya</h1>
+			<button class="icon-button" type="button" aria-label="Buka menu lain">Menu</button>
+		</header>
+
+		<main>
+			<section class="menu-section" aria-labelledby="dataTitle">
+				<h2 id="dataTitle">Data dan laporan</h2>
+				<div class="menu-list">
+					<button class="menu-row" id="reportsMenu" type="button">
+						<span class="menu-copy"><strong>Laporan & ekspor</strong><span>Ringkasan, CSV, dan cetak</span></span>
+						<span class="menu-arrow" aria-hidden="true">›</span>
+					</button>
+					<button class="menu-row" id="categoriesMenu" type="button">
+						<span class="menu-copy"><strong>Kelola kategori</strong><span>Pengeluaran dan pemasukan</span></span>
+						<span class="menu-arrow" aria-hidden="true">›</span>
+					</button>
+					<button class="menu-row" id="backupMenu" type="button">
+						<span class="menu-copy"><strong>Backup & pulihkan</strong><span>Simpan atau ganti semua data</span></span>
+						<span class="menu-arrow" aria-hidden="true">›</span>
+					</button>
+				</div>
+			</section>
+
+			<section class="menu-section" aria-labelledby="appTitle">
+				<h2 id="appTitle">Aplikasi</h2>
+				<div class="menu-list">
+					<button class="menu-row" id="appearanceMenu" type="button">
+						<span class="menu-copy"><strong>Tampilan</strong><span id="themeSummary">Ikuti sistem</span></span>
+						<span class="menu-arrow" aria-hidden="true">›</span>
+					</button>
+					<button class="menu-row" id="aboutMenu" type="button">
+						<span class="menu-copy"><strong>Tentang Aureus</strong><span>Versi, data lokal, dan privasi</span></span>
+						<span class="menu-arrow" aria-hidden="true">›</span>
+					</button>
+				</div>
+			</section>
+		</main>
+
+		<nav class="bottom-nav" aria-label="Navigasi utama">
+			<a href="./dashboard-low-click.html">Home</a>
+			<a href="./activities.html">Aktivitas</a>
+			<a href="./subscriptions.html">Langganan</a>
+			<a href="./more.html" aria-current="page">Lainnya</a>
+		</nav>
+	</div>
+
+	<button class="backdrop" id="backdrop" type="button" aria-label="Tutup panel"></button>
+
+	<section class="sheet" id="reportsSheet" role="dialog" aria-modal="true" aria-labelledby="reportsTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="reportsTitle">Laporan & ekspor</h2>
+				<p>Perilaku laporan saat ini</p>
+			</div>
+			<button class="icon-button close-sheet" type="button">Tutup</button>
+		</div>
+		<div class="field">
+			<label for="reportPeriod">Periode laporan</label>
+			<select id="reportPeriod">
+				<option>Agustus 2026</option>
+				<option>Juli 2026</option>
+				<option>Juni 2026</option>
+				<option>Semua waktu</option>
+			</select>
+		</div>
+		<p class="sheet-note">Laporan menggunakan transaksi pada periode yang dipilih. Detail tata letak laporan akan ditentukan kemudian.</p>
+		<button class="primary-button" id="csvAction" type="button">Ekspor CSV</button>
+		<button class="secondary-button" id="printAction" type="button">Cetak laporan</button>
+	</section>
+
+	<section class="sheet" id="categoriesSheet" role="dialog" aria-modal="true" aria-labelledby="categoriesTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="categoriesTitle">Kelola kategori</h2>
+				<p>Semua kategori dapat diubah atau dihapus.</p>
+			</div>
+			<button class="icon-button close-sheet" type="button">Tutup</button>
+		</div>
+		<div class="category-tabs" role="tablist" aria-label="Jenis kategori">
+			<button type="button" data-category-type="expense" role="tab" aria-selected="true">Pengeluaran</button>
+			<button type="button" data-category-type="income" role="tab" aria-selected="false">Pemasukan</button>
+		</div>
+		<div class="category-list" id="categoryList"></div>
+		<button class="add-category" id="addCategory" type="button">+ Tambah kategori</button>
+	</section>
+
+	<section class="sheet" id="categoryEditorSheet" role="dialog" aria-modal="true" aria-labelledby="categoryEditorTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="categoryEditorTitle">Edit kategori</h2>
+				<p id="categoryEditorType">Pengeluaran</p>
+			</div>
+			<button class="icon-button close-sheet" type="button">Tutup</button>
+		</div>
+		<form id="categoryEditorForm">
+			<div class="field">
+				<label for="categoryName">Nama kategori</label>
+				<input id="categoryName" maxlength="100" autocomplete="off" required>
+			</div>
+			<button class="primary-button" type="submit">Simpan kategori</button>
+		</form>
+	</section>
+
+	<section class="sheet" id="backupSheet" role="dialog" aria-modal="true" aria-labelledby="backupTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="backupTitle">Backup & pulihkan</h2>
+				<p>Semua transaksi dan langganan</p>
+			</div>
+			<button class="icon-button close-sheet" type="button">Tutup</button>
+		</div>
+		<p class="sheet-note">Backup menyimpan transaksi, langganan, dan kategori dalam satu berkas. Pemulihan mengganti semua data saat ini setelah konfirmasi.</p>
+		<button class="primary-button" id="createBackup" type="button">Buat backup</button>
+		<button class="secondary-button" id="restoreBackup" type="button">Pilih berkas untuk dipulihkan</button>
+	</section>
+
+	<section class="sheet" id="appearanceSheet" role="dialog" aria-modal="true" aria-labelledby="appearanceTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="appearanceTitle">Tampilan</h2>
+				<p>Pilih tema aplikasi</p>
+			</div>
+			<button class="icon-button close-sheet" type="button">Tutup</button>
+		</div>
+		<div class="theme-options" aria-label="Tema">
+			<button type="button" data-theme="system" aria-pressed="true">Sistem</button>
+			<button type="button" data-theme="light" aria-pressed="false">Terang</button>
+			<button type="button" data-theme="dark" aria-pressed="false">Gelap</button>
+		</div>
+	</section>
+
+	<section class="sheet" id="aboutSheet" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+		<div class="sheet-header">
+			<div>
+				<h2 id="aboutTitle">Tentang Aureus</h2>
+				<p>Informasi aplikasi</p>
+			</div>
+			<button class="icon-button close-sheet" type="button">Tutup</button>
+		</div>
+		<div class="about-table">
+			<div class="about-row"><span>Versi</span><span>Mockup</span></div>
+			<div class="about-row"><span>Penyimpanan</span><span>Perangkat ini</span></div>
+			<div class="about-row"><span>Sinkronisasi cloud</span><span>Tidak ada</span></div>
+			<div class="about-row"><span>Analitik</span><span>Tidak ada</span></div>
+		</div>
+		<p class="sheet-note" style="margin-top: 16px;">Data keuangan tetap di perangkat kecuali pengguna mengekspor atau membagikannya. Input suara dapat memakai layanan pengenalan suara dari sistem.</p>
+	</section>
+
+	<div class="message" id="message" role="status" aria-live="polite"></div>
+
+	<script>
+		const categories = {
+			expense: ['Makanan & Minuman', 'Transportasi', 'Tagihan', 'Belanja', 'Kesehatan', 'Hiburan', 'Pendidikan', 'Rumah Tangga', 'Komunikasi'],
+			income: ['Gaji', 'Freelance', 'Bonus', 'Penjualan', 'Investasi']
+		};
+		const backdrop = document.querySelector('#backdrop');
+		const reportsSheet = document.querySelector('#reportsSheet');
+		const categoriesSheet = document.querySelector('#categoriesSheet');
+		const categoryEditorSheet = document.querySelector('#categoryEditorSheet');
+		const backupSheet = document.querySelector('#backupSheet');
+		const appearanceSheet = document.querySelector('#appearanceSheet');
+		const aboutSheet = document.querySelector('#aboutSheet');
+		const categoryList = document.querySelector('#categoryList');
+		const categoryName = document.querySelector('#categoryName');
+		const categoryEditorTitle = document.querySelector('#categoryEditorTitle');
+		const categoryEditorType = document.querySelector('#categoryEditorType');
+		const themeSummary = document.querySelector('#themeSummary');
+		const message = document.querySelector('#message');
+		let activeCategoryType = 'expense';
+		let editingCategoryIndex = null;
+		let messageTimer;
+
+		function openSheet(sheet) {
+			closeSheets();
+			backdrop.classList.add('open');
+			sheet.classList.add('open');
+		}
+
+		function closeSheets() {
+			backdrop.classList.remove('open');
+			document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open'));
+		}
+
+		function showMessage(text) {
+			clearTimeout(messageTimer);
+			message.textContent = text;
+			message.classList.add('visible');
+			messageTimer = setTimeout(() => message.classList.remove('visible'), 2500);
+		}
+
+		function typeLabel(type) {
+			return type === 'expense' ? 'Pengeluaran' : 'Pemasukan';
+		}
+
+		function renderCategories() {
+			categoryList.replaceChildren();
+			categories[activeCategoryType].forEach((name, index) => {
+				const row = document.createElement('div');
+				row.className = 'category-row';
+				const label = document.createElement('span');
+				label.textContent = name;
+				const edit = document.createElement('button');
+				edit.type = 'button';
+				edit.textContent = 'Ubah';
+				edit.addEventListener('click', () => openCategoryEditor(index));
+				const remove = document.createElement('button');
+				remove.type = 'button';
+				remove.textContent = 'Hapus';
+				remove.addEventListener('click', () => {
+					categories[activeCategoryType].splice(index, 1);
+					renderCategories();
+					showMessage(`${name} dihapus dari ${typeLabel(activeCategoryType).toLocaleLowerCase('id-ID')}.`);
+				});
+				row.append(label, edit, remove);
+				categoryList.append(row);
+			});
+		}
+
+		function openCategoryEditor(index = null) {
+			editingCategoryIndex = index;
+			categoryEditorTitle.textContent = index === null ? 'Tambah kategori' : 'Edit kategori';
+			categoryEditorType.textContent = typeLabel(activeCategoryType);
+			categoryName.value = index === null ? '' : categories[activeCategoryType][index];
+			openSheet(categoryEditorSheet);
+			setTimeout(() => categoryName.focus(), 170);
+		}
+
+		document.querySelector('#reportsMenu').addEventListener('click', () => openSheet(reportsSheet));
+		document.querySelector('#categoriesMenu').addEventListener('click', () => {
+			renderCategories();
+			openSheet(categoriesSheet);
+		});
+		document.querySelector('#backupMenu').addEventListener('click', () => openSheet(backupSheet));
+		document.querySelector('#appearanceMenu').addEventListener('click', () => openSheet(appearanceSheet));
+		document.querySelector('#aboutMenu').addEventListener('click', () => openSheet(aboutSheet));
+		document.querySelector('#addCategory').addEventListener('click', () => openCategoryEditor());
+
+		document.querySelectorAll('.category-tabs button').forEach((button) => {
+			button.addEventListener('click', () => {
+				activeCategoryType = button.dataset.categoryType;
+				document.querySelectorAll('.category-tabs button').forEach((entry) => {
+					entry.setAttribute('aria-selected', String(entry === button));
+				});
+				renderCategories();
+			});
+		});
+
+		document.querySelector('#categoryEditorForm').addEventListener('submit', (event) => {
+			event.preventDefault();
+			const name = categoryName.value.trim();
+			if (!name) return;
+			const duplicate = categories[activeCategoryType].some(
+				(entry, index) => index !== editingCategoryIndex && entry.toLocaleLowerCase('id-ID') === name.toLocaleLowerCase('id-ID')
+			);
+			if (duplicate) {
+				categoryName.setCustomValidity('Kategori ini sudah ada.');
+				categoryName.reportValidity();
+				return;
+			}
+			categoryName.setCustomValidity('');
+			if (editingCategoryIndex === null) categories[activeCategoryType].push(name);
+			else categories[activeCategoryType][editingCategoryIndex] = name;
+			showMessage(`Kategori ${name} disimpan.`);
+			renderCategories();
+			openSheet(categoriesSheet);
+		});
+
+		categoryName.addEventListener('input', () => categoryName.setCustomValidity(''));
+
+		document.querySelectorAll('.theme-options button').forEach((button) => {
+			button.addEventListener('click', () => {
+				document.querySelectorAll('.theme-options button').forEach((entry) => {
+					entry.setAttribute('aria-pressed', String(entry === button));
+				});
+				themeSummary.textContent = button.textContent === 'Sistem' ? 'Ikuti sistem' : button.textContent;
+				showMessage(`Tema ${button.textContent.toLocaleLowerCase('id-ID')} dipilih.`);
+			});
+		});
+
+		document.querySelector('#csvAction').addEventListener('click', () => showMessage('Ekspor CSV dimulai.'));
+		document.querySelector('#printAction').addEventListener('click', () => showMessage('Tampilan cetak dibuka.'));
+		document.querySelector('#createBackup').addEventListener('click', () => showMessage('Backup dibuat.'));
+		document.querySelector('#restoreBackup').addEventListener('click', () => showMessage('Pemilih berkas dibuka.'));
+
+		document.querySelectorAll('.close-sheet').forEach((button) => button.addEventListener('click', closeSheets));
+		backdrop.addEventListener('click', closeSheets);
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') closeSheets();
+		});
+	</script>
+</body>
+</html>

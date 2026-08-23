@@ -2,6 +2,46 @@
 
 Dokumen ini mencatat alur perilaku yang sudah disepakati untuk aplikasi mobile Aureus.
 
+## Identitas visual
+
+Aureus memakai mark tiga bagian dan palette utama yang tetap:
+
+- lime `#D7DF70`;
+- ink `#0D110E`;
+- paper `#F7F5EF`.
+
+Favicon web, ikon launcher Android, adaptive icon, splash screen, mark pada header, dan tombol Home memakai identitas yang sama. Warna merah hanya dipakai untuk tindakan berbahaya seperti menghapus data. Branding Lovable, ikon Android bawaan, dan placeholder template tidak digunakan.
+
+## Navigasi utama
+
+Header menampilkan mark dan nama Aureus di kiri serta tombol tiga titik di kanan. Tombol tiga titik membuka popup berisi:
+
+- Ganti tema;
+- Backup & pulihkan;
+- Lainnya.
+
+Navigasi utama berada pada dock tetap di bagian bawah. Dock memakai liquid glass netral dengan permukaan putih sangat transparan, pembiasan SVG, blur lembut, dan rim terang. Dock tidak memakai glow atau sapuan warna lime. Identitas Aureus tetap terlihat melalui warna mark. Dock menghormati safe area perangkat.
+
+Susunan dock adalah:
+
+- Subs di kiri;
+- tombol Home berbentuk lingkaran di tengah;
+- History di kanan.
+
+Tombol Home hanya menampilkan mark Aureus dan membuka dashboard. Dock tidak menampilkan penanda visual untuk halaman aktif. Label, latar, rim, dan mark tetap terlihat sama setelah pengguna berpindah halaman. Keadaan halaman aktif tetap diumumkan kepada pembaca layar.
+
+Pengguna dapat berpindah halaman dengan menekan tombol dock atau menggeser isi halaman secara horizontal:
+
+- geser ke kiri membuka halaman berikutnya;
+- geser ke kanan membuka halaman sebelumnya;
+- urutan geser mengikuti posisi dock, yaitu Subs, Home, lalu History;
+- gestur berhenti pada Subs dan History;
+- Lainnya tidak masuk urutan geser dan hanya dibuka dari menu tiga titik;
+- gerakan vertikal tetap menggulir isi halaman;
+- gestur horizontal dapat dimulai dari bagian mana pun di dalam halaman.
+
+Isi halaman memiliki ruang bawah yang cukup agar kontrol terakhir tidak tertutup dock. Dashboard tidak menampilkan kolom Pencarian atau tombol tambah di bagian bawah. Penambahan kategori tersedia melalui Lainnya lalu Kelola kategori.
+
 ## Dashboard
 
 Dashboard dimulai dengan Pengeluaran sebagai jenis aktif.
@@ -18,8 +58,6 @@ Saat pengguna mengganti jenis ke Pemasukan:
 - total pengeluaran menjadi angka pendamping;
 - daftar berubah menjadi kategori pemasukan;
 - daftar kategori yang sedang diperluas kembali ke keadaan ringkas.
-
-Mengganti jenis tidak mengubah Aktivitas terkini karena perilakunya belum ditentukan.
 
 ## Filter tanggal
 
@@ -41,7 +79,7 @@ Menekan area di luar daftar atau melakukan tindakan kembali menutup daftar tanpa
 
 ### Tahan untuk memilih periode
 
-Menahan label selama 550 milidetik membuka pilihan:
+Seluruh label, termasuk ikon dan teks seperti `Hari ini`, dapat ditekan atau ditahan. Menahan label selama 550 milidetik membuka popup pada lapisan paling atas. Baris `Hari ini` selalu muncul tepat di atas posisi label yang sedang ditahan, terlepas dari periode yang sedang aktif. Popup boleh menutupi header dan isi dashboard:
 
 - Semua;
 - Hari ini;
@@ -76,8 +114,6 @@ Filter mengubah:
 - jumlah pada setiap kategori;
 - frekuensi kategori;
 - urutan kategori.
-
-Filter tidak mengubah Aktivitas terkini karena perilaku bagian tersebut belum ditentukan.
 
 Mengganti jenis Pengeluaran atau Pemasukan tidak mengubah filter yang sedang aktif.
 
@@ -243,11 +279,16 @@ Jika pengguna menutup formulir sebelum memilih Simpan:
 
 Jika papan ketik sedang terbuka, tindakan kembali pertama menutup papan ketik. Tindakan kembali berikutnya menutup formulir.
 
+## Langganan gratis
+
+Biaya langganan boleh Rp0.
+
+Langganan Rp0 tetap mengikuti tanggal mulai dan siklus yang dipilih. Saat jatuh tempo, Aureus memajukan jadwal pembayaran berikutnya seperti langganan lain.
+
+Aureus tidak membuat transaksi Rp0 karena langganan gratis tidak mengubah pengeluaran.
+
 ## Perilaku yang belum ditentukan
 
 Bagian berikut belum memiliki perilaku:
 
 - avatar;
-- navigasi Home, Aktivitas, dan Langganan;
-- Aktivitas terkini;
-- Pencarian;

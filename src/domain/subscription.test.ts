@@ -30,7 +30,6 @@ describe('subscription validation and hydration', () => {
 
   it.each([
     ['blank name', { ...BASE, name: ' ' }],
-    ['zero amount', { ...BASE, amount: 0 }],
     ['negative amount', { ...BASE, amount: -1 }],
     ['infinite amount', { ...BASE, amount: Number.POSITIVE_INFINITY }],
     ['zero cycle', { ...BASE, cycleDays: 0 }],
@@ -41,6 +40,13 @@ describe('subscription validation and hydration', () => {
     ['backwards schedule', { ...BASE, nextPaymentDate: '2025-12-31' }],
   ])('rejects %s', (_label, value) => {
     expect(validateAndNormalizeSubscription(value).ok).toBe(false);
+  });
+
+  it('accepts a free subscription with an Rp0 amount', () => {
+    expect(validateAndNormalizeSubscription({ ...BASE, amount: 0 })).toEqual({
+      ok: true,
+      value: { ...BASE, amount: 0 },
+    });
   });
 
   it('migrates valid legacy ISO date fields and omits corrupt persisted records', () => {
@@ -80,6 +86,14 @@ describe('bounded idempotent renewal reconciliation', () => {
     });
     expect(new Date(result.transactions[0].date).getHours()).toBe(12);
     expect(result.subscriptions[0].nextPaymentDate).toBe('2026-04-14');
+  });
+
+  it('advances a free subscription without creating an Rp0 transaction', () => {
+    const free = { ...BASE, amount: 0, nextPaymentDate: '2026-03-15' };
+    const result = reconcileSubscriptions([free], NOW);
+    expect(result.transactions).toEqual([]);
+    expect(result.subscriptions[0].nextPaymentDate).toBe('2026-04-14');
+    expect(result.blockedSubscriptionIds).toEqual([]);
   });
 
   it('preserves every missed charge on its scheduled due date in one pass', () => {
