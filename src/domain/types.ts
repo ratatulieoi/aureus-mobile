@@ -11,6 +11,8 @@ export interface Transaction {
 
 export type NewTransaction = Omit<Transaction, 'id'>;
 
+export type CategoryCatalog = Record<TransactionType, string[]>;
+
 export interface Subscription {
   id: string;
   name: string;

@@ -1,15 +1,20 @@
-import type { NewTransaction, Subscription, Transaction } from '@/domain/types';
+import type { CategoryCatalog, NewTransaction, Subscription, Transaction } from '@/domain/types';
 import { generateId } from '@/domain/id';
 import { isValidIdentifier, validateNewTransaction } from '@/domain/transaction-validation';
 import { decodeStoredTransactions } from '@/domain/backup';
 import { decodeStoredSubscriptions } from '@/domain/subscription';
+import { createDefaultCategoryCatalog, validateCategoryCatalog } from '@/domain/categories';
 
 export interface LedgerSnapshot {
   transactions: Transaction[];
   subscriptions: Subscription[];
+  categories: CategoryCatalog;
 }
 
-export const LEDGER_STORAGE_KEY = 'aureusLedgerV3';
+type LedgerSnapshotInput = Omit<LedgerSnapshot, 'categories'> & { categories?: CategoryCatalog };
+
+export const LEDGER_STORAGE_KEY = 'aureusLedgerV4';
+export const PREVIOUS_LEDGER_STORAGE_KEY = 'aureusLedgerV3';
 export const LEGACY_TRANSACTION_STORAGE_KEY = 'transactions';
 export const LEGACY_SUBSCRIPTION_STORAGE_KEY = 'subscriptions';
 export const MAX_ID_GENERATION_ATTEMPTS = 32;
@@ -24,8 +29,12 @@ export interface StorageWriter {
 
 export interface HydratedLedger {
   snapshot: LedgerSnapshot;
-  source: 'v3' | 'legacy' | 'empty';
+  source: 'v4' | 'v3' | 'legacy' | 'empty';
   canPersist: boolean;
+}
+
+export function emptyLedgerSnapshot(): LedgerSnapshot {
+  return { transactions: [], subscriptions: [], categories: createDefaultCategoryCatalog() };
 }
 
 export function addValidatedTransaction(
@@ -37,7 +46,6 @@ export function addValidatedTransaction(
   return addPrevalidatedTransaction(current, transaction, makeId);
 }
 
-/** Pure insertion seam for candidates already validated synchronously by UI actions. */
 export function addPrevalidatedTransaction(
   current: readonly Transaction[],
   transaction: NewTransaction,
@@ -64,17 +72,32 @@ export function mergeTransactionsIdempotently(
   return uniqueAdditions.length === 0 ? [...current] : [...uniqueAdditions, ...current];
 }
 
-export function serializeLedgerSnapshot(snapshot: LedgerSnapshot): string {
-  return JSON.stringify({ version: 3, ...snapshot });
+export function serializeLedgerSnapshot(snapshot: LedgerSnapshotInput): string {
+  return JSON.stringify({
+    version: 4,
+    ...snapshot,
+    categories: snapshot.categories ?? createDefaultCategoryCatalog(),
+  });
 }
 
 export function decodeStoredLedgerSnapshot(value: unknown): LedgerSnapshot | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  if (record.version !== 3) return null;
-  const transactions = decodeStoredTransactions(record.transactions);
-  const subscriptions = decodeStoredSubscriptions(record.subscriptions);
-  return transactions === null || subscriptions === null ? null : { transactions, subscriptions };
+  if (!isRecord(value)) return null;
+  if (value.version === 4) {
+    const transactions = decodeStoredTransactions(value.transactions);
+    const subscriptions = decodeStoredSubscriptions(value.subscriptions);
+    const categories = validateCategoryCatalog(value.categories);
+    return transactions === null || subscriptions === null || categories === null
+      ? null
+      : { transactions, subscriptions, categories };
+  }
+  if (value.version === 3) {
+    const transactions = decodeStoredTransactions(value.transactions);
+    const subscriptions = decodeStoredSubscriptions(value.subscriptions);
+    return transactions === null || subscriptions === null
+      ? null
+      : { transactions, subscriptions, categories: createDefaultCategoryCatalog() };
+  }
+  return null;
 }
 
 function safeGetItem(storage: StorageReader, key: string): { ok: true; value: string | null } | { ok: false } {
@@ -85,28 +108,40 @@ function safeGetItem(storage: StorageReader, key: string): { ok: true; value: st
   }
 }
 
-/** Reads the authoritative v3 snapshot first, then deliberately falls back to legacy mirrors. */
+function decodeJsonSnapshot(value: string, expectedVersion: 3 | 4): LedgerSnapshot | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isRecord(parsed) || parsed.version !== expectedVersion) return null;
+    return decodeStoredLedgerSnapshot(parsed);
+  } catch {
+    return null;
+  }
+}
+
 export function hydrateLedger(storage: StorageReader): HydratedLedger {
-  const combined = safeGetItem(storage, LEDGER_STORAGE_KEY);
-  if (!combined.ok) return { snapshot: { transactions: [], subscriptions: [] }, source: 'empty', canPersist: false };
-  if (combined.value !== null) {
-    try {
-      const decoded = decodeStoredLedgerSnapshot(JSON.parse(combined.value));
-      if (decoded) return { snapshot: decoded, source: 'v3', canPersist: true };
-    } catch {
-      // Preserve malformed v3 and inspect legacy mirrors without writing yet.
-    }
+  const current = safeGetItem(storage, LEDGER_STORAGE_KEY);
+  if (!current.ok) return { snapshot: emptyLedgerSnapshot(), source: 'empty', canPersist: false };
+  if (current.value !== null) {
+    const decoded = decodeJsonSnapshot(current.value, 4);
+    if (decoded) return { snapshot: decoded, source: 'v4', canPersist: true };
+  }
+
+  const previous = safeGetItem(storage, PREVIOUS_LEDGER_STORAGE_KEY);
+  if (!previous.ok) return { snapshot: emptyLedgerSnapshot(), source: 'empty', canPersist: false };
+  if (previous.value !== null) {
+    const decoded = decodeJsonSnapshot(previous.value, 3);
+    if (decoded) return { snapshot: decoded, source: 'v3', canPersist: current.value === null };
   }
 
   const rawTransactions = safeGetItem(storage, LEGACY_TRANSACTION_STORAGE_KEY);
   const rawSubscriptions = safeGetItem(storage, LEGACY_SUBSCRIPTION_STORAGE_KEY);
   if (!rawTransactions.ok || !rawSubscriptions.ok) {
-    return { snapshot: { transactions: [], subscriptions: [] }, source: 'empty', canPersist: false };
+    return { snapshot: emptyLedgerSnapshot(), source: 'empty', canPersist: false };
   }
 
   let transactions: Transaction[] = [];
   let subscriptions: Subscription[] = [];
-  let canPersist = combined.value === null;
+  let canPersist = current.value === null && previous.value === null;
   try {
     if (rawTransactions.value !== null) {
       const decoded = decodeStoredTransactions(JSON.parse(rawTransactions.value));
@@ -127,15 +162,18 @@ export function hydrateLedger(storage: StorageReader): HydratedLedger {
   }
 
   return {
-    snapshot: { transactions, subscriptions },
+    snapshot: { transactions, subscriptions, categories: createDefaultCategoryCatalog() },
     source: rawTransactions.value === null && rawSubscriptions.value === null ? 'empty' : 'legacy',
     canPersist,
   };
 }
 
-/** Authoritative snapshot is written first; mirrors are attempted only after it succeeds. */
-export function persistLedger(storage: StorageWriter, snapshot: LedgerSnapshot): void {
+export function persistLedger(storage: StorageWriter, snapshot: LedgerSnapshotInput): void {
   storage.setItem(LEDGER_STORAGE_KEY, serializeLedgerSnapshot(snapshot));
   storage.setItem(LEGACY_TRANSACTION_STORAGE_KEY, JSON.stringify(snapshot.transactions));
   storage.setItem(LEGACY_SUBSCRIPTION_STORAGE_KEY, JSON.stringify(snapshot.subscriptions));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

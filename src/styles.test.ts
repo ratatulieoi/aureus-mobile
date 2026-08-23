@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 const css = readFileSync(new URL('./index.css', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const buttonSource = readFileSync(new URL('./components/ui/button.tsx', import.meta.url), 'utf8');
-const summarySource = readFileSync(new URL('./components/TransactionSummary.tsx', import.meta.url), 'utf8');
 const aboutSource = readFileSync(new URL('./components/AboutSection.tsx', import.meta.url), 'utf8');
 const budgetSource = readFileSync(new URL('./components/BudgetManager.tsx', import.meta.url), 'utf8');
 
@@ -47,12 +46,11 @@ describe('global accessibility CSS', () => {
     }
   });
 
-  it('keeps bright primary as a fill and uses accent-text for meaningful text', () => {
-    expect(contrast(LIGHT.primary, LIGHT.background)).toBeLessThan(3);
+  it('uses AA-safe primary and accent text for meaningful controls', () => {
+    expect(contrast(LIGHT.primary, LIGHT.background)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(LIGHT['primary-foreground'], LIGHT.primary)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(LIGHT['accent-text'], LIGHT.background)).toBeGreaterThanOrEqual(4.5);
     expect(buttonSource).toContain('link: "text-accent-text');
-    expect(summarySource).toContain('"text-accent-text"');
     expect(aboutSource).toContain('hover:text-accent-text');
     expect(budgetSource).toContain('text-accent-text');
   });

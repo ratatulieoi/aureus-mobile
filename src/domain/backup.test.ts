@@ -10,6 +10,7 @@ import type { Subscription, Transaction } from '@/domain/types';
 import { MAX_SUBSCRIPTION_ID_LENGTH, reconcileSubscriptions } from '@/domain/subscription';
 import { validateAndNormalizeTransaction } from '@/domain/transaction-validation';
 import { decodeStoredLedgerSnapshot, serializeLedgerSnapshot } from '@/domain/ledger';
+import { createDefaultCategoryCatalog } from '@/domain/categories';
 
 const transaction: Transaction = {
   id: 'tx-1',
@@ -70,11 +71,19 @@ describe('strict backup decoding', () => {
   it('round-trips the complete current schema', () => {
     const envelope = createBackupEnvelope([transaction], [subscription], new Date('2026-03-15T00:00:00Z'));
     expect(decodeBackup(envelope)).toEqual({
-      version: '3.0',
+      version: '4.0',
       transactions: [transaction],
       subscriptions: [subscription],
+      categories: createDefaultCategoryCatalog(),
       warning: null,
     });
+  });
+
+  it('round-trips persisted custom categories in v4', () => {
+    const categories = createDefaultCategoryCatalog();
+    categories.income.push('Hadiah');
+    const envelope = createBackupEnvelope([transaction], [subscription], categories, new Date('2026-03-15T00:00:00Z'));
+    expect(decodeBackup(envelope).categories.income).toContain('Hadiah');
   });
 
   it('supports transaction-only v2 with an explicit destructive warning', () => {
@@ -85,6 +94,7 @@ describe('strict backup decoding', () => {
       transactions: [transaction],
     });
     expect(decoded.subscriptions).toEqual([]);
+    expect(decoded.categories).toEqual(createDefaultCategoryCatalog());
     expect(decoded.warning).toContain('hanya berisi transaksi');
   });
 
@@ -113,7 +123,7 @@ describe('strict backup decoding', () => {
     expect(renewal.id).toHaveLength(128);
     expect(validateAndNormalizeTransaction(renewal, { requireId: true }).ok).toBe(true);
 
-    const snapshot = { transactions: [renewal], subscriptions: reconciliation.subscriptions };
+    const snapshot = { transactions: [renewal], subscriptions: reconciliation.subscriptions, categories: createDefaultCategoryCatalog() };
     expect(decodeStoredLedgerSnapshot(JSON.parse(serializeLedgerSnapshot(snapshot)))).toEqual(snapshot);
     expect(decodeBackup(createBackupEnvelope(snapshot.transactions, snapshot.subscriptions))).toMatchObject(snapshot);
   });

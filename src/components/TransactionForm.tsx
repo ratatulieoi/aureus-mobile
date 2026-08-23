@@ -16,6 +16,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Hash } from 'lucide-react';
 import type { NewTransaction } from '@/domain/types';
 import { TRANSACTION_CATEGORIES } from '@/domain/categories';
+import type { TransactionType } from '@/domain/types';
 import { parsePositiveFiniteAmount } from '@/domain/transaction-validation';
 import { calendarDateToLocalInstant, formatLocalCalendarDate } from '@/domain/calendar-date';
 import { attemptTransactionCommit } from '@/domain/transaction-action';
@@ -23,19 +24,28 @@ import { attemptTransactionCommit } from '@/domain/transaction-action';
 interface TransactionFormProps {
   onAddTransaction: (transaction: NewTransaction) => boolean;
   onClose: () => void;
+  initialType?: TransactionType;
+  initialCategory?: string;
+  categories?: Readonly<Record<TransactionType, readonly string[]>>;
 }
 
-const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, onClose }) => {
+const TransactionForm: React.FC<TransactionFormProps> = ({
+  onAddTransaction,
+  onClose,
+  initialType = 'expense',
+  initialCategory = '',
+  categories = TRANSACTION_CATEGORIES,
+}) => {
+  const lockedSelection = initialCategory.length > 0;
   const [formData, setFormData] = useState({
-    type: 'expense' as 'income' | 'expense',
+    type: initialType,
     amount: '',
-    category: '',
+    category: initialCategory,
     description: '',
     date: formatLocalCalendarDate(new Date()),
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitGuard = useRef(false);
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
       ? document.activeElement
@@ -91,10 +101,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, onC
         className="max-w-md bg-card"
         onEscapeKeyDown={(event) => { if (isSubmitting) event.preventDefault(); }}
         onInteractOutside={(event) => { if (isSubmitting) event.preventDefault(); }}
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          dateInputRef.current?.focus();
-        }}
+        onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
@@ -102,33 +109,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, onC
             Tambah Transaksi
           </DialogTitle>
           <DialogDescription>
-            Isi tanggal, tipe, kategori, jumlah, dan keterangan transaksi. Semua kolom wajib diisi.
+            Isi nominal, deskripsi, dan tanggal. Semua kolom wajib diisi.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4" aria-busy={isSubmitting}>
           <div>
             <Label htmlFor="transaction-date" className="font-medium">Tanggal *</Label>
-            <Input ref={dateInputRef} id="transaction-date" type="date" value={formData.date} onChange={(event) => setFormData({ ...formData, date: event.target.value })} required className="mt-1.5" />
+            <Input id="transaction-date" type="date" max={formatLocalCalendarDate(new Date())} value={formData.date} onChange={(event) => setFormData({ ...formData, date: event.target.value })} required className="mt-1.5" />
           </div>
-          <div>
-            <Label htmlFor="transaction-type" className="font-medium">Tipe Transaksi *</Label>
-            <Select value={formData.type} onValueChange={(value: 'income' | 'expense') => setFormData({ ...formData, type: value, category: '' })}>
-              <SelectTrigger id="transaction-type" aria-describedby="transaction-type-help" className="mt-1.5"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="income">Pemasukan</SelectItem><SelectItem value="expense">Pengeluaran</SelectItem></SelectContent>
-            </Select>
-            <p id="transaction-type-help" className="sr-only">Pilih apakah uang masuk atau uang keluar.</p>
-          </div>
-          <div>
-            <Label htmlFor="transaction-category" className="font-medium">Kategori *</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-              <SelectTrigger id="transaction-category" className="mt-1.5"><SelectValue placeholder="Pilih kategori..." /></SelectTrigger>
-              <SelectContent>{TRANSACTION_CATEGORIES[formData.type].map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+          {lockedSelection ? (
+            <div className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm">
+              <div><span className="block text-xs text-muted-foreground">Jenis</span><strong>{formData.type === 'expense' ? 'Pengeluaran' : 'Pemasukan'}</strong></div>
+              <div><span className="block text-xs text-muted-foreground">Kategori</span><strong>{formData.category}</strong></div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <Label htmlFor="transaction-type" className="font-medium">Tipe Transaksi *</Label>
+                <Select value={formData.type} onValueChange={(value: TransactionType) => setFormData({ ...formData, type: value, category: '' })}>
+                  <SelectTrigger id="transaction-type" aria-describedby="transaction-type-help" className="mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="income">Pemasukan</SelectItem><SelectItem value="expense">Pengeluaran</SelectItem></SelectContent>
+                </Select>
+                <p id="transaction-type-help" className="sr-only">Pilih apakah uang masuk atau uang keluar.</p>
+              </div>
+              <div>
+                <Label htmlFor="transaction-category" className="font-medium">Kategori *</Label>
+                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                  <SelectTrigger id="transaction-category" className="mt-1.5"><SelectValue placeholder="Pilih kategori..." /></SelectTrigger>
+                  <SelectContent>{categories[formData.type].map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
           <div>
             <Label htmlFor="transaction-amount" className="font-medium">Jumlah (Rp) *</Label>
-            <Input id="transaction-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="0" value={formData.amount} onChange={(event) => setFormData({ ...formData, amount: event.target.value })} required className="mt-1.5" />
+            <div className="mt-1.5 flex h-11 items-center border bg-background px-3"><span aria-hidden="true" className="mr-2 text-sm font-semibold text-muted-foreground">Rp</span><Input id="transaction-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="0" value={formData.amount} onChange={(event) => setFormData({ ...formData, amount: event.target.value })} required className="h-9 border-0 px-0 focus-visible:ring-0" /></div>
           </div>
           <div>
             <Label htmlFor="transaction-description" className="font-medium">Keterangan *</Label>

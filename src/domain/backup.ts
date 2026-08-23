@@ -1,9 +1,11 @@
-import type { Subscription, Transaction } from '@/domain/types';
+import type { CategoryCatalog, Subscription, Transaction } from '@/domain/types';
 import { generateId } from '@/domain/id';
 import { MAX_SUBSCRIPTIONS, validateAndNormalizeSubscription } from '@/domain/subscription';
 import { normalizeTransactionDate, validateAndNormalizeTransaction } from '@/domain/transaction-validation';
+import { createDefaultCategoryCatalog, validateCategoryCatalog } from '@/domain/categories';
 
-export const CURRENT_BACKUP_VERSION = '3.0';
+export const CURRENT_BACKUP_VERSION = '4.0';
+export const PREVIOUS_BACKUP_VERSION = '3.0';
 export const LEGACY_BACKUP_VERSION = '2.0';
 export const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
 export const MAX_BACKUP_TRANSACTIONS = 50_000;
@@ -20,12 +22,14 @@ export interface BackupEnvelope {
   subscriptionCount: number;
   transactions: Transaction[];
   subscriptions: Subscription[];
+  categories: CategoryCatalog;
 }
 
 export interface DecodedBackup {
-  version: typeof CURRENT_BACKUP_VERSION | typeof LEGACY_BACKUP_VERSION;
+  version: typeof CURRENT_BACKUP_VERSION | typeof PREVIOUS_BACKUP_VERSION | typeof LEGACY_BACKUP_VERSION;
   transactions: Transaction[];
   subscriptions: Subscription[];
+  categories: CategoryCatalog;
   warning: string | null;
 }
 
@@ -43,14 +47,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function createBackupEnvelope(
   transactions: readonly Transaction[],
   subscriptions: readonly Subscription[],
-  now = new Date(),
+  categoriesOrNow: CategoryCatalog | Date = createDefaultCategoryCatalog(),
+  explicitNow = new Date(),
 ): BackupEnvelope {
+  const categories = categoriesOrNow instanceof Date ? createDefaultCategoryCatalog() : categoriesOrNow;
+  const now = categoriesOrNow instanceof Date ? categoriesOrNow : explicitNow;
   if (transactions.length > MAX_BACKUP_TRANSACTIONS) {
     throw new BackupValidationError(`Tidak dapat mengekspor lebih dari ${MAX_BACKUP_TRANSACTIONS} transaksi`);
   }
   if (subscriptions.length > MAX_SUBSCRIPTIONS) {
     throw new BackupValidationError(`Tidak dapat mengekspor lebih dari ${MAX_SUBSCRIPTIONS} langganan`);
   }
+  const normalizedCategories = validateCategoryCatalog(categories);
+  if (!normalizedCategories) throw new BackupValidationError('Daftar kategori tidak valid');
   if (Number.isNaN(now.getTime())) throw new BackupValidationError('Tanggal ekspor backup tidak valid');
   const exportDate = now.toISOString();
   if (normalizeTransactionDate(exportDate) !== exportDate) {
@@ -66,12 +75,14 @@ export function createBackupEnvelope(
     subscriptionCount: subscriptions.length,
     transactions: [...transactions],
     subscriptions: [...subscriptions],
+    categories: normalizedCategories,
   };
   const decoded = decodeBackup(proposed);
   return {
     ...proposed,
     transactions: decoded.transactions,
     subscriptions: decoded.subscriptions,
+    categories: decoded.categories,
   };
 }
 
@@ -159,12 +170,12 @@ function decodeStrictSubscriptions(value: unknown, expectedCount: unknown): Subs
   });
 }
 
-/** Strict all-or-nothing decoder; v2 is read-only transaction compatibility. */
+/** Strict all-or-nothing decoder; v2 and v3 remain read-only compatibility formats. */
 export function decodeBackup(value: unknown): DecodedBackup {
   assertJsonDepth(value, MAX_BACKUP_JSON_DEPTH);
   if (!isRecord(value)) throw new BackupValidationError('Format backup harus berupa objek');
-  if (value.version !== CURRENT_BACKUP_VERSION && value.version !== LEGACY_BACKUP_VERSION) {
-    throw new BackupValidationError(`Versi backup tidak didukung; diperlukan versi ${CURRENT_BACKUP_VERSION} atau ${LEGACY_BACKUP_VERSION}`);
+  if (![CURRENT_BACKUP_VERSION, PREVIOUS_BACKUP_VERSION, LEGACY_BACKUP_VERSION].includes(value.version as string)) {
+    throw new BackupValidationError(`Versi backup tidak didukung; diperlukan versi ${CURRENT_BACKUP_VERSION}, ${PREVIOUS_BACKUP_VERSION}, atau ${LEGACY_BACKUP_VERSION}`);
   }
   if (typeof value.exportDate !== 'string' || normalizeTransactionDate(value.exportDate) !== value.exportDate) {
     throw new BackupValidationError('Tanggal ekspor backup harus berupa instant ISO kanonis yang valid');
@@ -176,14 +187,29 @@ export function decodeBackup(value: unknown): DecodedBackup {
       version: LEGACY_BACKUP_VERSION,
       transactions,
       subscriptions: [],
-      warning: 'Backup versi 2.0 hanya berisi transaksi; langganan saat ini akan dihapus jika restore dilanjutkan.',
+      categories: createDefaultCategoryCatalog(),
+      warning: 'Backup versi 2.0 hanya berisi transaksi; langganan saat ini akan dihapus jika restore dilanjutkan. Kategori kembali ke daftar bawaan.',
     };
   }
 
+  const subscriptions = decodeStrictSubscriptions(value.subscriptions, value.subscriptionCount);
+  if (value.version === PREVIOUS_BACKUP_VERSION) {
+    return {
+      version: PREVIOUS_BACKUP_VERSION,
+      transactions,
+      subscriptions,
+      categories: createDefaultCategoryCatalog(),
+      warning: 'Backup versi 3.0 belum menyimpan daftar kategori. Kategori kembali ke daftar bawaan.',
+    };
+  }
+
+  const categories = validateCategoryCatalog(value.categories);
+  if (!categories) throw new BackupValidationError('Daftar kategori backup tidak valid');
   return {
     version: CURRENT_BACKUP_VERSION,
     transactions,
-    subscriptions: decodeStrictSubscriptions(value.subscriptions, value.subscriptionCount),
+    subscriptions,
+    categories,
     warning: null,
   };
 }

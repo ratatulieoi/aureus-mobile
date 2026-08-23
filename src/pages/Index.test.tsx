@@ -8,22 +8,23 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false }
 
 expect.extend(toHaveNoViolations);
 
-describe('Index navigation and All-Time state', () => {
-  it('announces the active section and exposes truly disabled period controls in All-Time mode', async () => {
+describe('Index mobile navigation and dashboard', () => {
+  it('switches transaction emphasis and exposes the activity period controls', async () => {
     const user = userEvent.setup();
     render(<Index />);
 
-    await user.click(screen.getByRole('button', { name: 'Aktifkan ringkasan All-Time' }));
-    await user.click(screen.getByRole('button', { name: 'Statistik' }));
+    const income = screen.getByRole('button', { name: 'Tampilkan pemasukan' });
+    await user.click(income);
+    expect(screen.getByRole('button', { name: 'Tampilkan pengeluaran' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('region', { name: 'Kategori pemasukan' })).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Statistik' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByLabelText('Bulan statistik')).toBeDisabled();
-    expect(screen.getByLabelText('Tahun statistik')).toBeDisabled();
-    expect(screen.getByText('Mode All-Time aktif. Pilihan bulan dan tahun tidak berlaku.')).toHaveAttribute('role', 'status');
-    expect(await screen.findByText('Tren Bulanan (All-Time)', {}, { timeout: 5_000 })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Aktivitas' }));
+    expect(screen.getByRole('button', { name: 'Aktivitas' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByLabelText('Bulan')).toBeEnabled();
+    expect(screen.getByLabelText('Tahun')).toBeEnabled();
   });
 
-  it('has no axe violations on the full representative home page', async () => {
+  it('has no axe violations on the representative home page', async () => {
     const { container } = render(<Index />);
     expect(await axe(container)).toHaveNoViolations();
   });

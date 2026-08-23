@@ -35,7 +35,7 @@ describe('TransactionForm dialog', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Tambah Transaksi' });
     expect(dialog).toHaveAccessibleDescription();
-    await waitFor(() => expect(screen.getByLabelText('Tanggal *')).toHaveFocus());
+    expect(document.activeElement).not.toBe(screen.getByLabelText('Tanggal *'));
     expect(screen.getByLabelText('Tipe Transaksi *')).toBeInTheDocument();
     expect(screen.getByLabelText('Kategori *')).toBeInTheDocument();
     expect(screen.getByLabelText('Jumlah (Rp) *')).toBeInTheDocument();

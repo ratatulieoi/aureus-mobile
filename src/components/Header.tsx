@@ -1,26 +1,42 @@
 import React from 'react';
-import ThemeToggle from './ThemeToggle';
-import { Sun } from 'lucide-react';
+import { UserRound } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const Header: React.FC = () => {
-  return (
-    <header className="safe-area-top fixed inset-x-0 top-0 z-40 border-b bg-background/95 backdrop-blur">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Sun aria-hidden="true" className="h-6 w-6 animate-spin-slow text-primary" />
-            <h1 className="text-lg font-bold tracking-tight sm:text-xl">
-              <span className="gradient-text">Aureus</span>
-            </h1>
-          </div>
+export type NavTab = 'home' | 'activity' | 'subs' | 'more';
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-};
+interface HeaderProps {
+  activeTab: NavTab;
+  onTabChange: (tab: NavTab) => void;
+}
+
+const NAV_ITEMS: ReadonlyArray<{ id: NavTab; label: string }> = [
+  { id: 'home', label: 'Home' },
+  { id: 'activity', label: 'Aktivitas' },
+  { id: 'subs', label: 'Langganan' },
+  { id: 'more', label: 'Lainnya' },
+];
+
+const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => (
+  <header className="app-topbar safe-area-top">
+    <div className="app-topbar-inner">
+      <span className="app-avatar" aria-hidden="true">
+        <UserRound className="h-6 w-6" strokeWidth={1.7} />
+      </span>
+      <nav className="app-tabs" aria-label="Navigasi utama">
+        {NAV_ITEMS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onTabChange(id)}
+            aria-current={activeTab === id ? 'page' : undefined}
+            className={cn('app-tab', activeTab === id && 'is-active')}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+    </div>
+  </header>
+);
 
 export default Header;

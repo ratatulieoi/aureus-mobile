@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Download, Upload, FileJson, AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { Subscription, Transaction } from '@/domain/types';
+import type { CategoryCatalog, Subscription, Transaction } from '@/domain/types';
 import { createBackupEnvelope, MAX_BACKUP_BYTES, parseBackupText, type DecodedBackup } from '@/domain/backup';
 import { formatLocalCalendarDate } from '@/domain/calendar-date';
 import { Capacitor } from '@capacitor/core';
@@ -23,10 +23,11 @@ import {
 interface BackupRestoreProps {
   transactions: Transaction[];
   subscriptions: Subscription[];
-  onRestore: (snapshot: { transactions: Transaction[]; subscriptions: Subscription[] }) => void;
+  categories?: CategoryCatalog;
+  onRestore: (snapshot: { transactions: Transaction[]; subscriptions: Subscription[]; categories: CategoryCatalog }) => void;
 }
 
-const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptions, onRestore }) => {
+const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptions, categories, onRestore }) => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<DecodedBackup | null>(null);
@@ -41,7 +42,10 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
     setIsProcessing(true);
     setMessage(null);
     try {
-      const jsonString = JSON.stringify(createBackupEnvelope(transactions, subscriptions), null, 2);
+      const envelope = categories
+        ? createBackupEnvelope(transactions, subscriptions, categories)
+        : createBackupEnvelope(transactions, subscriptions);
+      const jsonString = JSON.stringify(envelope, null, 2);
       const fileName = `aureus-backup-${formatLocalCalendarDate(new Date())}.json`;
       if (Capacitor.isNativePlatform()) {
         const result = await writeNativeExportFile(fileName, jsonString);
@@ -113,7 +117,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
   const confirmRestore = () => {
     if (!pendingRestore) return;
     const count = pendingRestore.transactions.length;
-    onRestore({ transactions: pendingRestore.transactions, subscriptions: pendingRestore.subscriptions });
+    onRestore({ transactions: pendingRestore.transactions, subscriptions: pendingRestore.subscriptions, categories: pendingRestore.categories });
     setPendingRestore(null);
     setMessage({ type: 'success', text: `Berhasil memulihkan ${count} transaksi dan ${pendingRestore.subscriptions.length} langganan.` });
     setIsProcessing(false);
