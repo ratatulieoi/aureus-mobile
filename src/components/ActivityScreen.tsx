@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/domain/types';
 import { calendarDateToLocalInstant, formatLocalCalendarDate } from '@/domain/calendar-date';
@@ -17,6 +18,8 @@ type TypeFilter = 'all' | TransactionType;
 
 const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
 const dateFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const EDIT_HOLD_MS = 550;
+const HOLD_MOVE_TOLERANCE = 12;
 
 const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
   const currentMonth = formatLocalCalendarDate(new Date()).slice(0, 7);
@@ -67,7 +70,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
 
   return (
     <section className="activity-screen" aria-labelledby="activity-title">
-      <h1 id="activity-title">Aktivitas</h1>
+      <h1 id="activity-title">History</h1>
 
       <section className="activity-filters" aria-label="Cari dan filter transaksi">
         <label htmlFor="activity-period">Periode</label>
@@ -112,15 +115,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
             <h2 id={`activity-date-${day}`}>{displayDate(day)}</h2>
             <div className="activity-transaction-list">
               {entries.map((transaction) => (
-                <button key={transaction.id} type="button" className="activity-transaction-row" onClick={() => setEditing(transaction)}>
-                  <span className="activity-transaction-copy">
-                    <strong>{transaction.description}</strong>
-                    <span>{transaction.category} · {formatTime(transaction.date)}</span>
-                  </span>
-                  <span className={`activity-transaction-amount ${transaction.type === 'income' ? 'is-income' : ''}`}>
-                    {transaction.type === 'income' ? '+' : '−'}Rp{transaction.amount.toLocaleString('id-ID')}
-                  </span>
-                </button>
+                <ActivityTransactionRow key={transaction.id} transaction={transaction} onHold={() => setEditing(transaction)} />
               ))}
             </div>
           </section>
@@ -153,6 +148,79 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
         }}
       />
     </section>
+  );
+};
+
+interface ActivityTransactionRowProps {
+  transaction: Transaction;
+  onHold: () => void;
+}
+
+const ActivityTransactionRow: React.FC<ActivityTransactionRowProps> = ({ transaction, onHold }) => {
+  const holdTimer = useRef<number | null>(null);
+  const origin = useRef<{ x: number; y: number } | null>(null);
+  const [holding, setHolding] = useState(false);
+
+  const clearHold = () => {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+    origin.current = null;
+    setHolding(false);
+  };
+
+  const beginHold = () => {
+    clearHold();
+    setHolding(true);
+    holdTimer.current = window.setTimeout(() => {
+      clearHold();
+      onHold();
+    }, EDIT_HOLD_MS);
+  };
+
+  useEffect(() => () => {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      className={`activity-transaction-row${holding ? ' is-holding' : ''}`}
+      aria-label={`${transaction.description}, ${transaction.category}, ${transaction.type === 'income' ? 'pemasukan' : 'pengeluaran'} Rp${transaction.amount.toLocaleString('id-ID')}. Tahan untuk mengedit.`}
+      onClick={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        origin.current = { x: event.clientX, y: event.clientY };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        beginHold();
+        origin.current = { x: event.clientX, y: event.clientY };
+      }}
+      onPointerMove={(event) => {
+        const start = origin.current;
+        if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) <= HOLD_MOVE_TOLERANCE) return;
+        clearHold();
+      }}
+      onPointerUp={clearHold}
+      onPointerCancel={clearHold}
+      onKeyDown={(event) => {
+        if ((event.key !== 'Enter' && event.key !== ' ') || event.repeat || holdTimer.current !== null) return;
+        event.preventDefault();
+        beginHold();
+      }}
+      onKeyUp={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        clearHold();
+      }}
+      onBlur={clearHold}
+    >
+      <span className="activity-transaction-copy">
+        <strong>{transaction.description}</strong>
+        <span>{transaction.category} · {formatTime(transaction.date)}</span>
+      </span>
+      <span className={`activity-transaction-amount ${transaction.type === 'income' ? 'is-income' : ''}`}>
+        {transaction.type === 'income' ? '+' : '−'}Rp{transaction.amount.toLocaleString('id-ID')}
+      </span>
+    </button>
   );
 };
 
@@ -195,7 +263,7 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
     onSave(result.value);
   };
 
-  return (
+  return createPortal(
     <>
       <button type="button" className="activity-edit-backdrop" aria-label="Tutup edit transaksi" onClick={onClose} />
       <section className="activity-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-edit-title">
@@ -228,7 +296,8 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
           </div>
         </form>
       </section>
-    </>
+    </>,
+    document.body,
   );
 };
 

@@ -744,6 +744,7 @@
 .activity-transaction-list { border: 1px solid hsl(var(--foreground)); border-radius: .4rem; overflow: hidden; }
 .activity-transaction-row { width: 100%; min-height: 64px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .7rem; padding: .65rem; border: 0; border-bottom: 1px solid hsl(var(--border)); background: transparent; text-align: left; }
 .activity-transaction-row:last-child { border-bottom: 0; }
+.activity-transaction-row.is-holding { background: hsl(var(--secondary)); }
 .activity-transaction-copy { min-width: 0; }
 .activity-transaction-copy strong, .activity-transaction-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-transaction-copy strong { font-size: .8rem; }

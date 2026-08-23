@@ -351,9 +351,11 @@ const Index = () => {
               const isActive = tab === activeTab;
               const tabIndex = TAB_ORDER.indexOf(tab as PrimaryNavTab);
               const side = tabIndex > activePrimaryIndex ? 1 : -1;
-              const transform = isActive
-                ? `translate3d(${pageMotion.offsetX}px, 0, 0)`
-                : `translate3d(calc(${side * 100}% + ${pageMotion.offsetX}px), 0, 0)`;
+              const transform = isActive && pageMotion.previewTab === null && pageMotion.offsetX === 0
+                ? undefined
+                : isActive
+                  ? `translate3d(${pageMotion.offsetX}px, 0, 0)`
+                  : `translate3d(calc(${side * 100}% + ${pageMotion.offsetX}px), 0, 0)`;
               return (
                 <div
                   key={tab}

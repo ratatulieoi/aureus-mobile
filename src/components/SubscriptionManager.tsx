@@ -51,7 +51,7 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     event.preventDefault();
     const amount = /^\d+$/.test(newSub.amount.trim()) ? Number(newSub.amount.trim()) : Number.NaN;
     const cycleDays = /^\d+$/.test(newSub.cycleDays) ? Number(newSub.cycleDays) : Number.NaN;
-    const nextPaymentDate = newSub.createTransactionNow ? addCalendarDays(newSub.startDate, cycleDays) : newSub.startDate;
+    const nextPaymentDate = addCalendarDays(newSub.startDate, cycleDays);
     let subscriptionId: string;
     try {
       subscriptionId = generateId('sub');
