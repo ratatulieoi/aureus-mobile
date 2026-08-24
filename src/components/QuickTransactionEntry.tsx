@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-import { Mic, X } from 'lucide-react';
+import { Mic, RotateCcw, X } from 'lucide-react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { NewTransaction, Transaction, TransactionType } from '@/domain/types';
 import { calendarDateToLocalInstant, compareCalendarDates, formatLocalCalendarDate } from '@/domain/calendar-date';
@@ -9,6 +9,7 @@ import { parsePositiveFiniteAmount } from '@/domain/transaction-validation';
 import { parseVoiceTransaction } from '@/domain/voice-parser';
 import { cn } from '@/lib/utils';
 import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
+import TransactionAmountField from '@/components/TransactionAmountField';
 
 interface QuickTransactionEntryProps {
   type: TransactionType;
@@ -47,7 +48,7 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
   const [listening, setListening] = useState(mode === 'voice');
   const [voiceMessage, setVoiceMessage] = useState(mode === 'voice' ? 'Menyiapkan mikrofon…' : '');
   const [submitting, setSubmitting] = useState(false);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const webRecognitionRef = useRef<WebRecognition | null>(null);
   const nativeListenerRef = useRef<PluginListenerHandle | null>(null);
   const mountedRef = useRef(true);
@@ -56,7 +57,7 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
   const latest = useMemo(() => transactions
     .filter((transaction) => transaction.type === type && transaction.category === category)
     .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
-    .slice(0, 5), [category, transactions, type]);
+    .slice(0, 10), [category, transactions, type]);
 
   const parsedAmount = parsePositiveFiniteAmount(amount);
   const dateValid = date.length > 0 && (() => {
@@ -178,20 +179,21 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="quick-entry-overlay" />
         <DialogPrimitive.Content
-          className="quick-entry-sheet"
+          ref={sheetRef}
+          className="quick-entry-sheet transaction-sheet"
           aria-describedby="quick-entry-description"
           onInteractOutside={(event) => event.preventDefault()}
-          onOpenAutoFocus={(event) => { event.preventDefault(); closeButtonRef.current?.focus(); }}
+          onOpenAutoFocus={(event) => { event.preventDefault(); sheetRef.current?.focus(); }}
         >
-          <header className="quick-entry-header">
+          <header className="quick-entry-header transaction-sheet-header">
             <div>
               <DialogPrimitive.Title>{category}</DialogPrimitive.Title>
               <DialogPrimitive.Description id="quick-entry-description">{type === 'expense' ? 'Pengeluaran' : 'Pemasukan'}</DialogPrimitive.Description>
             </div>
-            <DialogPrimitive.Close ref={closeButtonRef} type="button" aria-label="Tutup formulir transaksi" disabled={submitting}><X aria-hidden="true" /></DialogPrimitive.Close>
+            <DialogPrimitive.Close type="button" aria-label="Tutup formulir transaksi" disabled={submitting}><X aria-hidden="true" /></DialogPrimitive.Close>
           </header>
 
-          <form onSubmit={save} className="quick-entry-form">
+          <form onSubmit={save} className="transaction-sheet-form quick-entry-form">
             {voiceMessage && (
               <div className="voice-inline-status" role="status">
                 <Mic aria-hidden="true" className={cn('h-4 w-4', listening && 'animate-pulse')} />
@@ -200,47 +202,49 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
               </div>
             )}
 
-            <div className="form-field">
-              <label htmlFor="quick-amount">Jumlah {type === 'expense' ? 'pengeluaran' : 'pemasukan'}</label>
-              <div className="rupiah-input">
-                <span>Rp</span>
-                <input
-                  id="quick-amount"
-                  inputMode="numeric"
-                  pattern="[0-9.]*"
-                  value={amount ? Number(amount).toLocaleString('id-ID') : ''}
-                  onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))}
-                  placeholder="0"
-                  required
-                />
+            <TransactionAmountField
+              id="quick-amount"
+              label={`Jumlah ${type === 'expense' ? 'pengeluaran' : 'pemasukan'}`}
+              value={amount}
+              onValueChange={setAmount}
+              required
+            />
+
+            <div className="transaction-detail-fields">
+              <div className="transaction-line-field">
+                <label htmlFor="quick-description">Deskripsi</label>
+                <textarea id="quick-description" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} placeholder="Contoh: Makan siang" required />
+              </div>
+
+              <div className="transaction-line-field">
+                <label htmlFor="quick-date">Tanggal</label>
+                <input id="quick-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
               </div>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="quick-description">Deskripsi</label>
-              <textarea id="quick-description" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} required />
-              <p className="form-helper">Maksimum 500 karakter.</p>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="quick-date">Tanggal</label>
-              <input id="quick-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
-            </div>
-
             <section className="latest-section" aria-labelledby="latest-title">
-              <div className="latest-heading"><h3 id="latest-title">Terakhir digunakan</h3><span>Ketuk nilai untuk memakai ulang</span></div>
+              <div className="latest-heading">
+                <h3 id="latest-title">Gunakan transaksi sebelumnya</h3>
+              </div>
               {latest.length === 0 ? (
                 <p className="latest-empty">Belum ada transaksi sebelumnya</p>
               ) : (
-                <div className="latest-carousel">
+                <div className="latest-list">
                   {latest.map((transaction) => (
-                    <LatestItem key={transaction.id} transaction={transaction} onAmount={() => setAmount(String(transaction.amount))} onDescription={() => setDescription(transaction.description)} onBoth={() => { setAmount(String(transaction.amount)); setDescription(transaction.description); }} />
+                    <LatestItem
+                      key={transaction.id}
+                      transaction={transaction}
+                      onReuse={() => {
+                        setAmount(String(transaction.amount));
+                        setDescription(transaction.description);
+                      }}
+                    />
                   ))}
                 </div>
               )}
             </section>
 
-            <button type="submit" className="quick-save" disabled={!valid || submitting}>{submitting ? 'Menyimpan…' : 'Simpan'}</button>
+            <button type="submit" className="transaction-primary-action quick-save" disabled={!valid || submitting}>{submitting ? 'Menyimpan…' : 'Simpan transaksi'}</button>
           </form>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -250,41 +254,25 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
 
 interface LatestItemProps {
   transaction: Transaction;
-  onAmount: () => void;
-  onDescription: () => void;
-  onBoth: () => void;
+  onReuse: () => void;
 }
 
-const LatestItem: React.FC<LatestItemProps> = ({ transaction, onAmount, onDescription, onBoth }) => {
-  const timer = useRef<number | null>(null);
-  const held = useRef(false);
-  const moved = useRef(false);
-  const origin = useRef<{ x: number; y: number } | null>(null);
-  const startHold = (event: React.PointerEvent<HTMLButtonElement>) => {
-    held.current = false;
-    moved.current = false;
-    origin.current = { x: event.clientX, y: event.clientY };
-    timer.current = window.setTimeout(() => { held.current = true; onBoth(); }, 550);
-  };
-  const move = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const start = origin.current;
-    if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 10) return;
-    moved.current = true;
-    if (timer.current !== null) window.clearTimeout(timer.current);
-    timer.current = null;
-  };
-  const finish = (action: () => void) => {
-    if (timer.current !== null) window.clearTimeout(timer.current);
-    timer.current = null;
-    origin.current = null;
-    if (!held.current && !moved.current) action();
-  };
-  return (
-    <article className="latest-item">
-      <button type="button" onPointerDown={startHold} onPointerMove={move} onPointerUp={() => finish(onAmount)} onPointerCancel={() => finish(() => undefined)}>Rp{transaction.amount.toLocaleString('id-ID')}</button>
-      <button type="button" onPointerDown={startHold} onPointerMove={move} onPointerUp={() => finish(onDescription)} onPointerCancel={() => finish(() => undefined)}>{transaction.description}</button>
-    </article>
-  );
-};
+const latestDateFormatter = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
+
+const LatestItem: React.FC<LatestItemProps> = ({ transaction, onReuse }) => (
+  <button
+    type="button"
+    className="latest-item"
+    aria-label={`Gunakan lagi ${transaction.description}, Rp${transaction.amount.toLocaleString('id-ID')}`}
+    onClick={onReuse}
+  >
+    <span className="latest-item-icon"><RotateCcw aria-hidden="true" /></span>
+    <span className="latest-item-copy">
+      <strong>{transaction.description}</strong>
+      <small>{latestDateFormatter.format(new Date(transaction.date))}</small>
+    </span>
+    <strong className="latest-item-amount">Rp{transaction.amount.toLocaleString('id-ID')}</strong>
+  </button>
+);
 
 export default QuickTransactionEntry;

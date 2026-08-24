@@ -16,7 +16,7 @@ const previous: Transaction = {
 };
 
 describe('QuickTransactionEntry', () => {
-  it('starts without field focus, copies Latest independently, and saves valid data', async () => {
+  it('starts without field focus, reuses a complete previous transaction, and saves valid data', async () => {
     const user = userEvent.setup();
     const onAddTransaction = vi.fn<(transaction: NewTransaction) => boolean>(() => true);
     render(
@@ -30,21 +30,35 @@ describe('QuickTransactionEntry', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Tutup formulir transaksi' })).toHaveFocus();
-    await user.click(screen.getByRole('button', { name: 'Rp13.000' }));
+    expect(screen.getByRole('dialog', { name: 'Makanan & Minuman' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Tutup formulir transaksi' })).not.toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Gunakan lagi Sarapan, Rp13.000' }));
     expect(screen.getByLabelText('Jumlah pengeluaran')).toHaveValue('13.000');
-    expect(screen.getByLabelText('Deskripsi')).toHaveValue('');
-
-    await user.click(screen.getByRole('button', { name: 'Sarapan' }));
     expect(screen.getByLabelText('Deskripsi')).toHaveValue('Sarapan');
-    await user.click(screen.getByRole('button', { name: 'Simpan' }));
+    await user.click(screen.getByRole('button', { name: 'Simpan transaksi' }));
     expect(onAddTransaction).toHaveBeenCalledOnce();
     expect(onAddTransaction.mock.calls[0][0]).toMatchObject({ type: 'expense', category: 'Makanan & Minuman', amount: 13_000, description: 'Sarapan' });
+  });
+
+  it('shows at most ten previous transactions', () => {
+    const history: Transaction[] = Array.from({ length: 12 }, (_, index) => ({
+      ...previous,
+      id: `previous-${index}`,
+      amount: 10_000 + index,
+      description: `Catatan ${index}`,
+      date: new Date(2026, 0, index + 1, 8).toISOString(),
+    }));
+
+    render(<QuickTransactionEntry type="expense" category="Makanan & Minuman" mode="normal" transactions={history} onAddTransaction={() => true} onClose={vi.fn()} />);
+
+    expect(screen.getAllByRole('button', { name: /^Gunakan lagi/ })).toHaveLength(10);
+    expect(screen.getByRole('button', { name: /Gunakan lagi Catatan 11/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Gunakan lagi Catatan 0/ })).not.toBeInTheDocument();
   });
 
   it('shows the Latest empty state for a category without history', () => {
     render(<QuickTransactionEntry type="income" category="Bonus" mode="normal" transactions={[]} onAddTransaction={() => true} onClose={vi.fn()} />);
     expect(screen.getByText('Belum ada transaksi sebelumnya')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Simpan' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Simpan transaksi' })).toBeDisabled();
   });
 });

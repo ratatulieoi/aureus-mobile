@@ -110,6 +110,19 @@ describe('global accessibility CSS', () => {
     expect(liquidGlassSource).toMatch(/id="btn-glass"[\s\S]*?x="0"[\s\S]*?y="0"[\s\S]*?width="1"[\s\S]*?height="1"/);
   });
 
+  it('keeps transaction sheets flat and uses non-glowing focus feedback', () => {
+    expect(css).toMatch(/\.transaction-sheet\s*\{[^}]*bottom:\s*0;[^}]*border-radius:\s*1\.5rem 1\.5rem 0 0;[^}]*box-shadow:\s*none;/s);
+    expect(css).toMatch(/\.transaction-amount-control:focus-within\s*\{[^}]*border-bottom-color:\s*hsl\(var\(--ring\)\);/s);
+    expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea\):focus\s*\{[^}]*border-color:\s*hsl\(var\(--ring\)\);/s);
+    expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea\)\s*\{[^}]*box-shadow:\s*none;[^}]*text-align:\s*left;/s);
+    expect(css).toMatch(/\.transaction-primary-action,[\s\S]*?\.transaction-delete-action\s*\{[^}]*box-shadow:\s*none;/s);
+    expect(css).not.toMatch(/\.transaction-amount-control(?::focus-within)?\s*\{[^}]*box-shadow:/s);
+    expect(css).not.toMatch(/\.transaction-line-field(?::focus-within)?\s*\{[^}]*box-shadow:/s);
+    expect(css).toMatch(/\.transaction-sheet-form\s*\{[^}]*gap:\s*\.85rem;[^}]*padding:\s*\.85rem 1rem max\(1rem,/s);
+    expect(css).toMatch(/\.latest-list\s*\{[^}]*max-height:\s*162px;[^}]*overflow-y:\s*auto;[^}]*scrollbar-width:\s*none;/s);
+    expect(css).toMatch(/\.latest-list::-webkit-scrollbar\s*\{[^}]*display:\s*none;/s);
+  });
+
   it('comprehensively disables decorative motion when reduced motion is requested', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('animation-duration: 0.01ms !important');

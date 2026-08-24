@@ -1,12 +1,22 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  ReceiptText,
+  Search,
+  X,
+} from 'lucide-react';
 import type { Transaction, TransactionType } from '@/domain/types';
 import { calendarDateToLocalInstant, formatLocalCalendarDate } from '@/domain/calendar-date';
 import { parsePositiveFiniteAmount, transactionCalendarDate, validateAndNormalizeTransaction } from '@/domain/transaction-validation';
 import DeleteConfirmation from '@/components/DeleteConfirmation';
 import { toast } from '@/components/ui/use-toast';
 import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
+import TransactionAmountField from '@/components/TransactionAmountField';
 
 interface ActivityScreenProps {
   transactions: Transaction[];
@@ -18,9 +28,6 @@ type TypeFilter = 'all' | TransactionType;
 
 const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
 const dateFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-const EDIT_HOLD_MS = 550;
-const HOLD_MOVE_TOLERANCE = 12;
-
 const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
   const currentMonth = formatLocalCalendarDate(new Date()).slice(0, 7);
   const [period, setPeriod] = useState(currentMonth);
@@ -52,9 +59,9 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
   }, [periodTransactions, query, typeFilter]);
 
   const totals = useMemo(() => ({
-    income: periodTransactions.filter(({ type }) => type === 'income').reduce((sum, { amount }) => sum + amount, 0),
-    expense: periodTransactions.filter(({ type }) => type === 'expense').reduce((sum, { amount }) => sum + amount, 0),
-  }), [periodTransactions]);
+    income: visibleTransactions.filter(({ type }) => type === 'income').reduce((sum, { amount }) => sum + amount, 0),
+    expense: visibleTransactions.filter(({ type }) => type === 'expense').reduce((sum, { amount }) => sum + amount, 0),
+  }), [visibleTransactions]);
 
   const groups = useMemo(() => {
     const grouped = new Map<string, Transaction[]>();
@@ -68,33 +75,49 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
     return [...grouped.entries()];
   }, [visibleTransactions]);
 
+  const periodLabel = period === 'all' ? 'Semua bulan' : formatMonth(period);
+  const hasListFilter = typeFilter !== 'all' || query.trim() !== '';
+  const hasActiveFilter = period !== 'all' || hasListFilter;
+  const resetFilters = () => {
+    setPeriod('all');
+    setTypeFilter('all');
+    setQuery('');
+  };
+
   return (
     <section className="activity-screen" aria-labelledby="activity-title">
-      <h1 id="activity-title">History</h1>
+      <header className="activity-page-header">
+        <h1 id="activity-title">History</h1>
+        <div className="activity-period-select">
+          <CalendarDays aria-hidden="true" />
+          <label className="sr-only" htmlFor="activity-period">Periode</label>
+          <select id="activity-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
+            <option value="all">Semua bulan</option>
+            {availableMonths.map((month) => (
+              <option key={month} value={month}>{formatMonth(month)}</option>
+            ))}
+          </select>
+          <ChevronDown aria-hidden="true" />
+        </div>
+      </header>
 
-      <section className="activity-filters" aria-label="Cari dan filter transaksi">
-        <div className="activity-filter-grid">
-          <div className="form-field">
-            <label htmlFor="activity-period">Periode</label>
-            <select id="activity-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
-              <option value="all">Semua bulan</option>
-              {availableMonths.map((month) => (
-                <option key={month} value={month}>{formatMonth(month)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="activity-search">Cari transaksi</label>
-            <input
-              id="activity-search"
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Deskripsi atau kategori"
-              autoComplete="off"
-            />
-          </div>
+      <section className="activity-controls" aria-label="Cari dan filter transaksi">
+        <div className="activity-search-field">
+          <Search aria-hidden="true" />
+          <label className="sr-only" htmlFor="activity-search">Cari transaksi</label>
+          <input
+            id="activity-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Cari deskripsi atau kategori"
+            autoComplete="off"
+          />
+          {query && (
+            <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery('')}>
+              <X aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <div className="activity-type-filters" aria-label="Filter jenis transaksi">
@@ -106,22 +129,36 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
             <button key={value} type="button" aria-pressed={typeFilter === value} onClick={() => setTypeFilter(value)}>{label}</button>
           ))}
         </div>
-
-        <div className={`activity-summary ${typeFilter === 'all' ? '' : 'is-single'}`} aria-live="polite">
-          {typeFilter !== 'expense' && <div><span>Pemasukan</span><strong>Rp{totals.income.toLocaleString('id-ID')}</strong></div>}
-          {typeFilter !== 'income' && <div><span>Pengeluaran</span><strong>Rp{totals.expense.toLocaleString('id-ID')}</strong></div>}
-        </div>
       </section>
 
-      <section className="activity-history" aria-label="Riwayat transaksi">
+      <section className="activity-history" aria-labelledby="activity-history-title">
+        <div className="activity-history-heading">
+          <h2 id="activity-history-title">Transaksi</h2>
+          <p aria-live="polite">{visibleTransactions.length} {hasListFilter ? 'hasil' : 'transaksi'}</p>
+        </div>
+
+        <div className="activity-history-overview" aria-label={`Ringkasan ${periodLabel}`}>
+          <div className={`activity-overview-item is-income${totals.income === 0 ? ' is-zero' : ''}`}>
+            <ArrowDownLeft aria-hidden="true" />
+            <span><small>Pemasukan</small><strong>Rp{totals.income.toLocaleString('id-ID')}</strong></span>
+          </div>
+          <div className={`activity-overview-item${totals.expense === 0 ? ' is-zero' : ''}`}>
+            <ArrowUpRight aria-hidden="true" />
+            <span><small>Pengeluaran</small><strong>Rp{totals.expense.toLocaleString('id-ID')}</strong></span>
+          </div>
+        </div>
+
         {groups.length === 0 ? (
-          <p className="activity-empty">Tidak ada transaksi yang cocok.</p>
+          <ActivityEmptyState hasTransactions={transactions.length > 0} hasActiveFilter={hasActiveFilter} onReset={resetFilters} />
         ) : groups.map(([day, entries]) => (
           <section key={day} className="activity-date-group" aria-labelledby={`activity-date-${day}`}>
-            <h2 id={`activity-date-${day}`}>{displayDate(day)}</h2>
+            <header>
+              <h3 id={`activity-date-${day}`}>{displayDate(day)}</h3>
+              <span>{entries.length} transaksi</span>
+            </header>
             <div className="activity-transaction-list">
               {entries.map((transaction) => (
-                <ActivityTransactionRow key={transaction.id} transaction={transaction} onHold={() => setEditing(transaction)} />
+                <ActivityTransactionRow key={transaction.id} transaction={transaction} onOpen={() => setEditing(transaction)} />
               ))}
             </div>
           </section>
@@ -157,74 +194,48 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
   );
 };
 
-interface ActivityTransactionRowProps {
-  transaction: Transaction;
-  onHold: () => void;
+interface ActivityEmptyStateProps {
+  hasTransactions: boolean;
+  hasActiveFilter: boolean;
+  onReset: () => void;
 }
 
-const ActivityTransactionRow: React.FC<ActivityTransactionRowProps> = ({ transaction, onHold }) => {
-  const holdTimer = useRef<number | null>(null);
-  const origin = useRef<{ x: number; y: number } | null>(null);
-  const [holding, setHolding] = useState(false);
+const ActivityEmptyState: React.FC<ActivityEmptyStateProps> = ({ hasTransactions, hasActiveFilter, onReset }) => (
+  <div className="activity-empty">
+    <span><ReceiptText aria-hidden="true" /></span>
+    <strong>{hasTransactions ? 'Tidak ada transaksi yang cocok' : 'Belum ada transaksi'}</strong>
+    <p>{hasTransactions ? 'Coba ubah pencarian, periode, atau jenis transaksi.' : 'Transaksi yang kamu catat akan tersusun di sini berdasarkan tanggal.'}</p>
+    {hasTransactions && hasActiveFilter && <button type="button" onClick={onReset}>Tampilkan semua transaksi</button>}
+  </div>
+);
 
-  const clearHold = () => {
-    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
-    holdTimer.current = null;
-    origin.current = null;
-    setHolding(false);
-  };
+interface ActivityTransactionRowProps {
+  transaction: Transaction;
+  onOpen: () => void;
+}
 
-  const beginHold = () => {
-    clearHold();
-    setHolding(true);
-    holdTimer.current = window.setTimeout(() => {
-      clearHold();
-      onHold();
-    }, EDIT_HOLD_MS);
-  };
-
-  useEffect(() => () => {
-    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
-  }, []);
+const ActivityTransactionRow: React.FC<ActivityTransactionRowProps> = ({ transaction, onOpen }) => {
+  const TypeIcon = transaction.type === 'income' ? ArrowDownLeft : ArrowUpRight;
 
   return (
     <button
       type="button"
-      className={`activity-transaction-row${holding ? ' is-holding' : ''}`}
-      aria-label={`${transaction.description}, ${transaction.category}, ${transaction.type === 'income' ? 'pemasukan' : 'pengeluaran'} Rp${transaction.amount.toLocaleString('id-ID')}. Tahan untuk mengedit.`}
-      onClick={(event) => event.preventDefault()}
-      onPointerDown={(event) => {
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
-        origin.current = { x: event.clientX, y: event.clientY };
-        event.currentTarget.setPointerCapture(event.pointerId);
-        beginHold();
-        origin.current = { x: event.clientX, y: event.clientY };
-      }}
-      onPointerMove={(event) => {
-        const start = origin.current;
-        if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) <= HOLD_MOVE_TOLERANCE) return;
-        clearHold();
-      }}
-      onPointerUp={clearHold}
-      onPointerCancel={clearHold}
-      onKeyDown={(event) => {
-        if ((event.key !== 'Enter' && event.key !== ' ') || event.repeat || holdTimer.current !== null) return;
-        event.preventDefault();
-        beginHold();
-      }}
-      onKeyUp={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        clearHold();
-      }}
-      onBlur={clearHold}
+      className="activity-transaction-row"
+      aria-label={`Edit ${transaction.description}, ${transaction.category}, ${transaction.type === 'income' ? 'pemasukan' : 'pengeluaran'} Rp${transaction.amount.toLocaleString('id-ID')}`}
+      onClick={onOpen}
     >
+      <span className={`activity-transaction-icon${transaction.type === 'income' ? ' is-income' : ''}`}>
+        <TypeIcon aria-hidden="true" />
+      </span>
       <span className="activity-transaction-copy">
         <strong>{transaction.description}</strong>
         <span>{transaction.category} · {formatTime(transaction.date)}</span>
       </span>
-      <span className={`activity-transaction-amount ${transaction.type === 'income' ? 'is-income' : ''}`}>
-        {transaction.type === 'income' ? '+' : '−'}Rp{transaction.amount.toLocaleString('id-ID')}
+      <span className="activity-transaction-trailing">
+        <strong className={`activity-transaction-amount${transaction.type === 'income' ? ' is-income' : ''}`}>
+          {transaction.type === 'income' ? '+' : '−'}Rp{transaction.amount.toLocaleString('id-ID')}
+        </strong>
+        <ChevronRight aria-hidden="true" />
       </span>
     </button>
   );
@@ -272,45 +283,45 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
   return createPortal(
     <>
       <button type="button" className="activity-edit-backdrop" aria-label="Tutup edit transaksi" onClick={onClose} />
-      <section className="activity-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-edit-title">
-        <header>
-          <div><h2 id="activity-edit-title">Edit transaksi</h2><p>Ubah atau hapus transaksi ini.</p></div>
+      <section className="activity-edit-sheet transaction-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-edit-title">
+        <header className="transaction-sheet-header">
+          <div><h2 id="activity-edit-title">Edit transaksi</h2><p>{transaction.type === 'expense' ? 'Pengeluaran' : 'Pemasukan'} · {transaction.category}</p></div>
           <button type="button" aria-label="Tutup edit transaksi" onClick={onClose}><X aria-hidden="true" /></button>
         </header>
-        <form onSubmit={save}>
-          <div className="form-field">
-            <label htmlFor="edit-activity-type">Jenis</label>
-            <select id="edit-activity-type" value={type} onChange={(event) => setType(event.target.value as TransactionType)}>
-              <option value="expense">Pengeluaran</option>
-              <option value="income">Pemasukan</option>
-            </select>
+        <form onSubmit={save} className="transaction-sheet-form activity-edit-form">
+          <div className="transaction-type-choice" role="group" aria-label="Jenis transaksi">
+            <button type="button" aria-pressed={type === 'expense'} onClick={() => setType('expense')}>Pengeluaran</button>
+            <button type="button" aria-pressed={type === 'income'} onClick={() => setType('income')}>Pemasukan</button>
           </div>
 
-          <div className="form-field">
-            <label htmlFor="edit-activity-amount">Jumlah</label>
-            <div className="activity-rupiah-input"><span>Rp</span><input id="edit-activity-amount" inputMode="numeric" value={amount ? Number(amount).toLocaleString('id-ID') : ''} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required /></div>
-          </div>
+          <TransactionAmountField
+            id="edit-activity-amount"
+            label="Jumlah"
+            value={amount}
+            onValueChange={setAmount}
+            required
+          />
 
-          <div className="form-field">
-            <label htmlFor="edit-activity-description">Deskripsi</label>
-            <input id="edit-activity-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} required />
-          </div>
+          <div className="transaction-detail-fields">
+            <div className="transaction-line-field">
+              <label htmlFor="edit-activity-description">Deskripsi</label>
+              <textarea id="edit-activity-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={2} required />
+            </div>
 
-          <div className="activity-edit-grid">
-            <div className="form-field">
+            <div className="transaction-line-field">
               <label htmlFor="edit-activity-category">Kategori</label>
               <input id="edit-activity-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} required />
             </div>
 
-            <div className="form-field">
+            <div className="transaction-line-field">
               <label htmlFor="edit-activity-date">Tanggal</label>
               <input id="edit-activity-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
             </div>
           </div>
 
-          <div className="activity-edit-actions">
-            <button type="button" onClick={onDelete}>Hapus</button>
-            <button type="submit">Simpan perubahan</button>
+          <div className="activity-edit-actions transaction-sheet-actions">
+            <button type="button" className="transaction-delete-action" onClick={onDelete}>Hapus</button>
+            <button type="submit" className="transaction-primary-action">Simpan perubahan</button>
           </div>
         </form>
       </section>
