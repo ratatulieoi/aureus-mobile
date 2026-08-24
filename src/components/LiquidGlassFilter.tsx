@@ -20,7 +20,15 @@ const LiquidGlassFilter = () => (
         />
       </filter>
 
-      <filter id="btn-glass" primitiveUnits="objectBoundingBox">
+      <filter
+        id="btn-glass"
+        x="0"
+        y="0"
+        width="1"
+        height="1"
+        filterUnits="objectBoundingBox"
+        primitiveUnits="objectBoundingBox"
+      >
         <feImage
           href="/brand/liquid-glass-button-map.png"
           x="0"

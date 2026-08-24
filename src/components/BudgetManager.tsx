@@ -77,13 +77,13 @@ const BudgetManager: React.FC<BudgetManagerProps> = ({
           </div>
 
           {showForm && (
-            <div id="budget-add-form" className="rounded-lg border bg-muted/20 p-4 animate-in slide-in-from-top-2">
-              <h4 className="mb-4 font-medium">Tambah Budget Baru</h4>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="min-w-0"><Label htmlFor="budget-category" className="sr-only">Kategori budget</Label><Select value={newBudget.category} onValueChange={(category) => setNewBudget((current) => ({ ...current, category }))}><SelectTrigger id="budget-category"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger><SelectContent>{CATEGORIES.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select></div>
-                <div className="min-w-0"><Label htmlFor="budget-amount" className="sr-only">Jumlah budget</Label><Input id="budget-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="Jumlah Budget" value={newBudget.amount} onChange={(event) => setNewBudget((current) => ({ ...current, amount: event.target.value }))} /></div>
-                <div className="flex min-w-0 flex-col-reverse gap-2 min-[360px]:flex-row sm:flex-col-reverse lg:flex-row"><Button type="button" variant="outline" onClick={() => setShowForm(false)} className="min-w-0 flex-1">Batal</Button><Button type="button" onClick={handleAddBudget} className="min-w-0 flex-1">Simpan</Button></div>
+            <div id="budget-add-form" className="aureus-inline-form animate-in slide-in-from-top-2">
+              <div><h4>Tambah budget baru</h4><p>Tetapkan batas pengeluaran untuk satu kategori.</p></div>
+              <div className="form-grid">
+                <div className="form-field"><Label htmlFor="budget-category">Kategori</Label><Select value={newBudget.category} onValueChange={(category) => setNewBudget((current) => ({ ...current, category }))}><SelectTrigger id="budget-category"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{CATEGORIES.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select></div>
+                <div className="form-field"><Label htmlFor="budget-amount">Jumlah budget</Label><Input id="budget-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="0" value={newBudget.amount} onChange={(event) => setNewBudget((current) => ({ ...current, amount: event.target.value }))} /></div>
               </div>
+              <div className="form-actions"><Button type="button" variant="outline" onClick={() => setShowForm(false)}>Batal</Button><Button type="button" onClick={handleAddBudget}>Simpan</Button></div>
             </div>
           )}
         </section>

@@ -73,23 +73,29 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
       <h1 id="activity-title">History</h1>
 
       <section className="activity-filters" aria-label="Cari dan filter transaksi">
-        <label htmlFor="activity-period">Periode</label>
-        <select id="activity-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
-          <option value="all">Semua bulan</option>
-          {availableMonths.map((month) => (
-            <option key={month} value={month}>{formatMonth(month)}</option>
-          ))}
-        </select>
+        <div className="activity-filter-grid">
+          <div className="form-field">
+            <label htmlFor="activity-period">Periode</label>
+            <select id="activity-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
+              <option value="all">Semua bulan</option>
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>{formatMonth(month)}</option>
+              ))}
+            </select>
+          </div>
 
-        <label htmlFor="activity-search">Cari transaksi</label>
-        <input
-          id="activity-search"
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Deskripsi atau kategori"
-          autoComplete="off"
-        />
+          <div className="form-field">
+            <label htmlFor="activity-search">Cari transaksi</label>
+            <input
+              id="activity-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Deskripsi atau kategori"
+              autoComplete="off"
+            />
+          </div>
+        </div>
 
         <div className="activity-type-filters" aria-label="Filter jenis transaksi">
           {([
@@ -272,23 +278,35 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
           <button type="button" aria-label="Tutup edit transaksi" onClick={onClose}><X aria-hidden="true" /></button>
         </header>
         <form onSubmit={save}>
-          <label htmlFor="edit-activity-type">Jenis</label>
-          <select id="edit-activity-type" value={type} onChange={(event) => setType(event.target.value as TransactionType)}>
-            <option value="expense">Pengeluaran</option>
-            <option value="income">Pemasukan</option>
-          </select>
+          <div className="form-field">
+            <label htmlFor="edit-activity-type">Jenis</label>
+            <select id="edit-activity-type" value={type} onChange={(event) => setType(event.target.value as TransactionType)}>
+              <option value="expense">Pengeluaran</option>
+              <option value="income">Pemasukan</option>
+            </select>
+          </div>
 
-          <label htmlFor="edit-activity-amount">Jumlah</label>
-          <div className="activity-rupiah-input"><span>Rp</span><input id="edit-activity-amount" inputMode="numeric" value={amount ? Number(amount).toLocaleString('id-ID') : ''} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required /></div>
+          <div className="form-field">
+            <label htmlFor="edit-activity-amount">Jumlah</label>
+            <div className="activity-rupiah-input"><span>Rp</span><input id="edit-activity-amount" inputMode="numeric" value={amount ? Number(amount).toLocaleString('id-ID') : ''} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required /></div>
+          </div>
 
-          <label htmlFor="edit-activity-description">Deskripsi</label>
-          <input id="edit-activity-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} required />
+          <div className="form-field">
+            <label htmlFor="edit-activity-description">Deskripsi</label>
+            <input id="edit-activity-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} required />
+          </div>
 
-          <label htmlFor="edit-activity-category">Kategori</label>
-          <input id="edit-activity-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} required />
+          <div className="activity-edit-grid">
+            <div className="form-field">
+              <label htmlFor="edit-activity-category">Kategori</label>
+              <input id="edit-activity-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} required />
+            </div>
 
-          <label htmlFor="edit-activity-date">Tanggal</label>
-          <input id="edit-activity-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
+            <div className="form-field">
+              <label htmlFor="edit-activity-date">Tanggal</label>
+              <input id="edit-activity-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
+            </div>
+          </div>
 
           <div className="activity-edit-actions">
             <button type="button" onClick={onDelete}>Hapus</button>

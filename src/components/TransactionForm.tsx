@@ -98,7 +98,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       <DialogContent
         hideClose={isSubmitting}
         closeLabel="Tutup formulir transaksi"
-        className="max-w-md bg-card"
+        className="max-w-md"
         onEscapeKeyDown={(event) => { if (isSubmitting) event.preventDefault(); }}
         onInteractOutside={(event) => { if (isSubmitting) event.preventDefault(); }}
         onOpenAutoFocus={(event) => event.preventDefault()}
@@ -114,42 +114,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4" aria-busy={isSubmitting}>
-          <div>
-            <Label htmlFor="transaction-date" className="font-medium">Tanggal *</Label>
-            <Input id="transaction-date" type="date" max={formatLocalCalendarDate(new Date())} value={formData.date} onChange={(event) => setFormData({ ...formData, date: event.target.value })} required className="mt-1.5" />
+          <div className="form-field">
+            <Label htmlFor="transaction-date">Tanggal *</Label>
+            <Input id="transaction-date" type="date" max={formatLocalCalendarDate(new Date())} value={formData.date} onChange={(event) => setFormData({ ...formData, date: event.target.value })} required />
           </div>
           {lockedSelection ? (
-            <div className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/25 bg-[hsl(var(--home-surface-muted))] p-3 text-sm">
               <div><span className="block text-xs text-muted-foreground">Jenis</span><strong>{formData.type === 'expense' ? 'Pengeluaran' : 'Pemasukan'}</strong></div>
               <div><span className="block text-xs text-muted-foreground">Kategori</span><strong>{formData.category}</strong></div>
             </div>
           ) : (
             <>
-              <div>
-                <Label htmlFor="transaction-type" className="font-medium">Tipe Transaksi *</Label>
+              <div className="form-field">
+                <Label htmlFor="transaction-type">Tipe Transaksi *</Label>
                 <Select value={formData.type} onValueChange={(value: TransactionType) => setFormData({ ...formData, type: value, category: '' })}>
-                  <SelectTrigger id="transaction-type" aria-describedby="transaction-type-help" className="mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="transaction-type" aria-describedby="transaction-type-help"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="income">Pemasukan</SelectItem><SelectItem value="expense">Pengeluaran</SelectItem></SelectContent>
                 </Select>
                 <p id="transaction-type-help" className="sr-only">Pilih apakah uang masuk atau uang keluar.</p>
               </div>
-              <div>
-                <Label htmlFor="transaction-category" className="font-medium">Kategori *</Label>
+              <div className="form-field">
+                <Label htmlFor="transaction-category">Kategori *</Label>
                 <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                  <SelectTrigger id="transaction-category" className="mt-1.5"><SelectValue placeholder="Pilih kategori..." /></SelectTrigger>
+                  <SelectTrigger id="transaction-category"><SelectValue placeholder="Pilih kategori..." /></SelectTrigger>
                   <SelectContent>{categories[formData.type].map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </>
           )}
-          <div>
-            <Label htmlFor="transaction-amount" className="font-medium">Jumlah (Rp) *</Label>
-            <div className="mt-1.5 flex h-11 items-center border bg-background px-3"><span aria-hidden="true" className="mr-2 text-sm font-semibold text-muted-foreground">Rp</span><Input id="transaction-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="0" value={formData.amount} onChange={(event) => setFormData({ ...formData, amount: event.target.value })} required className="h-9 border-0 px-0 focus-visible:ring-0" /></div>
+          <div className="form-field">
+            <Label htmlFor="transaction-amount">Jumlah (Rp) *</Label>
+            <div className="aureus-money-input"><span aria-hidden="true">Rp</span><Input id="transaction-amount" type="number" min="1" step="1" inputMode="numeric" placeholder="0" value={formData.amount} onChange={(event) => setFormData({ ...formData, amount: event.target.value })} required className="h-11 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" /></div>
           </div>
-          <div>
-            <Label htmlFor="transaction-description" className="font-medium">Keterangan *</Label>
-            <Textarea id="transaction-description" maxLength={500} aria-describedby="transaction-description-help" placeholder="Masukkan keterangan transaksi..." value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} rows={3} required className="mt-1.5 resize-none" />
-            <p id="transaction-description-help" className="mt-1 text-xs text-muted-foreground">Maksimum 500 karakter.</p>
+          <div className="form-field">
+            <Label htmlFor="transaction-description">Keterangan *</Label>
+            <Textarea id="transaction-description" maxLength={500} aria-describedby="transaction-description-help" placeholder="Masukkan keterangan transaksi..." value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} rows={3} required className="resize-none" />
+            <p id="transaction-description-help" className="form-helper">Maksimum 500 karakter.</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={isSubmitting} onClick={requestClose}>Batal</Button>

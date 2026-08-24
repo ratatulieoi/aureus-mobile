@@ -1,6 +1,28 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { List } from 'lucide-react';
+import {
+  BadgeDollarSign,
+  BriefcaseBusiness,
+  CalendarDays,
+  CarFront,
+  ChevronDown,
+  ChevronUp,
+  CircleDollarSign,
+  Gamepad2,
+  GraduationCap,
+  HeartPulse,
+  House,
+  MessageCircle,
+  ReceiptText,
+  RefreshCw,
+  Shapes,
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+  UtensilsCrossed,
+  WalletCards,
+  type LucideIcon,
+} from 'lucide-react';
 import type { CategoryCatalog, Transaction, TransactionType } from '@/domain/types';
 import {
   canSelectDashboardMonth,
@@ -12,6 +34,7 @@ import {
   type QuickPeriodId,
 } from '@/domain/dashboard-period';
 import { cn } from '@/lib/utils';
+import { transactionLocalDate } from '@/domain/period';
 import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface DashboardHomeProps {
@@ -33,6 +56,24 @@ const MONTHS = [
 const HOLD_MS = 550;
 const MOVE_TOLERANCE = 12;
 
+const CATEGORY_ICONS: Readonly<Record<string, LucideIcon>> = {
+  'Makanan & Minuman': UtensilsCrossed,
+  Transportasi: CarFront,
+  Belanja: ShoppingBag,
+  Tagihan: ReceiptText,
+  Kesehatan: HeartPulse,
+  Hiburan: Gamepad2,
+  Pendidikan: GraduationCap,
+  'Rumah Tangga': House,
+  Komunikasi: MessageCircle,
+  Langganan: RefreshCw,
+  Gaji: WalletCards,
+  Bonus: Sparkles,
+  Penjualan: BadgeDollarSign,
+  Investasi: TrendingUp,
+  Freelance: BriefcaseBusiness,
+};
+
 const DashboardHome: React.FC<DashboardHomeProps> = ({
   transactions,
   categories,
@@ -47,9 +88,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
+  const [monthPickerTop, setMonthPickerTop] = useState(0);
   const [quickPickerOpen, setQuickPickerOpen] = useState(false);
   const [quickPickerAnchor, setQuickPickerAnchor] = useState<{ left: number; labelCenterY: number } | null>(null);
   const [highlightedQuick, setHighlightedQuick] = useState<QuickPeriodId | null>(null);
+  const summaryRef = useRef<HTMLElement | null>(null);
   const periodControlRef = useRef<HTMLDivElement | null>(null);
   const periodLabelRef = useRef<HTMLSpanElement | null>(null);
   const periodHoldRef = useRef<number | null>(null);
@@ -88,6 +131,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   const secondaryType: TransactionType = activeType === 'expense' ? 'income' : 'expense';
   const secondaryTotal = totals[secondaryType];
   const availableYears = dashboardAvailableYears(transactions, now);
+  const transactionMonths = useMemo(() => {
+    const months = new Set<string>();
+    for (const transaction of transactions) {
+      const date = transactionLocalDate(transaction);
+      if (date) months.add(`${date.getFullYear()}-${date.getMonth()}`);
+    }
+    return months;
+  }, [transactions]);
   useMobileBackDismiss(monthPickerOpen, () => setMonthPickerOpen(false));
 
   const openMonthPicker = () => {
@@ -95,7 +146,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       periodCancelledRef.current = false;
       return;
     }
+    if (monthPickerOpen) {
+      setYearPickerOpen(false);
+      setMonthPickerOpen(false);
+      return;
+    }
+    const summaryBottom = summaryRef.current?.getBoundingClientRect().bottom ?? 0;
     setPickerYear(period.kind === 'month' ? period.year : now.getFullYear());
+    setMonthPickerTop(Math.max(16, summaryBottom + 12));
     setYearPickerOpen(false);
     setMonthPickerOpen(true);
   };
@@ -169,8 +227,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
   return (
     <div className="dashboard-home">
-      <section className="dashboard-summary" aria-label="Ringkasan transaksi">
-        <div className="dashboard-summary-copy">
+      <section ref={summaryRef} className="dashboard-summary" aria-label="Ringkasan transaksi">
+        <div className="dashboard-summary-head">
           <div ref={periodControlRef} className="period-control">
             <button
               type="button"
@@ -183,47 +241,89 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
               onPointerUp={finishPeriodGesture}
               onPointerCancel={cancelPeriodGesture}
             >
-              <List aria-hidden="true" className="h-4 w-4" />
+              <CalendarDays aria-hidden="true" />
               <span ref={periodLabelRef}>{dashboardPeriodLabel(period)}</span>
+              <ChevronDown aria-hidden="true" className="period-trigger-chevron" />
             </button>
           </div>
+          <span className="dashboard-summary-kicker">Ringkasan</span>
+        </div>
+
+        <div className="dashboard-summary-copy">
+          <span className="dashboard-primary-label">
+            Total {activeType === 'expense' ? 'pengeluaran' : 'pemasukan'}
+          </span>
           <p className={cn('dashboard-primary-total', activeType === 'income' && 'is-income')}>
-            <span aria-hidden="true">{activeType === 'expense' ? '−' : '+'}</span> Rp{primaryTotal.toLocaleString('id-ID')}
+            <span aria-hidden="true">{activeType === 'expense' ? '−' : '+'}</span>
+            <span>Rp{primaryTotal.toLocaleString('id-ID')}</span>
           </p>
-          <p className={cn('dashboard-secondary-total', secondaryType === 'income' && 'is-income')}>
-            <span aria-hidden="true">{secondaryType === 'expense' ? '−' : '+'}</span> Rp{secondaryTotal.toLocaleString('id-ID')}
+          <p className="dashboard-secondary-total">
+            <span>Total {secondaryType === 'expense' ? 'pengeluaran' : 'pemasukan'}</span>
+            <strong className={secondaryType === 'income' ? 'is-income' : undefined}>
+              <span aria-hidden="true">{secondaryType === 'expense' ? '−' : '+'}</span> Rp{secondaryTotal.toLocaleString('id-ID')}
+            </strong>
           </p>
         </div>
-        <button
-          type="button"
-          className={cn('type-switch', activeType === 'income' && 'is-income')}
-          aria-label={activeType === 'expense' ? 'Tampilkan pemasukan' : 'Tampilkan pengeluaran'}
-          aria-pressed={activeType === 'income'}
-          onClick={() => {
-            setExpanded(false);
-            onActiveTypeChange(activeType === 'expense' ? 'income' : 'expense');
-          }}
-        >
-          <span aria-hidden="true">{activeType === 'expense' ? '−' : '+'}</span>
-        </button>
+
+        <div className="type-switch" role="group" aria-label="Jenis transaksi">
+          <button
+            type="button"
+            aria-label="Tampilkan pengeluaran"
+            aria-pressed={activeType === 'expense'}
+            onClick={() => {
+              setExpanded(false);
+              onActiveTypeChange('expense');
+            }}
+          >
+            <span aria-hidden="true">−</span>
+            Pengeluaran
+          </button>
+          <button
+            type="button"
+            aria-label="Tampilkan pemasukan"
+            aria-pressed={activeType === 'income'}
+            onClick={() => {
+              setExpanded(false);
+              onActiveTypeChange('income');
+            }}
+          >
+            <span aria-hidden="true">+</span>
+            Pemasukan
+          </button>
+        </div>
       </section>
 
-      <section className="dashboard-categories" aria-label={`Kategori ${activeType === 'expense' ? 'pengeluaran' : 'pemasukan'}`}>
-        <div className="category-list">
-          {visibleCategories.map((category) => (
-            <CategoryButton
-              key={category.name}
-              category={category}
-              type={activeType}
-              onOpenEntry={onOpenEntry}
-            />
-          ))}
-          {rankedCategories.length > 5 && (
-            <button type="button" className="category-more" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
-              {expanded ? 'Tampilkan lebih sedikit' : 'Lihat kategori lainnya'}
-            </button>
+      <section className="dashboard-categories" aria-labelledby="dashboard-category-title">
+          <div className="dashboard-categories-heading">
+            <div>
+              <h2 id="dashboard-category-title">Pilih kategori {activeType === 'expense' ? 'pengeluaran' : 'pemasukan'}</h2>
+              <p>Ketuk untuk mencatat. Tahan untuk input suara.</p>
+            </div>
+          </div>
+          {rankedCategories.length > 0 ? (
+            <div className="category-list">
+              {visibleCategories.map((category) => (
+                <CategoryButton
+                  key={category.name}
+                  category={category}
+                  type={activeType}
+                  onOpenEntry={onOpenEntry}
+                />
+              ))}
+              {rankedCategories.length > 5 && (
+                <button type="button" className="category-more" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+                  {expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+                  <span>{expanded ? 'Tampilkan lebih sedikit' : 'Lihat kategori lainnya'}</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="category-empty">
+              <Shapes aria-hidden="true" />
+              <strong>Belum ada kategori</strong>
+              <p>Tambahkan kategori lewat menu Lainnya untuk mulai mencatat.</p>
+            </div>
           )}
-        </div>
       </section>
 
       {quickPickerOpen && quickPickerAnchor && createPortal(
@@ -264,30 +364,66 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         document.body,
       )}
 
-      {monthPickerOpen && (
-        <div className="picker-backdrop" role="presentation" onPointerDown={() => setMonthPickerOpen(false)}>
-          <section className="month-picker liquid-glass-overlay" role="dialog" aria-modal="true" aria-label="Pilih bulan" onPointerDown={(event) => event.stopPropagation()}>
-            <button type="button" className="year-trigger" aria-expanded={yearPickerOpen} onClick={() => setYearPickerOpen((value) => !value)}>{pickerYear}</button>
+      {monthPickerOpen && createPortal(
+        <div className="month-picker-backdrop" role="presentation" onClick={() => setMonthPickerOpen(false)}>
+          <section
+            className="month-picker-box"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Pilih bulan"
+            style={{ top: monthPickerTop }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="month-picker-destination dock-glass-destination month-picker-year"
+              data-glass-active="true"
+              aria-expanded={yearPickerOpen}
+              onClick={() => setYearPickerOpen((value) => !value)}
+            >
+              <span>{pickerYear}</span>
+            </button>
+
             {yearPickerOpen ? (
-              <div className="year-list">
-                {availableYears.map((year) => <button key={year} type="button" onClick={() => { setPickerYear(year); setYearPickerOpen(false); }}>{year}</button>)}
-              </div>
-            ) : (
-              <div className="month-grid">
-                {MONTHS.map((month, index) => (
+              <div className="month-picker-year-options">
+                {availableYears.map((year) => (
                   <button
-                    key={month}
+                    key={year}
                     type="button"
-                    disabled={!canSelectDashboardMonth(index, pickerYear, now)}
-                    onClick={() => { onPeriodChange({ kind: 'month', month: index, year: pickerYear }); setMonthPickerOpen(false); }}
+                    className="month-picker-destination dock-glass-destination"
+                    data-glass-active={pickerYear === year || undefined}
+                    onClick={() => { setPickerYear(year); setYearPickerOpen(false); }}
                   >
-                    {month}
+                    <span>{year}</span>
                   </button>
                 ))}
               </div>
+            ) : (
+              <div className="month-picker-grid">
+                <p id="month-has-transactions-description" className="sr-only">Memiliki transaksi pada bulan ini.</p>
+                {MONTHS.map((month, index) => {
+                  const selectable = canSelectDashboardMonth(index, pickerYear, now);
+                  const hasTransactions = selectable && transactionMonths.has(`${pickerYear}-${index}`);
+                  return (
+                    <button
+                      key={month}
+                      type="button"
+                      className="month-picker-destination dock-glass-destination"
+                      data-glass-active={hasTransactions || undefined}
+                      data-has-transactions={hasTransactions || undefined}
+                      aria-describedby={hasTransactions ? 'month-has-transactions-description' : undefined}
+                      disabled={!selectable}
+                      onClick={() => { onPeriodChange({ kind: 'month', month: index, year: pickerYear }); setMonthPickerOpen(false); }}
+                    >
+                      <span>{month}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
 
     </div>
@@ -295,12 +431,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 };
 
 interface CategoryButtonProps {
-  category: { name: string; amount: number };
+  category: { name: string; amount: number; count: number };
   type: TransactionType;
   onOpenEntry: (category: string, voice: boolean) => void;
 }
 
 const CategoryButton: React.FC<CategoryButtonProps> = ({ category, type, onOpenEntry }) => {
+  const CategoryIcon = CATEGORY_ICONS[category.name] ?? (type === 'income' ? CircleDollarSign : Shapes);
   const holdTimer = useRef<number | null>(null);
   const held = useRef(false);
   const moved = useRef(false);
@@ -344,8 +481,14 @@ const CategoryButton: React.FC<CategoryButtonProps> = ({ category, type, onOpenE
       }}
       onPointerCancel={() => { moved.current = true; origin.current = null; clear(); }}
     >
-      <span>{category.name}</span>
-      <strong className={type === 'income' ? 'is-income' : undefined}>{category.amount > 0 ? `Rp${category.amount.toLocaleString('id-ID')}` : '••••'}</strong>
+      <span className="category-row-icon"><CategoryIcon aria-hidden="true" /></span>
+      <span className="category-row-copy">
+        <strong>{category.name}</strong>
+        <small>{category.count > 0 ? `${category.count} transaksi` : 'Belum ada transaksi'}</small>
+      </span>
+      <span className={cn('category-row-amount', type === 'income' && 'is-income')}>
+        Rp{category.amount.toLocaleString('id-ID')}
+      </span>
     </button>
   );
 };

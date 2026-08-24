@@ -321,7 +321,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
       <DialogContent
         hideClose={dismissalBlocked}
         closeLabel="Tutup input suara"
-        className="max-w-md bg-card"
+        className="max-w-md"
         onEscapeKeyDown={(event) => { if (dismissalBlocked) event.preventDefault(); }}
         onInteractOutside={(event) => { if (dismissalBlocked) event.preventDefault(); }}
         onOpenAutoFocus={(event) => {
@@ -341,7 +341,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
 
         <div className="space-y-4" aria-busy={operation !== 'idle'}>
           {error && (
-            <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -365,7 +365,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
           </div>
 
           {transcript && (
-            <div className="rounded-lg border bg-muted/30 p-4">
+            <div className="rounded-xl border border-border/25 bg-[hsl(var(--home-surface-muted))] p-4">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Input Suara</p>
               <p className="break-words text-sm italic">“{transcript}”</p>
             </div>
@@ -379,24 +379,24 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
           )}
 
           {parsedTransaction && (
-            <div className="space-y-3 rounded-lg border border-success/30 bg-success/5 p-4 shadow-sm">
+            <div className="space-y-3 rounded-2xl border border-success/25 bg-[hsl(var(--home-surface-muted))] p-4 shadow-sm">
               <div role="status" className="flex items-center gap-2">
                 <span aria-hidden="true" className="h-2 w-2 rounded-full bg-success" />
                 <p className="text-sm font-semibold text-success">Analisis selesai</p>
               </div>
 
               <dl className="grid grid-cols-1 gap-3 text-sm">
-                <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-2">
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border/20 bg-[hsl(var(--home-surface))] p-3">
                   <dt className="text-muted-foreground">Jenis</dt>
                   <dd className={`rounded border px-2 py-0.5 text-xs font-bold ${parsedTransaction.type === 'income' ? 'border-success/40 bg-success/10 text-success' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}>
                     {parsedTransaction.type === 'income' ? '↑ PEMASUKAN' : '↓ PENGELUARAN'}
                   </dd>
                 </div>
-                <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-2">
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border/20 bg-[hsl(var(--home-surface))] p-3">
                   <dt className="text-muted-foreground">Tanggal</dt>
                   <dd className="flex items-center gap-2 text-right font-medium"><CalendarDays aria-hidden="true" className="h-4 w-4 text-muted-foreground" />{new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(parsedTransaction.date)}</dd>
                 </div>
-                <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-2">
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border/20 bg-[hsl(var(--home-surface))] p-3">
                   <dt className="text-muted-foreground">Kategori</dt>
                   <dd className="flex min-w-0 items-center justify-end gap-2">
                     <span className="break-words text-right font-bold">{parsedTransaction.category}</span>
@@ -406,15 +406,15 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
                   </dd>
                 </div>
                 {isEditingCategory && (
-                  <div>
+                  <div className="form-field">
                     <Label htmlFor="voice-category">Kategori hasil suara</Label>
                     <Select value={parsedTransaction.category} onValueChange={handleCategoryChange}>
-                      <SelectTrigger id="voice-category" className="mt-1 w-full"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="voice-category"><SelectValue /></SelectTrigger>
                       <SelectContent>{TRANSACTION_CATEGORIES[parsedTransaction.type].map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 )}
-                <div className="rounded-md border bg-background p-3">
+                <div className="rounded-xl border border-border/20 bg-[hsl(var(--home-surface))] p-3">
                   <div className="flex min-w-0 items-baseline justify-between gap-3"><dt className="text-xs text-muted-foreground">Total</dt><dd className="break-words text-right text-lg font-bold">Rp {parsedTransaction.amount.toLocaleString('id-ID')}</dd></div>
                   <div className="mt-1 flex min-w-0 items-start justify-between gap-3"><dt className="text-xs text-muted-foreground">Keterangan</dt><dd className="min-w-0 break-words text-right text-sm font-medium">{parsedTransaction.description}</dd></div>
                 </div>

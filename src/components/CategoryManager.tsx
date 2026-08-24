@@ -85,13 +85,18 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
           <section className="simple-dialog" role="dialog" aria-modal="true" aria-labelledby="add-category-title">
             <header><h2 id="add-category-title">Tambah kategori</h2><button type="button" aria-label="Tutup tambah kategori" onClick={closeAdd}><X aria-hidden="true" /></button></header>
             <form onSubmit={addCategory}>
-              <label htmlFor="category-type">Jenis transaksi</label>
-              <select id="category-type" value={type} onChange={(event) => setType(event.target.value as TransactionType)}>
-                <option value="expense">Pengeluaran</option>
-                <option value="income">Pemasukan</option>
-              </select>
-              <label htmlFor="category-name">Nama kategori</label>
-              <input id="category-name" maxLength={100} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" required />
+              <div className="form-field">
+                <label htmlFor="category-type">Jenis transaksi</label>
+                <select id="category-type" value={type} onChange={(event) => setType(event.target.value as TransactionType)}>
+                  <option value="expense">Pengeluaran</option>
+                  <option value="income">Pemasukan</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="category-name">Nama kategori</label>
+                <input id="category-name" maxLength={100} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" required />
+                <p className="form-helper">Nama ini akan muncul saat mencatat transaksi.</p>
+              </div>
               <button type="submit" className="simple-primary">Tambah kategori</button>
             </form>
           </section>

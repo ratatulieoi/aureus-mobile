@@ -55,23 +55,23 @@ const TransactionByCategory: React.FC<TransactionByCategoryProps> = ({
   return (
     <>
       <div className="space-y-6">
-        <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-primary/10 bg-card/50 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-border/25 bg-[hsl(var(--home-surface))] p-4 shadow-sm sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
             <div aria-hidden="true" className="rounded-lg bg-primary/20 p-2"><Layers className="h-5 w-5 text-foreground" /></div>
             <div><h3 className="font-display text-lg font-bold leading-none">Breakdown</h3><p className="text-xs text-muted-foreground">Per Kategori</p></div>
           </div>
           <div className="grid w-full min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:w-auto">
             <div className="min-w-0">
-              <Label htmlFor="category-type-filter" className="sr-only">Filter tipe transaksi</Label>
+              <Label htmlFor="category-type-filter" className="mb-1.5 block text-xs">Tipe</Label>
               <Select value={selectedType} onValueChange={handleTypeChange}>
-                <SelectTrigger id="category-type-filter" className="w-full min-w-0 border-primary/20 bg-background sm:w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="category-type-filter" className="w-full min-w-0 sm:w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">Semua Tipe</SelectItem><SelectItem value="income">Pemasukan</SelectItem><SelectItem value="expense">Pengeluaran</SelectItem></SelectContent>
               </Select>
             </div>
             <div className="min-w-0">
-              <Label htmlFor="category-name-filter" className="sr-only">Filter kategori transaksi</Label>
+              <Label htmlFor="category-name-filter" className="mb-1.5 block text-xs">Kategori</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger id="category-name-filter" className="w-full min-w-0 border-primary/20 bg-background sm:w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="category-name-filter" className="w-full min-w-0 sm:w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">Semua Kategori</SelectItem>{categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
               </Select>
             </div>
@@ -90,7 +90,7 @@ const TransactionByCategory: React.FC<TransactionByCategoryProps> = ({
               const totalExpense = categoryTransactions.filter(({ type }) => type === 'expense').reduce((sum, { amount }) => sum + amount, 0);
               return (
                 <section key={category} className="group relative min-w-0 overflow-hidden rounded-2xl border border-primary/10 bg-card transition-all duration-300 hover:shadow-lg">
-                  <div className="flex min-w-0 flex-col gap-3 border-b border-primary/5 bg-gradient-to-r from-muted/50 to-muted/10 p-4 min-[360px]:flex-row min-[360px]:items-start min-[360px]:justify-between">
+                  <div className="flex min-w-0 flex-col gap-3 border-b border-border/20 bg-[hsl(var(--home-surface-muted))] p-4 min-[360px]:flex-row min-[360px]:items-start min-[360px]:justify-between">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <Badge variant="outline" className="max-w-full whitespace-normal break-words border-primary/20 bg-background px-3 py-1 text-sm font-bold">{category}</Badge>
                       <span className="rounded-full bg-background/50 px-2 py-0.5 font-mono text-xs text-muted-foreground">{categoryTransactions.length} item</span>

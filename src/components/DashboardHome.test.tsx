@@ -33,7 +33,11 @@ function renderDashboard(onOpenEntry = vi.fn(), onPeriodChange = vi.fn()) {
 describe('DashboardHome', () => {
   it('ranks categories by frequency and swaps the active transaction type', async () => {
     const { onActiveTypeChange } = renderDashboard();
-    expect(screen.getAllByRole('button', { name: /input normal/ })[0]).toHaveAccessibleName(expect.stringContaining('Makanan & Minuman, Rp25.000'));
+    const categoryButtons = screen.getAllByRole('button', { name: /input normal/ });
+    expect(categoryButtons[0]).toHaveAccessibleName(expect.stringContaining('Makanan & Minuman, Rp25.000'));
+    expect(categoryButtons[0]).toHaveTextContent('2 transaksi');
+    expect(screen.getByRole('button', { name: /Belanja, belum ada transaksi/ })).toHaveTextContent('Rp0');
+    expect(screen.queryByText('••••')).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Tampilkan pemasukan' }));
     expect(onActiveTypeChange).toHaveBeenCalledWith('income');
   });
@@ -56,12 +60,71 @@ describe('DashboardHome', () => {
     vi.useRealTimers();
   });
 
-  it('opens the month list on a short click', async () => {
+  it('toggles the month list when the period trigger is clicked', async () => {
     renderDashboard();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Hari ini' }));
+    const user = userEvent.setup();
+    const trigger = screen.getByRole('button', { name: 'Hari ini' });
+
+    await user.click(trigger);
     expect(screen.getByRole('dialog', { name: 'Pilih bulan' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Januari' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Februari' })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Pilih kategori pengeluaran' })).toBeInTheDocument();
+
+    await user.click(trigger);
+    expect(screen.queryByRole('dialog', { name: 'Pilih bulan' })).not.toBeInTheDocument();
+  });
+
+  it('waits for the completed backdrop click before dismissing the month list', async () => {
+    renderDashboard();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Hari ini' }));
+    const backdrop = document.querySelector<HTMLElement>('.month-picker-backdrop');
+    expect(backdrop).not.toBeNull();
+
+    fireEvent.pointerDown(backdrop!);
+    expect(screen.getByRole('dialog', { name: 'Pilih bulan' })).toBeInTheDocument();
+
+    fireEvent.pointerUp(backdrop!);
+    fireEvent.click(backdrop!);
+    expect(screen.queryByRole('dialog', { name: 'Pilih bulan' })).not.toBeInTheDocument();
+  });
+
+  it('marks only selectable months containing transaction data', async () => {
+    const onPeriodChange = vi.fn();
+    render(
+      <DashboardHome
+        transactions={[
+          { ...transactions[0], id: 'january-data', date: new Date(2026, 0, 10, 8).toISOString() },
+          { ...transactions[1], id: 'invalid-data', date: 'invalid-date' },
+        ]}
+        categories={createDefaultCategoryCatalog()}
+        activeType="expense"
+        onActiveTypeChange={vi.fn()}
+        period={{ kind: 'quick', id: 'today' }}
+        onPeriodChange={onPeriodChange}
+        now={new Date(2026, 2, 10, 12)}
+        onOpenEntry={vi.fn()}
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Hari ini' }));
+    const january = screen.getByRole('button', { name: 'Januari' });
+    const february = screen.getByRole('button', { name: 'Februari' });
+    const april = screen.getByRole('button', { name: 'April' });
+    expect(january).toHaveClass('month-picker-destination', 'dock-glass-destination');
+    expect(january).toHaveAttribute('data-glass-active', 'true');
+    expect(january).toHaveAttribute('data-has-transactions', 'true');
+    expect(january).toHaveAccessibleDescription('Memiliki transaksi pada bulan ini.');
+    expect(february).toHaveClass('month-picker-destination', 'dock-glass-destination');
+    expect(february).not.toHaveAttribute('data-glass-active');
+    expect(february).not.toHaveAttribute('aria-selected');
+    expect(february).not.toHaveAttribute('aria-current');
+    expect(february).toBeEnabled();
+    expect(april).toBeDisabled();
+
+    await user.click(february);
+    expect(onPeriodChange).toHaveBeenCalledWith({ kind: 'month', month: 1, year: 2026 });
   });
 
   it('opens quick periods after a hold and applies the highlighted period on release', () => {

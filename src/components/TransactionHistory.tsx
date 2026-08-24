@@ -31,16 +31,16 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
       <Card className="min-w-0">
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2"><ReceiptText aria-hidden="true" className="h-5 w-5" />Riwayat Transaksi</CardTitle>
-          <div className="mt-4 flex min-w-0 flex-col gap-4 sm:flex-row">
+          <div className="mt-4 flex min-w-0 flex-col gap-3 rounded-xl border border-border/20 bg-[hsl(var(--home-surface-muted))] p-3 sm:flex-row">
             <div className="relative min-w-0 flex-1">
               <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <label htmlFor="transaction-history-search" className="sr-only">Cari riwayat transaksi</label>
               <Input id="transaction-history-search" type="search" placeholder="Cari transaksi..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="pl-10" />
             </div>
-            <div role="group" aria-label="Filter riwayat transaksi" className="grid min-w-0 grid-cols-3 gap-2">
-              <Button type="button" variant={filterType === 'all' ? 'default' : 'outline'} aria-pressed={filterType === 'all'} onClick={() => setFilterType('all')} className="min-w-0 px-2">Semua</Button>
-              <Button type="button" variant={filterType === 'income' ? 'default' : 'outline'} aria-pressed={filterType === 'income'} onClick={() => setFilterType('income')} className={`min-w-0 px-2 ${filterType === 'income' ? '' : 'text-success'}`}>Masuk</Button>
-              <Button type="button" variant={filterType === 'expense' ? 'default' : 'outline'} aria-pressed={filterType === 'expense'} onClick={() => setFilterType('expense')} className={`min-w-0 px-2 ${filterType === 'expense' ? '' : 'text-destructive'}`}>Keluar</Button>
+            <div role="group" aria-label="Filter riwayat transaksi" className="grid min-w-0 grid-cols-3 gap-1 rounded-xl border border-border/20 bg-[hsl(var(--home-surface))] p-1">
+              <Button type="button" variant={filterType === 'all' ? 'default' : 'ghost'} aria-pressed={filterType === 'all'} onClick={() => setFilterType('all')} className="min-w-0 px-2">Semua</Button>
+              <Button type="button" variant={filterType === 'income' ? 'default' : 'ghost'} aria-pressed={filterType === 'income'} onClick={() => setFilterType('income')} className={`min-w-0 px-2 ${filterType === 'income' ? '' : 'text-success'}`}>Masuk</Button>
+              <Button type="button" variant={filterType === 'expense' ? 'default' : 'ghost'} aria-pressed={filterType === 'expense'} onClick={() => setFilterType('expense')} className={`min-w-0 px-2 ${filterType === 'expense' ? '' : 'text-destructive'}`}>Keluar</Button>
             </div>
           </div>
         </CardHeader>
@@ -51,7 +51,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
           ) : (
             <div className="space-y-3">
               {filteredTransactions.map((transaction) => (
-                <article key={transaction.id} className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between sm:p-4">
+                <article key={transaction.id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-border/22 bg-[hsl(var(--home-surface))] p-3 transition-colors hover:bg-[hsl(var(--home-surface-muted))] min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between sm:p-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${transaction.type === 'income' ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>{transaction.type === 'income' ? <ArrowUp className="h-5 w-5" /> : <ArrowDown className="h-5 w-5" />}</div>
                     <div className="min-w-0 flex-1"><Badge variant={transaction.type === 'income' ? 'secondary' : 'destructive'}>{transaction.type === 'income' ? '↑ Masuk' : '↓ Keluar'}</Badge><p className="mt-1 break-words text-sm">{transaction.description || 'Tanpa Keterangan'}</p><p className="text-xs text-muted-foreground">{formatDate(transaction.date)}</p></div>

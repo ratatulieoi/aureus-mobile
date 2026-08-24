@@ -200,28 +200,35 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
               </div>
             )}
 
-            <label htmlFor="quick-amount">Jumlah {type === 'expense' ? 'pengeluaran' : 'pemasukan'}</label>
-            <div className="rupiah-input">
-              <span>Rp</span>
-              <input
-                id="quick-amount"
-                inputMode="numeric"
-                pattern="[0-9.]*"
-                value={amount ? Number(amount).toLocaleString('id-ID') : ''}
-                onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))}
-                placeholder="0"
-                required
-              />
+            <div className="form-field">
+              <label htmlFor="quick-amount">Jumlah {type === 'expense' ? 'pengeluaran' : 'pemasukan'}</label>
+              <div className="rupiah-input">
+                <span>Rp</span>
+                <input
+                  id="quick-amount"
+                  inputMode="numeric"
+                  pattern="[0-9.]*"
+                  value={amount ? Number(amount).toLocaleString('id-ID') : ''}
+                  onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
+                  required
+                />
+              </div>
             </div>
 
-            <label htmlFor="quick-description">Deskripsi</label>
-            <textarea id="quick-description" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} required />
+            <div className="form-field">
+              <label htmlFor="quick-description">Deskripsi</label>
+              <textarea id="quick-description" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} required />
+              <p className="form-helper">Maksimum 500 karakter.</p>
+            </div>
 
-            <label htmlFor="quick-date">Tanggal</label>
-            <input id="quick-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
+            <div className="form-field">
+              <label htmlFor="quick-date">Tanggal</label>
+              <input id="quick-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
+            </div>
 
             <section className="latest-section" aria-labelledby="latest-title">
-              <h3 id="latest-title">Latest</h3>
+              <div className="latest-heading"><h3 id="latest-title">Terakhir digunakan</h3><span>Ketuk nilai untuk memakai ulang</span></div>
               {latest.length === 0 ? (
                 <p className="latest-empty">Belum ada transaksi sebelumnya</p>
               ) : (

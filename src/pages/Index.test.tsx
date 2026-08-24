@@ -15,8 +15,9 @@ describe('Index mobile navigation and dashboard', () => {
 
     const income = screen.getByRole('button', { name: 'Tampilkan pemasukan' });
     await user.click(income);
-    expect(screen.getByRole('button', { name: 'Tampilkan pengeluaran' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('region', { name: 'Kategori pemasukan' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tampilkan pengeluaran' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Tampilkan pemasukan' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('region', { name: 'Pilih kategori pemasukan' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'History' }));
     expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-current', 'page');

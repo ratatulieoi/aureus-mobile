@@ -117,20 +117,20 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
         </div>
 
         {isAdding && (
-          <Card id="subscription-form" className="animate-in border-2 border-primary/20 slide-in-from-top-4">
-            <CardHeader><CardTitle className="text-sm">Mulai Langganan</CardTitle></CardHeader>
+          <Card id="subscription-form" className="aureus-form-card animate-in slide-in-from-top-4">
+            <CardHeader className="pb-4"><CardTitle className="text-base">Mulai Langganan</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Atur biaya dan jadwal pembayaran berikutnya.</p></CardHeader>
             <CardContent>
-              <form onSubmit={handleAdd} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2"><Label htmlFor="subscription-name">Nama Layanan</Label><Input id="subscription-name" maxLength={100} aria-describedby="subscription-name-help" placeholder="Netflix, Spotify..." value={newSub.name} onChange={(event) => setNewSub({ ...newSub, name: event.target.value })} required /><p id="subscription-name-help" className="text-xs text-muted-foreground">Maksimum 100 karakter.</p></div>
-                  <div className="space-y-2"><Label htmlFor="subscription-amount">Biaya (Rp)</Label><Input id="subscription-amount" type="number" min="0" step="1" inputMode="numeric" placeholder="0" value={newSub.amount} onChange={(event) => setNewSub({ ...newSub, amount: event.target.value })} required /></div>
+              <form onSubmit={handleAdd} className="aureus-form">
+                <div className="form-grid">
+                  <div className="form-field"><Label htmlFor="subscription-name">Nama Layanan</Label><Input id="subscription-name" maxLength={100} aria-describedby="subscription-name-help" placeholder="Netflix, Spotify..." value={newSub.name} onChange={(event) => setNewSub({ ...newSub, name: event.target.value })} required /><p id="subscription-name-help" className="form-helper">Maksimum 100 karakter.</p></div>
+                  <div className="form-field"><Label htmlFor="subscription-amount">Biaya (Rp)</Label><Input id="subscription-amount" type="number" min="0" step="1" inputMode="numeric" placeholder="0" value={newSub.amount} onChange={(event) => setNewSub({ ...newSub, amount: event.target.value })} required /></div>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2"><Label htmlFor="subscription-start">Mulai Tanggal</Label><Input id="subscription-start" type="date" value={newSub.startDate} onChange={(event) => setNewSub({ ...newSub, startDate: event.target.value })} required /></div>
-                  <div className="space-y-2"><Label htmlFor="subscription-cycle">Durasi (Hari)</Label><Input id="subscription-cycle" type="number" min="1" max="36600" step="1" inputMode="numeric" aria-describedby="subscription-cycle-help" placeholder="30" value={newSub.cycleDays} onChange={(event) => setNewSub({ ...newSub, cycleDays: event.target.value })} required /><p id="subscription-cycle-help" className="text-xs text-muted-foreground">Bilangan bulat 1–36.600 hari.</p></div>
+                <div className="form-grid">
+                  <div className="form-field"><Label htmlFor="subscription-start">Mulai Tanggal</Label><Input id="subscription-start" type="date" value={newSub.startDate} onChange={(event) => setNewSub({ ...newSub, startDate: event.target.value })} required /></div>
+                  <div className="form-field"><Label htmlFor="subscription-cycle">Durasi (Hari)</Label><Input id="subscription-cycle" type="number" min="1" max="36600" step="1" inputMode="numeric" aria-describedby="subscription-cycle-help" placeholder="30" value={newSub.cycleDays} onChange={(event) => setNewSub({ ...newSub, cycleDays: event.target.value })} required /><p id="subscription-cycle-help" className="form-helper">Bilangan bulat 1–36.600 hari.</p></div>
                 </div>
-                <div className="flex min-h-11 items-start gap-3 rounded-lg border bg-muted/20 p-3"><Checkbox id="createNow" checked={newSub.createTransactionNow} onCheckedChange={(checked) => setNewSub({ ...newSub, createTransactionNow: checked === true })} className="mt-0.5 h-5 w-5" /><Label htmlFor="createNow" className="cursor-pointer text-sm font-normal leading-relaxed">Buat transaksi pembayaran pertama pada tanggal mulai?</Label></div>
-                <div className="flex flex-col-reverse gap-2 min-[360px]:flex-row"><Button type="button" variant="outline" onClick={() => setIsAdding(false)}>Batal</Button><Button type="submit" className="flex-1">Mulai Tracking</Button></div>
+                <div className="form-choice"><Checkbox id="createNow" checked={newSub.createTransactionNow} onCheckedChange={(checked) => setNewSub({ ...newSub, createTransactionNow: checked === true })} className="mt-0.5" /><Label htmlFor="createNow">Buat transaksi pembayaran pertama pada tanggal mulai?</Label></div>
+                <div className="form-actions"><Button type="button" variant="outline" onClick={() => setIsAdding(false)}>Batal</Button><Button type="submit">Mulai Tracking</Button></div>
               </form>
             </CardContent>
           </Card>
