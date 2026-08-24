@@ -57,17 +57,20 @@ describe('global accessibility CSS', () => {
     expect(budgetSource).toContain('text-accent-text');
   });
 
-  it('keeps the fixed refractive glass navigation safe, neutral, and cue-free', () => {
+  it('keeps the fixed refractive glass navigation layered with a contained active cue', () => {
     expect(css).toMatch(/\.bottom-nav-positioner\s*\{[^}]*position:\s*fixed/s);
-    expect(css).toMatch(/\.bottom-nav-liquid\s*\{[^}]*background:\s*transparent/s);
+    expect(css).toMatch(/\.bottom-nav-liquid\s*\{[^}]*height:\s*60px;[^}]*background:\s*transparent/s);
     expect(css).toMatch(/\.bottom-nav-liquid::before\s*\{[^}]*z-index:\s*0;[^}]*box-shadow:[^}]*inset 1px 1px/s);
     expect(css).toMatch(/\.bottom-nav-liquid::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#container-glass"\)/s);
-    expect(css).toMatch(/\.bottom-nav-home\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/s);
-    expect(css).toMatch(/\.bottom-nav-home::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#btn-glass"\)/s);
+    expect(css).toMatch(/\.bottom-nav-add\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;[^}]*border:\s*0;[^}]*background:\s*transparent/s);
+    expect(css).toMatch(/\.bottom-nav-add::before\s*\{[^}]*box-shadow:[^}]*inset 1px 1px/s);
+    expect(css).toMatch(/\.bottom-nav-add::after\s*\{[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#container-glass"\)/s);
+    expect(css).toMatch(/\.bottom-nav-destination\[aria-current="page"\]::before\s*\{[^}]*background-color:\s*rgb\(255 255 255 \/ \.1\);[^}]*box-shadow:[^}]*inset 1px 1px/s);
+    expect(css).toMatch(/\.bottom-nav-destination\[aria-current="page"\]::after\s*\{[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#btn-glass"\)/s);
     expect(css).toMatch(/\.app-content\s*\{[^}]*padding-bottom:\s*calc\(/s);
     expect(css).toMatch(/\.dashboard-home\s*\{[^}]*safe-area-inset-bottom/s);
     expect(css).not.toMatch(/\.bottom-nav-liquid\s*\{[^}]*(brand-lime|brand-paper)/s);
-    expect(css).not.toMatch(/\.bottom-nav-(?:side|home)\.is-active/);
+    expect(css).not.toMatch(/\.bottom-nav-(?:destination|add)\.is-active/);
     expect(bottomNavSource).not.toContain('is-active');
     expect(liquidGlassSource).toContain('id="container-glass"');
     expect(liquidGlassSource).toContain('stitchTiles="stitch"');

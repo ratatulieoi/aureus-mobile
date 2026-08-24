@@ -26,7 +26,7 @@ interface EntrySelection {
   mode: 'normal' | 'voice';
 }
 
-const TAB_ORDER: readonly PrimaryNavTab[] = ['subs', 'home', 'activity'];
+const TAB_ORDER: readonly PrimaryNavTab[] = ['home', 'activity', 'subs', 'more'];
 const PAGE_SWIPE_THRESHOLD = 64;
 const PAGE_SWIPE_SLOPE = 1.25;
 const PAGE_SWIPE_DURATION = 260;
@@ -185,7 +185,7 @@ const Index = () => {
 
   useEffect(() => () => clearPageSettleTimer(), [clearPageSettleTimer]);
 
-  const changeTab = useCallback((tab: NavTab) => {
+  const changeTab = useCallback((tab: PrimaryNavTab) => {
     clearPageSettleTimer();
     pageSettlingRef.current = false;
     pageSettleTargetRef.current = null;
@@ -206,6 +206,14 @@ const Index = () => {
     setMoreViewKey((key) => key + 1);
     changeTab('more');
   }, [changeTab]);
+
+  const changePrimaryTab = useCallback((tab: PrimaryNavTab) => {
+    if (tab === 'more') {
+      openMore('menu');
+      return;
+    }
+    changeTab(tab);
+  }, [changeTab, openMore]);
 
   const startPageSwipe = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'mouse' || event.button !== 0 || pageSettlingRef.current) return;
@@ -373,7 +381,7 @@ const Index = () => {
             })}
           </div>
         </main>
-        <BottomNav activeTab={activeTab} onTabChange={changeTab} />
+        <BottomNav activeTab={activeTab} onTabChange={changePrimaryTab} />
       </div>
 
       <p className="sr-only" role="status" aria-live="polite">Bagian aktif: {activeTab === 'home' ? 'Home' : activeTab === 'activity' ? 'History' : activeTab === 'subs' ? 'Subs' : 'Lainnya'}</p>

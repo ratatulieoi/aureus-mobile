@@ -1,45 +1,41 @@
 import React from 'react';
-import BrandMark from '@/components/BrandMark';
+import { Clock3, Ellipsis, House, Plus, Ticket } from 'lucide-react';
 
 export type NavTab = 'home' | 'activity' | 'subs' | 'more';
-export type PrimaryNavTab = Exclude<NavTab, 'more'>;
+export type PrimaryNavTab = NavTab;
 
 interface BottomNavProps {
   activeTab: NavTab;
   onTabChange: (tab: PrimaryNavTab) => void;
 }
 
+const DESTINATIONS: ReadonlyArray<{ tab: PrimaryNavTab; label: string; icon: React.ElementType }> = [
+  { tab: 'home', label: 'Home', icon: House },
+  { tab: 'activity', label: 'History', icon: Clock3 },
+  { tab: 'subs', label: 'Subs', icon: Ticket },
+  { tab: 'more', label: 'Lainnya', icon: Ellipsis },
+];
+
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => (
   <div className="bottom-nav-positioner">
     <nav className="bottom-nav-liquid" aria-label="Navigasi utama">
-      <button
-        type="button"
-        className="bottom-nav-side bottom-nav-subs"
-        aria-current={activeTab === 'subs' ? 'page' : undefined}
-        onClick={() => onTabChange('subs')}
-      >
-        <span>Subs</span>
-      </button>
-
-      <button
-        type="button"
-        className="bottom-nav-home"
-        aria-label="Home"
-        aria-current={activeTab === 'home' ? 'page' : undefined}
-        onClick={() => onTabChange('home')}
-      >
-        <BrandMark />
-      </button>
-
-      <button
-        type="button"
-        className="bottom-nav-side bottom-nav-history"
-        aria-current={activeTab === 'activity' ? 'page' : undefined}
-        onClick={() => onTabChange('activity')}
-      >
-        <span>History</span>
-      </button>
+      {DESTINATIONS.map(({ tab, label, icon: Icon }) => (
+        <button
+          key={tab}
+          type="button"
+          className="bottom-nav-destination"
+          aria-current={activeTab === tab ? 'page' : undefined}
+          onClick={() => onTabChange(tab)}
+        >
+          <Icon aria-hidden="true" />
+          <span>{label}</span>
+        </button>
+      ))}
     </nav>
+
+    <button type="button" className="bottom-nav-add" aria-label="Tambah transaksi" disabled>
+      <Plus aria-hidden="true" />
+    </button>
   </div>
 );
 

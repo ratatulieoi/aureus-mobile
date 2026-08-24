@@ -66,14 +66,14 @@ describe('Index mobile navigation and dashboard', () => {
     expect(screen.getByRole('button', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('opens Backup directly and keeps Lainnya behind the header utility menu', async () => {
+  it('opens Backup directly and keeps Lainnya available as a primary destination', async () => {
     const user = userEvent.setup();
     render(<Index />);
 
     await user.click(screen.getByRole('button', { name: 'Buka menu Aureus' }));
     await user.click(screen.getByRole('menuitem', { name: /Backup & pulihkan/ }));
     expect(await screen.findByRole('heading', { name: 'Backup & Restore' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Lainnya' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lainnya' })).toHaveAttribute('aria-current', 'page');
 
     await user.click(screen.getByRole('button', { name: 'Buka menu Aureus' }));
     await user.click(screen.getByRole('menuitem', { name: /^Lainnya/ }));
