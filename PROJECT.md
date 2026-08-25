@@ -501,7 +501,7 @@ The local Android regression sequence is:
 npm run build
 npx cap sync android
 cd android
-./gradlew testDebugUnitTest lintDebug assembleDebug bundleRelease
+./gradlew testDebugUnitTest lintDebug assembleDebug testReleaseUnitTest lintRelease assembleRelease
 cd ..
 node scripts/assert-merged-manifest.mjs \
 	android/app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml
@@ -523,33 +523,17 @@ The workflow runs:
 8. Merged-manifest security assertions.
 9. Debug APK checksum generation.
 
-The uploaded debug APK uses Android's debug key. It is a diagnostic artifact with seven-day retention, not a release artifact.
+The uploaded debug APK uses Android's debug key. It is a diagnostic artifact with seven-day retention, not a release download.
 
 `.github/workflows/android-release.yml` runs for strict `vMAJOR.MINOR.PATCH` tags or manual dispatch.
-
-Tag behavior:
 
 - The tag determines `versionName`.
 - `scripts/derive-version.mjs` calculates `versionCode` as `MAJOR * 1_000_000 + MINOR * 1_000 + PATCH`.
 - Minor and patch values cannot exceed 999.
-- Tag builds use unsigned mode.
-- A successful tag build creates a GitHub Release with the AAB, the SBOM, and `SHA256SUMS`.
-
-Manual behavior:
-
-- The caller supplies `version_name`, a positive Android `version_code`, and `unsigned` or `signed` mode.
-- Signed mode requires all four protected secrets:
-  - `AUREUS_ANDROID_KEYSTORE_BASE64`
-  - `AUREUS_ANDROID_KEYSTORE_PASSWORD`
-  - `AUREUS_ANDROID_KEY_ALIAS`
-  - `AUREUS_ANDROID_KEY_PASSWORD`
-- The workflow decodes the keystore into the runner's temporary directory.
-- The workflow passes signing values through Gradle project environment variables.
-- Manual runs upload validated artifacts but do not create a GitHub Release.
-
-The workflow cannot prove that a manually supplied version code exceeds every unpublished Play Console build. Repository release history and the Play Console remain authoritative for version-code monotonicity.
-
-The repository has no Play publishing credentials or upload step. Store metadata, data-safety declarations, Play App Signing enrollment, track testing, and device acceptance remain outside CI.
+- The workflow signs every release with the same private Aureus key so a newer APK can update an installed older version.
+- Signing requires `AUREUS_ANDROID_KEYSTORE_BASE64`, `AUREUS_ANDROID_KEYSTORE_PASSWORD`, `AUREUS_ANDROID_KEY_ALIAS`, and `AUREUS_ANDROID_KEY_PASSWORD` in GitHub Actions secrets.
+- A successful tag creates a GitHub Release containing one installable file named `aureus-vMAJOR.MINOR.PATCH.apk`. GitHub adds source ZIP and TAR archives automatically.
+- Manual runs accept `version_name` and a positive `version_code`, then upload the validated APK as an Actions artifact without creating a GitHub Release.
 
 GitHub Actions use reviewed full commit SHAs. `scripts/validate-ci.mjs` rejects unreviewed pins and mutable action tags. Automated dependency pull requests are disabled. Dependency upgrades are manual and must update `package.json`, `package-lock.json`, compatibility checks, and reviewed action pins as applicable.
 

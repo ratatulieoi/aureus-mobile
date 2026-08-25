@@ -63,10 +63,10 @@ const release = await readFile(path.join(workflowsDirectory, 'android-release.ym
 for (const required of [
   'workflow_dispatch:',
   "'v[0-9]+.[0-9]+.[0-9]+'",
-  'bundleRelease',
+  'assembleRelease',
   'lintRelease',
-  'sha256sum -- *.aab *.json',
-  'SHA256SUMS',
+  'apksigner',
+  'aureus-v${VERSION_NAME}.apk',
   'AUREUS_ANDROID_KEYSTORE_BASE64',
   'permissions:',
   'contents: write',

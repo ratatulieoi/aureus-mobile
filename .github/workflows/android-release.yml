@@ -1,4 +1,4 @@
-name: Android release artifacts
+name: Android APK release
 
 on:
   push:
@@ -7,21 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'SemVer version name (for example 2.3.0)'
+        description: 'SemVer version name (for example 2.5.1)'
         required: true
         type: string
       version_code:
         description: 'Positive, monotonically increasing Android versionCode'
         required: true
         type: number
-      signing:
-        description: 'Signing mode (signed requires protected secrets)'
-        required: true
-        default: unsigned
-        type: choice
-        options:
-          - unsigned
-          - signed
 
 permissions:
   contents: read
@@ -32,7 +24,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate release inputs and gates
+    name: Build and validate installable APK
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -75,7 +67,6 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
           INPUT_VERSION_NAME: ${{ inputs.version_name }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
-          INPUT_SIGNING: ${{ inputs.signing }}
         run: node scripts/derive-version.mjs >> "$GITHUB_OUTPUT"
 
       - name: Run aggregate and audit gates
@@ -83,7 +74,6 @@ jobs:
           npm run check
           npm run audit:prod
           npm run audit:all
-          npm run sbom
 
       - name: Sync Capacitor Android
         run: npx cap sync android
@@ -95,60 +85,55 @@ jobs:
           after="$(sha256sum package-lock.json)"
           test "$before" = "$after"
 
-      - name: Configure protected release signing
-        if: steps.version.outputs.signing == 'signed'
+      - name: Configure private APK signing
         env:
           KEYSTORE_BASE64: ${{ secrets.AUREUS_ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.AUREUS_ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.AUREUS_ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.AUREUS_ANDROID_KEY_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_BASE64" || { echo 'Missing AUREUS_ANDROID_KEYSTORE_BASE64'; exit 1; }
-          test -n "$KEYSTORE_PASSWORD" || { echo 'Missing AUREUS_ANDROID_KEYSTORE_PASSWORD'; exit 1; }
-          test -n "$KEY_ALIAS" || { echo 'Missing AUREUS_ANDROID_KEY_ALIAS'; exit 1; }
-          test -n "$KEY_PASSWORD" || { echo 'Missing AUREUS_ANDROID_KEY_PASSWORD'; exit 1; }
+          test -n "$KEYSTORE_BASE64" || { echo 'Missing Aureus release keystore'; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo 'Missing Aureus keystore password'; exit 1; }
+          test -n "$KEY_ALIAS" || { echo 'Missing Aureus key alias'; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo 'Missing Aureus key password'; exit 1; }
           umask 077
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aureus-release.jks"
-          test -s "$RUNNER_TEMP/aureus-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aureus-release.p12"
+          test -s "$RUNNER_TEMP/aureus-release.p12"
           {
-            printf 'ORG_GRADLE_PROJECT_AUREUS_KEYSTORE_FILE=%s\n' "$RUNNER_TEMP/aureus-release.jks"
+            printf 'ORG_GRADLE_PROJECT_AUREUS_KEYSTORE_FILE=%s\n' "$RUNNER_TEMP/aureus-release.p12"
             printf 'ORG_GRADLE_PROJECT_AUREUS_KEYSTORE_PASSWORD=%s\n' "$KEYSTORE_PASSWORD"
             printf 'ORG_GRADLE_PROJECT_AUREUS_KEY_ALIAS=%s\n' "$KEY_ALIAS"
             printf 'ORG_GRADLE_PROJECT_AUREUS_KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
           } >> "$GITHUB_ENV"
 
-      - name: Build and validate release AAB
+      - name: Build and validate signed release APK
         working-directory: android
         env:
           ORG_GRADLE_PROJECT_AUREUS_VERSION_NAME: ${{ steps.version.outputs.version_name }}
           ORG_GRADLE_PROJECT_AUREUS_VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon testReleaseUnitTest lintRelease bundleRelease processReleaseMainManifest
+          ./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease processReleaseMainManifest
 
       - name: Assert merged release manifest
         run: node scripts/assert-merged-manifest.mjs android/app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml
 
-      - name: Package immutable release artifacts
+      - name: Package and verify installable APK
         env:
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
-          VERSION_CODE: ${{ steps.version.outputs.version_code }}
-          SIGNING: ${{ steps.version.outputs.signing }}
         run: |
-          source_aab=android/app/build/outputs/bundle/release/app-release.aab
-          test -s "$source_aab"
+          source_apk=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$source_apk"
           mkdir -p release-artifacts
-          output="release-artifacts/aureus-${VERSION_NAME}-${VERSION_CODE}-${SIGNING}.aab"
-          cp "$source_aab" "$output"
-          cp aureus-sbom.cdx.json "release-artifacts/aureus-${VERSION_NAME}-${VERSION_CODE}.cdx.json"
-          (cd release-artifacts && sha256sum -- *.aab *.json) > release-artifacts/SHA256SUMS
-          test -s release-artifacts/SHA256SUMS
+          output="release-artifacts/aureus-v${VERSION_NAME}.apk"
+          cp "$source_apk" "$output"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$output"
 
-      - name: Upload validated AAB, SBOM, and checksums
+      - name: Upload validated APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: aureus-release-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: release-artifacts/
+          name: aureus-apk-${{ steps.version.outputs.version_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-artifacts/*.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -157,12 +142,12 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: aureus-tag-release-${{ github.ref_name }}-${{ github.sha }}
-          path: release-artifacts/
+          path: release-artifacts/*.apk
           if-no-files-found: error
           retention-days: 1
 
   github-release:
-    name: Attach tag artifacts to GitHub Release
+    name: Publish installable APK
     if: github.event_name == 'push'
     needs: validate
     runs-on: ubuntu-24.04
@@ -171,22 +156,21 @@ jobs:
       contents: write
 
     steps:
-      - name: Download validated tag artifacts
+      - name: Download validated APK
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: aureus-tag-release-${{ github.ref_name }}-${{ github.sha }}
           path: release-artifacts
 
-      - name: Verify downloaded release assets
+      - name: Verify release file
         run: |
-          test -s release-artifacts/SHA256SUMS
-          (cd release-artifacts && sha256sum --check SHA256SUMS)
-          compgen -G 'release-artifacts/*.aab' >/dev/null
+          test -s "release-artifacts/aureus-${{ github.ref_name }}.apk"
+          test "$(find release-artifacts -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 1
 
-      - name: Create GitHub Release and attach immutable assets
+      - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          files: release-artifacts/*
+          files: release-artifacts/*.apk
           fail_on_unmatched_files: true
           generate_release_notes: true
           overwrite_files: false
