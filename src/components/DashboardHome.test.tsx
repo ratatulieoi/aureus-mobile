@@ -42,7 +42,7 @@ describe('DashboardHome', () => {
     expect(onActiveTypeChange).toHaveBeenCalledWith('income');
   });
 
-  it('opens normal entry on a short press and voice entry after a hold', () => {
+  it('opens normal entry after the completed click and suppresses the click after a voice hold', () => {
     vi.useFakeTimers();
     const onOpenEntry = vi.fn();
     renderDashboard(onOpenEntry);
@@ -50,11 +50,14 @@ describe('DashboardHome', () => {
 
     fireEvent.pointerDown(category, { pointerId: 1, clientX: 10, clientY: 10 });
     fireEvent.pointerUp(category, { pointerId: 1, clientX: 10, clientY: 10 });
+    expect(onOpenEntry).not.toHaveBeenCalled();
+    fireEvent.click(category);
     expect(onOpenEntry).toHaveBeenLastCalledWith('Makanan & Minuman', false);
 
     fireEvent.pointerDown(category, { pointerId: 2, clientX: 10, clientY: 10 });
     vi.advanceTimersByTime(550);
     fireEvent.pointerUp(category, { pointerId: 2, clientX: 10, clientY: 10 });
+    fireEvent.click(category);
     expect(onOpenEntry).toHaveBeenLastCalledWith('Makanan & Minuman', true);
     expect(onOpenEntry).toHaveBeenCalledTimes(2);
     vi.useRealTimers();

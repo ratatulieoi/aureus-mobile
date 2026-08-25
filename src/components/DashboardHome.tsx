@@ -477,9 +477,14 @@ const CategoryButton: React.FC<CategoryButtonProps> = ({ category, type, onOpenE
       onPointerUp={() => {
         clear();
         origin.current = null;
-        if (!held.current && !moved.current) onOpenEntry(category.name, false);
       }}
       onPointerCancel={() => { moved.current = true; origin.current = null; clear(); }}
+      onClick={() => {
+        const suppressClick = held.current || moved.current;
+        held.current = false;
+        moved.current = false;
+        if (!suppressClick) onOpenEntry(category.name, false);
+      }}
     >
       <span className="category-row-icon"><CategoryIcon aria-hidden="true" /></span>
       <span className="category-row-copy">

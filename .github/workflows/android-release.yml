@@ -141,7 +141,7 @@ jobs:
           output="release-artifacts/aureus-${VERSION_NAME}-${VERSION_CODE}-${SIGNING}.aab"
           cp "$source_aab" "$output"
           cp aureus-sbom.cdx.json "release-artifacts/aureus-${VERSION_NAME}-${VERSION_CODE}.cdx.json"
-          (cd release-artifacts && sha256sum *) > release-artifacts/SHA256SUMS
+          (cd release-artifacts && sha256sum -- *.aab *.json) > release-artifacts/SHA256SUMS
           test -s release-artifacts/SHA256SUMS
 
       - name: Upload validated AAB, SBOM, and checksums

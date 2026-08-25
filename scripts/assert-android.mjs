@@ -60,6 +60,16 @@ assert.match(buildGradle, /AUREUS_VERSION_CODE/);
 assert.match(buildGradle, /AUREUS_VERSION_NAME/);
 assert.doesNotMatch(styles, /android:windowLayoutInDisplayCutoutMode/, 'API 24 base styles cannot use the API 27 cutout attribute');
 assert.equal(count(api27Styles, /android:windowLayoutInDisplayCutoutMode">always</g), 2);
+assert.match(
+  api27Styles,
+  /<style name="AppTheme\.NoActionBar" parent="Theme\.AppCompat\.DayNight\.NoActionBar">[\s\S]*?<item name="windowActionBar">false<\/item>[\s\S]*?<item name="windowNoTitle">true<\/item>/,
+  'API 27+ must preserve the no-ActionBar parent instead of falling back to AppTheme',
+);
+assert.match(
+  api27Styles,
+  /<style name="AppTheme\.NoActionBarLaunch" parent="Theme\.SplashScreen">/,
+  'API 27+ must preserve the splash theme parent',
+);
 assert.match(capacitorConfig, /SystemBars:[\s\S]*insetsHandling:\s*['"]css['"]/);
 assert.match(capacitorConfig, /LocalNotifications:[\s\S]*presentationOptions:\s*\[['"]sound['"],\s*['"]banner['"],\s*['"]list['"]\]/);
 

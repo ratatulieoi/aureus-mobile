@@ -10,7 +10,7 @@ describe('About Aureus', () => {
     const { container } = render(<AboutSection />);
 
     expect(screen.getByRole('heading', { name: 'Tentang Aureus' })).toBeInTheDocument();
-    expect(screen.getByText('2.5.0')).toBeInTheDocument();
+    expect(screen.getByText('2.5.1')).toBeInTheDocument();
     expect(screen.getByText('Lokal di perangkat')).toBeInTheDocument();
     expect(screen.getByText('Data tetap di perangkat')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /repositori Aureus di GitHub/ })).toHaveAttribute('href', 'https://github.com/ratatulieoi/aureus-mobile');

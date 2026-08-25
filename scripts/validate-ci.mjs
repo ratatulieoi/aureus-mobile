@@ -65,6 +65,7 @@ for (const required of [
   "'v[0-9]+.[0-9]+.[0-9]+'",
   'bundleRelease',
   'lintRelease',
+  'sha256sum -- *.aab *.json',
   'SHA256SUMS',
   'AUREUS_ANDROID_KEYSTORE_BASE64',
   'permissions:',
