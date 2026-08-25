@@ -11,9 +11,9 @@ interface BottomNavProps {
 
 const DESTINATIONS: ReadonlyArray<{ tab: PrimaryNavTab; label: string; icon: React.ElementType }> = [
   { tab: 'home', label: 'Home', icon: House },
-  { tab: 'activity', label: 'History', icon: Clock3 },
+  { tab: 'activity', label: 'Transaction', icon: Clock3 },
   { tab: 'subs', label: 'Subs', icon: Ticket },
-  { tab: 'more', label: 'Lainnya', icon: Ellipsis },
+  { tab: 'more', label: 'Others', icon: Ellipsis },
 ];
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => (

@@ -12,6 +12,7 @@ let stopPromise: Promise<void>;
 
 const speechMock = vi.hoisted(() => ({
   available: vi.fn(),
+  checkPermissions: vi.fn(),
   requestPermissions: vi.fn(),
   isListening: vi.fn(),
   start: vi.fn(),
@@ -32,6 +33,7 @@ beforeEach(() => {
   deferredStart();
   stopPromise = new Promise<void>(() => undefined);
   speechMock.available.mockResolvedValue({ available: true });
+  speechMock.checkPermissions.mockResolvedValue({ speechRecognition: 'granted' });
   speechMock.requestPermissions.mockResolvedValue({ speechRecognition: 'granted' });
   speechMock.isListening.mockImplementation(async () => ({ listening: nativeListening }));
   speechMock.start.mockImplementation(() => startPromise);

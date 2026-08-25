@@ -37,6 +37,8 @@ assert.equal(attribute(provider, 'android:exported'), 'false', 'FileProvider mus
 assert.equal(attribute(provider, 'android:grantUriPermissions'), 'true');
 assert.equal(attribute(provider, 'android:authorities'), '${applicationId}.fileprovider');
 assert.match(manifest, /<uses-permission\s+android:name="android\.permission\.RECORD_AUDIO"\s*\/>/);
+assert.match(manifest, /android:name="android\.permission\.SCHEDULE_EXACT_ALARM"\s+tools:node="remove"/);
+assert.match(manifest, /xmlns:tools="http:\/\/schemas\.android\.com\/tools"/);
 
 assert.doesNotMatch(filePaths, /<(?:external-path|external-cache-path|files-path|external-files-path)\b/);
 assert.doesNotMatch(filePaths, /<cache-path[^>]+path="\.\/?"/);
@@ -59,6 +61,7 @@ assert.match(buildGradle, /AUREUS_VERSION_NAME/);
 assert.doesNotMatch(styles, /android:windowLayoutInDisplayCutoutMode/, 'API 24 base styles cannot use the API 27 cutout attribute');
 assert.equal(count(api27Styles, /android:windowLayoutInDisplayCutoutMode">always</g), 2);
 assert.match(capacitorConfig, /SystemBars:[\s\S]*insetsHandling:\s*['"]css['"]/);
+assert.match(capacitorConfig, /LocalNotifications:[\s\S]*presentationOptions:\s*\[['"]sound['"],\s*['"]banner['"],\s*['"]list['"]\]/);
 
 assert.match(styles, /colorPrimary">#D7DF70</);
 assert.match(styles, /colorPrimaryDark">#0D110E</);

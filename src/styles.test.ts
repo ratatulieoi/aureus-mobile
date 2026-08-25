@@ -56,7 +56,8 @@ describe('global accessibility CSS', () => {
     expect(contrast(LIGHT['primary-foreground'], LIGHT.primary)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(LIGHT['accent-text'], LIGHT.background)).toBeGreaterThanOrEqual(4.5);
     expect(buttonSource).toContain('link: "text-accent-text');
-    expect(aboutSource).toContain('hover:text-accent-text');
+    expect(aboutSource).toContain('about-link-list');
+    expect(css).toMatch(/\.about-link-icon\s*\{[^}]*color:\s*hsl\(var\(--accent-text\)\);/s);
     expect(budgetSource).toContain('text-accent-text');
   });
 
@@ -121,6 +122,24 @@ describe('global accessibility CSS', () => {
     expect(css).toMatch(/\.transaction-sheet-form\s*\{[^}]*gap:\s*\.85rem;[^}]*padding:\s*\.85rem 1rem max\(1rem,/s);
     expect(css).toMatch(/\.latest-list\s*\{[^}]*max-height:\s*162px;[^}]*overflow-y:\s*auto;[^}]*scrollbar-width:\s*none;/s);
     expect(css).toMatch(/\.latest-list::-webkit-scrollbar\s*\{[^}]*display:\s*none;/s);
+  });
+
+  it('groups the Others destinations in flat setting rows with visible states', () => {
+    expect(css).toMatch(/\.more-groups\s*\{[^}]*display:\s*grid;[^}]*gap:\s*1\.35rem;/s);
+    expect(css).toMatch(/\.more-list\s*\{[^}]*border:\s*1px solid hsl\(var\(--border\) \/ \.22\);[^}]*background:\s*hsl\(var\(--home-surface\)\);/s);
+    expect(css).toMatch(/\.more-row\s*\{[^}]*min-height:\s*68px;[^}]*grid-template-columns:\s*36px minmax\(0, 1fr\) auto;[^}]*background:\s*transparent;/s);
+    expect(css).toMatch(/\.more-theme-value\s*\{[^}]*display:\s*inline-flex;[^}]*white-space:\s*nowrap;/s);
+    expect(css).not.toMatch(/\.more-(?:menu|list|row)\s*\{[^}]*box-shadow:/s);
+  });
+
+  it('uses one flat utility system for reports, categories, and About', () => {
+    expect(css).toMatch(/\.utility-screen-header h2\s*\{[^}]*font-size:\s*1\.45rem;[^}]*font-weight:\s*720;/s);
+    expect(css).toMatch(/\.report-summary\s*\{[^}]*border:\s*1px solid hsl\(var\(--border\) \/ \.22\);[^}]*background:\s*hsl\(var\(--home-surface\)\);/s);
+    expect(css).toMatch(/\.report-export-list > button\s*\{[^}]*min-height:\s*66px;[^}]*grid-template-columns:\s*34px minmax\(0, 1fr\) 18px;/s);
+    expect(css).toMatch(/\.category-type-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/s);
+    expect(css).toMatch(/\.category-manager-row\s*\{[^}]*min-height:\s*54px;/s);
+    expect(css).toMatch(/\.about-details\s*\{[^}]*background:\s*hsl\(var\(--home-surface\)\);/s);
+    expect(css).not.toMatch(/\.(?:report-summary|report-export-list|category-manager-rows|about-details|about-link-list)\s*\{[^}]*box-shadow:/s);
   });
 
   it('comprehensively disables decorative motion when reduced motion is requested', () => {

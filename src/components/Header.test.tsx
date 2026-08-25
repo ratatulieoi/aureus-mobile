@@ -25,7 +25,7 @@ describe('Header utility menu', () => {
     expect(screen.getByRole('menu', { name: 'Menu Aureus' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /Ganti tema/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /Backup & pulihkan/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Lainnya/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Others/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole('menuitem', { name: /Backup & pulihkan/ }));
     expect(onOpenBackup).toHaveBeenCalledOnce();

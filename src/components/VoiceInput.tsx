@@ -188,7 +188,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
         }
         const available = await SpeechRecognition.available();
         if (!available.available) throw new Error('Layanan pengenalan suara tidak tersedia di perangkat ini.');
-        const permission = await SpeechRecognition.requestPermissions();
+        const currentPermission = await SpeechRecognition.checkPermissions();
+        const permission = currentPermission.speechRecognition === 'prompt'
+          ? await SpeechRecognition.requestPermissions()
+          : currentPermission;
         if (permission.speechRecognition !== 'granted') {
           throw new Error('Izin mikrofon ditolak. Aktifkan izin mikrofon di pengaturan perangkat.');
         }
@@ -201,7 +204,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
         const { matches } = await SpeechRecognition.start({
           language: 'id-ID',
           maxResults: 1,
-          prompt: 'Katakan transaksi...',
           partialResults: false,
           popup: false,
         });

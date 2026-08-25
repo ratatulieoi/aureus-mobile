@@ -321,7 +321,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             <div className="category-empty">
               <Shapes aria-hidden="true" />
               <strong>Belum ada kategori</strong>
-              <p>Tambahkan kategori lewat menu Lainnya untuk mulai mencatat.</p>
+              <p>Tambahkan kategori lewat menu Others untuk mulai mencatat.</p>
             </div>
           )}
       </section>

@@ -7,7 +7,7 @@ import MoreMenu, { type MoreSection } from '@/components/MoreMenu';
 import ActivityScreen from '@/components/ActivityScreen';
 import LazyFeature from '@/components/LazyFeature';
 import { toast } from '@/components/ui/use-toast';
-import type { CategoryCatalog, NewTransaction, Subscription, Transaction, TransactionType } from '@/domain/types';
+import type { AppNotification, CategoryCatalog, NewTransaction, NotificationPreferences, Subscription, Transaction, TransactionType } from '@/domain/types';
 import {
   addPrevalidatedTransaction,
   emptyLedgerSnapshot,
@@ -17,6 +17,8 @@ import {
 } from '@/domain/ledger';
 import { validateAndNormalizeTransaction, validateNewTransaction } from '@/domain/transaction-validation';
 import type { DashboardPeriod } from '@/domain/dashboard-period';
+import { removeNotificationsForSubscription } from '@/domain/notification';
+import { syncLocalNotifications } from '@/platform/notifications';
 
 const SubscriptionManager = lazy(() => import('@/components/SubscriptionManager'));
 
@@ -64,6 +66,8 @@ const Index = () => {
   const transactionsRef = useRef(transactions);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(initial.snapshot.subscriptions);
   const [categories, setCategories] = useState<CategoryCatalog>(initial.snapshot.categories);
+  const [notifications, setNotifications] = useState<AppNotification[]>(initial.snapshot.notifications);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(initial.snapshot.notificationPreferences);
   const [canPersist, setCanPersist] = useState(initial.canPersist);
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [pageEntryDirection, setPageEntryDirection] = useState<'forward' | 'backward' | null>(null);
@@ -83,11 +87,17 @@ const Index = () => {
   useEffect(() => {
     if (!canPersist || !storage) return;
     try {
-      persistLedger(storage, { transactions, subscriptions, categories });
+      persistLedger(storage, { transactions, subscriptions, categories, notifications, notificationPreferences });
     } catch (error) {
       console.error('Gagal menyimpan ledger', error);
     }
-  }, [transactions, subscriptions, categories, canPersist, storage]);
+  }, [transactions, subscriptions, categories, notifications, notificationPreferences, canPersist, storage]);
+
+  useEffect(() => {
+    void syncLocalNotifications(notificationPreferences, notifications, subscriptions).catch((error) => {
+      console.error('Failed to synchronize local notifications', error);
+    });
+  }, [notificationPreferences, notifications, subscriptions]);
 
   useEffect(() => {
     const schedule = () => {
@@ -147,12 +157,14 @@ const Index = () => {
     return true;
   };
 
-  const restore = (snapshot: { transactions: Transaction[]; subscriptions: Subscription[]; categories: CategoryCatalog }) => {
+  const restore = (snapshot: { transactions: Transaction[]; subscriptions: Subscription[]; categories: CategoryCatalog; notifications: AppNotification[]; notificationPreferences: NotificationPreferences }) => {
     setCanPersist(true);
     transactionsRef.current = snapshot.transactions;
     setTransactions(snapshot.transactions);
     setSubscriptions(snapshot.subscriptions);
     setCategories(snapshot.categories);
+    setNotifications(snapshot.notifications);
+    setNotificationPreferences(snapshot.notificationPreferences);
   };
 
   const openEntry = (category: string, voice: boolean) => {
@@ -315,7 +327,15 @@ const Index = () => {
     if (tab === 'subs') return (
       <section className="feature-page">
         <LazyFeature featureName="Langganan" resetKey={tab}>
-          <SubscriptionManager subscriptions={subscriptions} onSubscriptionsChange={setSubscriptions} onAddTransaction={addTransaction} onAddReconciledTransactions={addReconciledTransactions} />
+          <SubscriptionManager
+            subscriptions={subscriptions}
+            notifications={notifications}
+            onSubscriptionsChange={setSubscriptions}
+            onAddTransaction={addTransaction}
+            onAddReconciledTransactions={addReconciledTransactions}
+            onOpenNotifications={() => openMore('notifications')}
+            onRemoveNotificationLinks={(subscriptionId) => setNotifications((current) => removeNotificationsForSubscription(current, subscriptionId))}
+          />
         </LazyFeature>
       </section>
     );
@@ -325,7 +345,11 @@ const Index = () => {
         transactions={transactions}
         subscriptions={subscriptions}
         categories={categories}
+        notifications={notifications}
+        notificationPreferences={notificationPreferences}
         onCategoriesChange={setCategories}
+        onNotificationsChange={setNotifications}
+        onNotificationPreferencesChange={setNotificationPreferences}
         onRestore={restore}
         initialSection={moreSection}
       />
@@ -384,7 +408,7 @@ const Index = () => {
         <BottomNav activeTab={activeTab} onTabChange={changePrimaryTab} />
       </div>
 
-      <p className="sr-only" role="status" aria-live="polite">Bagian aktif: {activeTab === 'home' ? 'Home' : activeTab === 'activity' ? 'History' : activeTab === 'subs' ? 'Subs' : 'Lainnya'}</p>
+      <p className="sr-only" role="status" aria-live="polite">Bagian aktif: {activeTab === 'home' ? 'Home' : activeTab === 'activity' ? 'Transaction' : activeTab === 'subs' ? 'Subs' : 'Others'}</p>
 
       {entry && (
         <QuickTransactionEntry

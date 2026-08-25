@@ -95,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenMore, onOpenBackup }) => {
               </button>
               <button type="button" role="menuitem" onClick={() => runMenuAction(onOpenMore)}>
                 <PanelsTopLeft aria-hidden="true" />
-                <span><strong>Lainnya</strong><small>Laporan, kategori, dan info</small></span>
+                <span><strong>Others</strong><small>Laporan, kategori, dan info</small></span>
               </button>
             </div>,
             document.body,

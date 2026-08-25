@@ -14,14 +14,15 @@ const transactions: Transaction[] = [
 ];
 
 describe('ActivityScreen', () => {
-  it('orders the History page as a compact header, search, type tabs, and transaction-led content', async () => {
+  it('orders the Transaction page as a compact header, search, summary filters, and transaction-led content', async () => {
     const user = userEvent.setup();
     const { container } = render(<ActivityScreen transactions={transactions} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
 
-    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Transaction' })).toBeInTheDocument();
     expect(container.querySelector('.activity-page-header')).toContainElement(screen.getByLabelText('Periode'));
     expect(screen.getByLabelText('Cari transaksi')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Semua' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'PemasukanRp100.000' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'PengeluaranRp25.000' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('Rp100.000')).toBeInTheDocument();
     expect(screen.getByText('Rp25.000')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Transaksi' })).toBeInTheDocument();
@@ -30,12 +31,13 @@ describe('ActivityScreen', () => {
     expect(container.querySelector('.activity-controls')?.compareDocumentPosition(container.querySelector('.activity-history')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(container.querySelector('.activity-history-overview')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Pengeluaran' }));
-    expect(screen.getByRole('button', { name: 'Pengeluaran' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'PengeluaranRp25.000' }));
+    expect(screen.getByRole('button', { name: 'PengeluaranRp25.000' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('Makan siang')).toBeInTheDocument();
     expect(screen.queryByText('Proyek')).not.toBeInTheDocument();
-    expect(screen.queryByText('Rp100.000')).not.toBeInTheDocument();
-    expect(screen.getByText('Rp0')).toBeInTheDocument();
+    expect(screen.getByText('Rp100.000')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'PengeluaranRp25.000' }));
+    expect(screen.getByText('Proyek')).toBeInTheDocument();
   });
 
   it('searches descriptions or categories and opens the populated edit sheet on a normal tap', async () => {
@@ -56,7 +58,7 @@ describe('ActivityScreen', () => {
     expect(typeChoices.getByRole('button', { name: 'Pengeluaran' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('has no accessibility violations in the populated History state', async () => {
+  it('has no accessibility violations in the populated Transaction state', async () => {
     const { container } = render(<ActivityScreen transactions={transactions} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
     expect(await axe(container)).toHaveNoViolations();
   });

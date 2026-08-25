@@ -71,19 +71,36 @@ describe('strict backup decoding', () => {
   it('round-trips the complete current schema', () => {
     const envelope = createBackupEnvelope([transaction], [subscription], new Date('2026-03-15T00:00:00Z'));
     expect(decodeBackup(envelope)).toEqual({
-      version: '4.0',
+      version: '6.0',
       transactions: [transaction],
       subscriptions: [subscription],
       categories: createDefaultCategoryCatalog(),
+      notifications: [],
+      notificationPreferences: { enabled: false },
       warning: null,
     });
   });
 
-  it('round-trips persisted custom categories in v4', () => {
+  it('round-trips persisted custom categories', () => {
     const categories = createDefaultCategoryCatalog();
     categories.income.push('Hadiah');
     const envelope = createBackupEnvelope([transaction], [subscription], categories, new Date('2026-03-15T00:00:00Z'));
     expect(decodeBackup(envelope).categories.income).toContain('Hadiah');
+  });
+
+  it('migrates v4 backups with notifications off', () => {
+    const decoded = decodeBackup({
+      version: '4.0',
+      exportDate: '2026-03-15T00:00:00.000Z',
+      transactionCount: 1,
+      subscriptionCount: 1,
+      transactions: [transaction],
+      subscriptions: [subscription],
+      categories: createDefaultCategoryCatalog(),
+    });
+    expect(decoded.notifications).toEqual([]);
+    expect(decoded.notificationPreferences).toEqual({ enabled: false });
+    expect(decoded.warning).toContain('belum menyimpan notifikasi');
   });
 
   it('supports transaction-only v2 with an explicit destructive warning', () => {
@@ -123,7 +140,7 @@ describe('strict backup decoding', () => {
     expect(renewal.id).toHaveLength(128);
     expect(validateAndNormalizeTransaction(renewal, { requireId: true }).ok).toBe(true);
 
-    const snapshot = { transactions: [renewal], subscriptions: reconciliation.subscriptions, categories: createDefaultCategoryCatalog() };
+    const snapshot = { transactions: [renewal], subscriptions: reconciliation.subscriptions, categories: createDefaultCategoryCatalog(), notifications: [], notificationPreferences: { enabled: false } };
     expect(decodeStoredLedgerSnapshot(JSON.parse(serializeLedgerSnapshot(snapshot)))).toEqual(snapshot);
     expect(decodeBackup(createBackupEnvelope(snapshot.transactions, snapshot.subscriptions))).toMatchObject(snapshot);
   });

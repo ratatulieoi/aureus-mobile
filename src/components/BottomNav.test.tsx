@@ -14,16 +14,16 @@ describe('Bottom navigation', () => {
     expect(screen.getByRole('navigation', { name: 'Navigasi utama' })).toBeInTheDocument();
     expect(screen.getAllByRole('button').map(({ textContent, ariaLabel }) => textContent?.trim() || ariaLabel)).toEqual([
       'Home',
-      'History',
+      'Transaction',
       'Subs',
-      'Lainnya',
+      'Others',
       'Tambah transaksi',
     ]);
-    expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Transaction' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getAllByRole('button').map(({ className }) => className)).not.toContain(expect.stringContaining('is-active'));
     expect(screen.getByRole('button', { name: 'Tambah transaksi' })).toBeDisabled();
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Lainnya' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Others' }));
     expect(onTabChange).toHaveBeenCalledWith('more');
     expect(await axe(container)).toHaveNoViolations();
   });

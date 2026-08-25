@@ -23,6 +23,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
   const [type, setType] = useState<TransactionType>('expense');
   const [name, setName] = useState('');
   const [pendingDelete, setPendingDelete] = useState<{ type: TransactionType; name: string } | null>(null);
+
   useMobileBackDismiss(addOpen, () => {
     setAddOpen(false);
     setName('');
@@ -57,47 +58,102 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
     setPendingDelete(null);
   };
 
+  const visibleCategories = categories[type];
+  const typeLabel = type === 'expense' ? 'pengeluaran' : 'pemasukan';
+
   return (
-    <section className="category-manager" aria-labelledby="category-manager-title">
-      <div className="utility-heading">
-        <div><h2 id="category-manager-title">Kelola kategori</h2><p>Tambah atau hapus kategori untuk transaksi berikutnya.</p></div>
-        <button type="button" className="utility-action" onClick={() => setAddOpen(true)}><Plus aria-hidden="true" />Tambah</button>
+    <section className="utility-screen category-manager" aria-labelledby="category-manager-title">
+      <header className="utility-screen-header category-manager-header">
+        <div>
+          <h2 id="category-manager-title">Kelola kategori</h2>
+          <p>Kategori dipakai saat mencatat transaksi baru.</p>
+        </div>
+        <button type="button" className="utility-primary-action" onClick={() => setAddOpen(true)}>
+          <Plus aria-hidden="true" />
+          Tambah
+        </button>
+      </header>
+
+      <div className="category-type-tabs" role="group" aria-label="Jenis kategori">
+        {(['expense', 'income'] as const).map((categoryType) => {
+          const label = categoryType === 'expense' ? 'Pengeluaran' : 'Pemasukan';
+          return (
+            <button
+              key={categoryType}
+              type="button"
+              aria-pressed={type === categoryType}
+              onClick={() => setType(categoryType)}
+            >
+              <span>{label}</span>
+              <small>{categories[categoryType].length}</small>
+            </button>
+          );
+        })}
       </div>
 
-      {(['expense', 'income'] as const).map((categoryType) => (
-        <section key={categoryType} className="category-manager-group" aria-labelledby={`category-${categoryType}`}>
-          <h3 id={`category-${categoryType}`}>{categoryType === 'expense' ? 'Pengeluaran' : 'Pemasukan'}</h3>
-          {categories[categoryType].length === 0 ? <p>Belum ada kategori.</p> : (
-            <div>
-              {categories[categoryType].map((category) => (
-                <div key={category} className="category-manager-row">
-                  <span>{category}</span>
-                  <button type="button" aria-label={`Hapus kategori ${category}`} onClick={() => setPendingDelete({ type: categoryType, name: category })}><Trash2 aria-hidden="true" /></button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      ))}
+      <section className="category-manager-list" aria-labelledby="category-list-title">
+        <div className="utility-section-heading category-list-heading">
+          <div>
+            <h3 id="category-list-title">Kategori {typeLabel}</h3>
+            <p>{visibleCategories.length} kategori tersedia</p>
+          </div>
+        </div>
+
+        {visibleCategories.length === 0 ? (
+          <div className="category-manager-empty">
+            <strong>Belum ada kategori {typeLabel}</strong>
+            <p>Tambahkan kategori agar tersedia saat mencatat transaksi.</p>
+            <button type="button" onClick={() => setAddOpen(true)}><Plus aria-hidden="true" />Tambah kategori</button>
+          </div>
+        ) : (
+          <div className="category-manager-rows">
+            {visibleCategories.map((category) => (
+              <div key={category} className="category-manager-row">
+                <span>{category}</span>
+                <button type="button" aria-label={`Hapus kategori ${category}`} onClick={() => setPendingDelete({ type, name: category })}>
+                  <Trash2 aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {addOpen && (
-        <div className="simple-dialog-backdrop" role="presentation">
-          <section className="simple-dialog" role="dialog" aria-modal="true" aria-labelledby="add-category-title">
-            <header><h2 id="add-category-title">Tambah kategori</h2><button type="button" aria-label="Tutup tambah kategori" onClick={closeAdd}><X aria-hidden="true" /></button></header>
+        <div className="simple-dialog-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeAdd(); }}>
+          <section className="simple-dialog category-add-dialog" role="dialog" aria-modal="true" aria-labelledby="add-category-title">
+            <header>
+              <div><h2 id="add-category-title">Tambah kategori</h2><p>Kategori baru akan tersedia untuk transaksi berikutnya.</p></div>
+              <button type="button" aria-label="Tutup tambah kategori" onClick={closeAdd}><X aria-hidden="true" /></button>
+            </header>
             <form onSubmit={addCategory}>
-              <div className="form-field">
-                <label htmlFor="category-type">Jenis transaksi</label>
-                <select id="category-type" value={type} onChange={(event) => setType(event.target.value as TransactionType)}>
-                  <option value="expense">Pengeluaran</option>
-                  <option value="income">Pemasukan</option>
-                </select>
+              <div className="category-add-type" role="group" aria-label="Jenis transaksi">
+                {(['expense', 'income'] as const).map((categoryType) => (
+                  <button
+                    key={categoryType}
+                    type="button"
+                    aria-pressed={type === categoryType}
+                    onClick={() => setType(categoryType)}
+                  >
+                    {categoryType === 'expense' ? 'Pengeluaran' : 'Pemasukan'}
+                  </button>
+                ))}
               </div>
               <div className="form-field">
                 <label htmlFor="category-name">Nama kategori</label>
-                <input id="category-name" maxLength={100} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" required />
-                <p className="form-helper">Nama ini akan muncul saat mencatat transaksi.</p>
+                <input
+                  id="category-name"
+                  autoFocus
+                  maxLength={100}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  autoComplete="off"
+                  placeholder={type === 'expense' ? 'Contoh: Perawatan kendaraan' : 'Contoh: Komisi'}
+                  required
+                />
+                <p className="form-helper">Gunakan nama pendek yang mudah dikenali.</p>
               </div>
-              <button type="submit" className="simple-primary">Tambah kategori</button>
+              <button type="submit" className="simple-primary" disabled={!name.trim()}>Tambah kategori</button>
             </form>
           </section>
         </div>
@@ -105,7 +161,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
 
       <DeleteConfirmation
         open={pendingDelete !== null}
-        target={`Kategori “${pendingDelete?.name ?? ''}”`}
+        target={`Kategori "${pendingDelete?.name ?? ''}"`}
         subject="kategori"
         onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
         onConfirm={removeCategory}

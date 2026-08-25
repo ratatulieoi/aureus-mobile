@@ -16,7 +16,7 @@ const previous: Transaction = {
 };
 
 describe('QuickTransactionEntry', () => {
-  it('starts without field focus, reuses a complete previous transaction, and saves valid data', async () => {
+  it('focuses amount, reuses a complete previous transaction, and saves valid data', async () => {
     const user = userEvent.setup();
     const onAddTransaction = vi.fn<(transaction: NewTransaction) => boolean>(() => true);
     render(
@@ -30,7 +30,7 @@ describe('QuickTransactionEntry', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Makanan & Minuman' })).toHaveFocus();
+    expect(screen.getByLabelText('Jumlah pengeluaran')).toHaveFocus();
     expect(screen.getByRole('button', { name: 'Tutup formulir transaksi' })).not.toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Gunakan lagi Sarapan, Rp13.000' }));
     expect(screen.getByLabelText('Jumlah pengeluaran')).toHaveValue('13.000');

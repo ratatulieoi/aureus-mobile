@@ -23,6 +23,17 @@ export interface Subscription {
   color: string;
 }
 
+export interface AppNotification {
+  id: string;
+  daysBefore: number;
+  time: string;
+  subscriptionIds: string[];
+}
+
+export interface NotificationPreferences {
+  enabled: boolean;
+}
+
 export interface Budget {
   id: string;
   category: string;

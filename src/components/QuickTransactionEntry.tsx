@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-import { Mic, RotateCcw, X } from 'lucide-react';
+import { CalendarDays, Mic, RotateCcw, X } from 'lucide-react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { NewTransaction, Transaction, TransactionType } from '@/domain/types';
 import { calendarDateToLocalInstant, compareCalendarDates, formatLocalCalendarDate } from '@/domain/calendar-date';
@@ -49,15 +49,24 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
   const [voiceMessage, setVoiceMessage] = useState(mode === 'voice' ? 'Menyiapkan mikrofon…' : '');
   const [submitting, setSubmitting] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const webRecognitionRef = useRef<WebRecognition | null>(null);
   const nativeListenerRef = useRef<PluginListenerHandle | null>(null);
   const mountedRef = useRef(true);
   const saveGuard = useRef(false);
 
-  const latest = useMemo(() => transactions
-    .filter((transaction) => transaction.type === type && transaction.category === category)
-    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
-    .slice(0, 10), [category, transactions, type]);
+  const latest = useMemo(() => {
+    const unique = new Map<string, Transaction>();
+    transactions
+      .filter((transaction) => transaction.type === type && transaction.category === category && transaction.category !== 'Langganan')
+      .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
+      .forEach((transaction) => {
+        const key = `${transaction.amount}\u0000${transaction.description.trim().toLocaleLowerCase('id-ID')}`;
+        if (!unique.has(key)) unique.set(key, transaction);
+      });
+    return Array.from(unique.values()).slice(0, 10);
+  }, [category, transactions, type]);
 
   const parsedAmount = parsePositiveFiniteAmount(amount);
   const dateValid = date.length > 0 && (() => {
@@ -93,8 +102,11 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
       try {
         const available = await SpeechRecognition.available();
         if (!available.available) throw new Error('Pengenalan suara tidak tersedia.');
-        const permission = await SpeechRecognition.requestPermissions();
-        if (permission.speechRecognition !== 'granted') throw new Error('Izin mikrofon ditolak.');
+        const currentPermission = await SpeechRecognition.checkPermissions();
+        const permission = currentPermission.speechRecognition === 'prompt'
+          ? await SpeechRecognition.requestPermissions()
+          : currentPermission;
+        if (permission.speechRecognition !== 'granted') throw new Error('Microphone permission is off. Enable it in the device settings to use voice input.');
         if (!mountedRef.current) return;
         setListening(true);
         setVoiceMessage('Mendengarkan…');
@@ -183,14 +195,24 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
           className="quick-entry-sheet transaction-sheet"
           aria-describedby="quick-entry-description"
           onInteractOutside={(event) => event.preventDefault()}
-          onOpenAutoFocus={(event) => { event.preventDefault(); sheetRef.current?.focus(); }}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            if (mode === 'normal') amountRef.current?.focus();
+            else sheetRef.current?.focus();
+          }}
         >
           <header className="quick-entry-header transaction-sheet-header">
             <div>
               <DialogPrimitive.Title>{category}</DialogPrimitive.Title>
               <DialogPrimitive.Description id="quick-entry-description">{type === 'expense' ? 'Pengeluaran' : 'Pemasukan'}</DialogPrimitive.Description>
             </div>
-            <DialogPrimitive.Close type="button" aria-label="Tutup formulir transaksi" disabled={submitting}><X aria-hidden="true" /></DialogPrimitive.Close>
+            <div className="dialog-header-actions">
+              <label className="dialog-header-date" title="Pilih tanggal">
+                <CalendarDays aria-hidden="true" />
+                <input aria-label="Tanggal transaksi" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
+              </label>
+              <DialogPrimitive.Close type="button" aria-label="Tutup formulir transaksi" disabled={submitting}><X aria-hidden="true" /></DialogPrimitive.Close>
+            </div>
           </header>
 
           <form onSubmit={save} className="transaction-sheet-form quick-entry-form">
@@ -207,18 +229,15 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
               label={`Jumlah ${type === 'expense' ? 'pengeluaran' : 'pemasukan'}`}
               value={amount}
               onValueChange={setAmount}
+              inputRef={amountRef}
+              onEnter={() => descriptionRef.current?.focus()}
               required
             />
 
             <div className="transaction-detail-fields">
               <div className="transaction-line-field">
                 <label htmlFor="quick-description">Deskripsi</label>
-                <textarea id="quick-description" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} placeholder="Contoh: Makan siang" required />
-              </div>
-
-              <div className="transaction-line-field">
-                <label htmlFor="quick-date">Tanggal</label>
-                <input id="quick-date" type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required />
+                <textarea ref={descriptionRef} id="quick-description" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} placeholder="Contoh: Makan siang" required />
               </div>
             </div>
 

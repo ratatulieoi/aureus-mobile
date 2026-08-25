@@ -8,6 +8,8 @@ import {
   LEGACY_SUBSCRIPTION_STORAGE_KEY,
   LEGACY_TRANSACTION_STORAGE_KEY,
   MAX_ID_GENERATION_ATTEMPTS,
+  LEGACY_V3_LEDGER_STORAGE_KEY,
+  LEGACY_V4_LEDGER_STORAGE_KEY,
   PREVIOUS_LEDGER_STORAGE_KEY,
   mergeTransactionsIdempotently,
   persistLedger,
@@ -28,6 +30,8 @@ const renewal: Transaction = { ...candidate, id: 'renewal_sub-1_2026-03-01' };
 const snapshot = {
   transactions: [renewal],
   categories: createDefaultCategoryCatalog(),
+  notifications: [],
+  notificationPreferences: { enabled: false },
   subscriptions: [{
     id: 'sub-1', name: 'Streaming', amount: 10_000, startDate: '2026-01-01',
     cycleDays: 30, nextPaymentDate: '2026-03-31', color: 'bg-red-200 text-red-800',
@@ -61,13 +65,13 @@ describe('ledger state boundaries', () => {
   it('makes getItem SecurityError exception-safe', () => {
     const result = hydrateLedger({ getItem: () => { throw new DOMException('blocked', 'SecurityError'); } });
     expect(result).toEqual({
-      snapshot: { transactions: [], subscriptions: [], categories: createDefaultCategoryCatalog() },
+      snapshot: { transactions: [], subscriptions: [], categories: createDefaultCategoryCatalog(), notifications: [], notificationPreferences: { enabled: false } },
       source: 'empty',
       canPersist: false,
     });
   });
 
-  it('prefers a valid authoritative v4 snapshot over stale mirrors', () => {
+  it('prefers a valid authoritative v6 snapshot over stale mirrors', () => {
     const values = new Map<string, string>([
       [LEDGER_STORAGE_KEY, serializeLedgerSnapshot(snapshot)],
       [LEGACY_TRANSACTION_STORAGE_KEY, JSON.stringify([])],
@@ -75,22 +79,49 @@ describe('ledger state boundaries', () => {
     ]);
     expect(hydrateLedger({ getItem: (key) => values.get(key) ?? null })).toMatchObject({
       snapshot,
+      source: 'v6',
+      canPersist: true,
+    });
+  });
+
+  it('migrates reusable items from a valid v5 ledger', () => {
+    const legacyV5 = JSON.stringify({
+      version: 5,
+      transactions: snapshot.transactions,
+      subscriptions: snapshot.subscriptions,
+      categories: snapshot.categories,
+      notifications: [{ id: 'old-note', title: 'Streaming', body: '', enabled: true, schedule: { kind: 'subscription', subscriptionId: 'sub-1', daysBefore: 3, time: '08:00' } }],
+      notificationPreferences: { enabled: true },
+    });
+    const values = new Map<string, string>([[PREVIOUS_LEDGER_STORAGE_KEY, legacyV5]]);
+    expect(hydrateLedger({ getItem: (key) => values.get(key) ?? null })).toMatchObject({
+      source: 'v5',
+      canPersist: true,
+      snapshot: { notifications: [{ id: 'old-note', daysBefore: 3, time: '08:00', subscriptionIds: ['sub-1'] }], notificationPreferences: { enabled: true } },
+    });
+  });
+
+  it('migrates a valid v4 ledger with notifications off', () => {
+    const legacyV4 = JSON.stringify({ version: 4, transactions: snapshot.transactions, subscriptions: snapshot.subscriptions, categories: snapshot.categories });
+    const values = new Map<string, string>([[LEGACY_V4_LEDGER_STORAGE_KEY, legacyV4]]);
+    expect(hydrateLedger({ getItem: (key) => values.get(key) ?? null })).toMatchObject({
       source: 'v4',
       canPersist: true,
+      snapshot: { ...snapshot, notifications: [], notificationPreferences: { enabled: false } },
     });
   });
 
   it('migrates a valid v3 ledger to default categories', () => {
     const legacyV3 = JSON.stringify({ version: 3, transactions: snapshot.transactions, subscriptions: snapshot.subscriptions });
-    const values = new Map<string, string>([[PREVIOUS_LEDGER_STORAGE_KEY, legacyV3]]);
+    const values = new Map<string, string>([[LEGACY_V3_LEDGER_STORAGE_KEY, legacyV3]]);
     expect(hydrateLedger({ getItem: (key) => values.get(key) ?? null })).toMatchObject({
       source: 'v3',
       canPersist: true,
-      snapshot: { transactions: snapshot.transactions, subscriptions: snapshot.subscriptions, categories: createDefaultCategoryCatalog() },
+      snapshot: { transactions: snapshot.transactions, subscriptions: snapshot.subscriptions, categories: createDefaultCategoryCatalog(), notifications: [], notificationPreferences: { enabled: false } },
     });
   });
 
-  it('writes v4 first and never updates mirrors if the authoritative write fails', () => {
+  it('writes v6 first and never updates mirrors if the authoritative write fails', () => {
     const calls: string[] = [];
     expect(() => persistLedger({
       setItem: (key) => {
@@ -101,7 +132,7 @@ describe('ledger state boundaries', () => {
     expect(calls).toEqual([LEDGER_STORAGE_KEY]);
   });
 
-  it('writes mirrors in deterministic order only after v3 succeeds', () => {
+  it('writes mirrors in deterministic order only after the authoritative snapshot succeeds', () => {
     const calls: string[] = [];
     persistLedger({ setItem: (key) => { calls.push(key); } }, snapshot);
     expect(calls).toEqual([

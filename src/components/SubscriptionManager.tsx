@@ -1,35 +1,58 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { createPortal } from 'react-dom';
+import { Bell, CalendarDays, ChevronRight, Clock, Plus, RefreshCcw, Trash2, X } from 'lucide-react';
 import DeleteConfirmation from '@/components/DeleteConfirmation';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Ticket, Clock, RefreshCcw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import type { NewTransaction, Subscription, Transaction } from '@/domain/types';
+import type { AppNotification, NewTransaction, Subscription, Transaction } from '@/domain/types';
 import { addCalendarDays, calendarDateToLocalInstant, formatLocalCalendarDate, parseLocalCalendarDate } from '@/domain/calendar-date';
 import { generateId } from '@/domain/id';
+import { countSubscriptionNotifications } from '@/domain/notification';
 import { areSubscriptionListsEqual, reconcileSubscriptions, SUBSCRIPTION_COLORS, validateAndNormalizeSubscription } from '@/domain/subscription';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface SubscriptionManagerProps {
   subscriptions: Subscription[];
+  notifications?: AppNotification[];
   onSubscriptionsChange: React.Dispatch<React.SetStateAction<Subscription[]>>;
   onAddTransaction: (transaction: NewTransaction) => boolean;
   onAddReconciledTransactions: (transactions: Transaction[]) => void;
+  onOpenNotifications?: () => void;
+  onRemoveNotificationLinks?: (subscriptionId: string) => void;
 }
+
+interface NewSubscriptionState {
+  name: string;
+  amount: string;
+  cycleDays: string;
+  startDate: string;
+  createTransactionNow: boolean;
+}
+
+const emptyForm = (): NewSubscriptionState => ({
+  name: '',
+  amount: '',
+  cycleDays: '30',
+  startDate: formatLocalCalendarDate(new Date()),
+  createTransactionNow: true,
+});
 
 const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   subscriptions,
+  notifications = [],
   onSubscriptionsChange,
   onAddTransaction,
   onAddReconciledTransactions,
+  onOpenNotifications,
+  onRemoveNotificationLinks,
 }) => {
   const today = formatLocalCalendarDate(new Date());
   const [isAdding, setIsAdding] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Subscription | null>(null);
-  const [newSub, setNewSub] = useState({ name: '', amount: '', cycleDays: '30', startDate: today, createTransactionNow: true });
+  const [newSub, setNewSub] = useState<NewSubscriptionState>(emptyForm);
   const reconciledSignatureRef = useRef<string>('');
+
+  useMobileBackDismiss(isAdding, () => setIsAdding(false));
 
   useEffect(() => {
     const signature = JSON.stringify(subscriptions.map(({ id, nextPaymentDate, amount, cycleDays }) => [id, nextPaymentDate, amount, cycleDays]));
@@ -39,13 +62,18 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     const result = reconcileSubscriptions(subscriptions, new Date());
     if (result.transactions.length > 0) {
       onAddReconciledTransactions(result.transactions);
-      toast({ title: 'Langganan Diperpanjang', description: `${result.transactions.length} tagihan jatuh tempo telah dicatat sesuai tanggalnya.` });
+      toast({ title: 'Langganan diperpanjang', description: `${result.transactions.length} tagihan jatuh tempo telah dicatat sesuai tanggalnya.` });
     }
     if (!areSubscriptionListsEqual(subscriptions, result.subscriptions)) onSubscriptionsChange(result.subscriptions);
     if (result.blockedSubscriptionIds.length > 0) {
       toast({ variant: 'destructive', title: 'Rekonsiliasi dibatasi', description: `${result.blockedSubscriptionIds.length} langganan terlalu tertinggal dan tidak diubah.` });
     }
   }, [subscriptions, onAddReconciledTransactions, onSubscriptionsChange]);
+
+  const closeAdd = () => {
+    setIsAdding(false);
+    setNewSub(emptyForm());
+  };
 
   const handleAdd = (event: React.FormEvent) => {
     event.preventDefault();
@@ -87,93 +115,129 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     }
 
     onSubscriptionsChange((current) => [...current, result.value]);
-    setNewSub({ name: '', amount: '', cycleDays: '30', startDate: formatLocalCalendarDate(new Date()), createTransactionNow: true });
-    setIsAdding(false);
-    toast({ title: 'Berhasil', description: 'Langganan aktif dilacak!' });
+    closeAdd();
+    toast({ title: 'Langganan ditambahkan', description: `${result.value.name} akan dilacak mulai sekarang.` });
   };
 
-  const currentTime = new Date();
   const getDaysLeft = (nextPayment: string) => {
-    const todayDate = parseLocalCalendarDate(formatLocalCalendarDate(currentTime));
+    const current = parseLocalCalendarDate(today);
     const target = parseLocalCalendarDate(nextPayment);
-    if (!todayDate || !target) return 0;
-    return Math.round((target.getTime() - todayDate.getTime()) / 86_400_000);
+    if (!current || !target) return 0;
+    return Math.round((target.getTime() - current.getTime()) / 86_400_000);
   };
-  const getProgress = (nextPayment: string, cycleDays: number) => {
-    const end = parseLocalCalendarDate(nextPayment);
-    if (!end || cycleDays <= 0) return 0;
-    const startDate = addCalendarDays(nextPayment, -cycleDays);
-    const start = startDate ? parseLocalCalendarDate(startDate) : null;
-    if (!start) return 0;
-    return Math.min(100, Math.max(0, ((currentTime.getTime() - start.getTime()) / (end.getTime() - start.getTime())) * 100));
+
+  const getProgress = (daysLeft: number, cycleDays: number) => Math.min(100, Math.max(0, ((cycleDays - Math.max(0, daysLeft)) / cycleDays) * 100));
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    onSubscriptionsChange((current) => current.filter(({ id }) => id !== pendingDelete.id));
+    onRemoveNotificationLinks?.(pendingDelete.id);
+    setPendingDelete(null);
   };
+
+  const totalMonthlyEstimate = subscriptions.reduce((sum, subscription) => sum + (subscription.amount * 30 / subscription.cycleDays), 0);
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex flex-col items-start justify-between gap-3 min-[360px]:flex-row min-[360px]:items-center">
-          <div className="min-w-0"><h2 className="flex items-center gap-2 font-display text-xl font-bold"><Ticket aria-hidden="true" className="h-6 w-6 shrink-0 text-primary" />Langganan Aktif</h2><p className="text-xs text-muted-foreground">Otomatis catat pengeluaran saat jatuh tempo.</p></div>
-          <Button type="button" onClick={() => setIsAdding((open) => !open)} aria-expanded={isAdding} aria-controls="subscription-form" className="min-h-11 gap-2"><Plus aria-hidden="true" className="h-4 w-4" /> Baru</Button>
+    <section className="utility-screen subscription-screen" aria-labelledby="subscription-title">
+      <header className="utility-screen-header subscription-page-header">
+        <h2 id="subscription-title">Langganan</h2>
+        <button type="button" className="utility-primary-action" onClick={() => setIsAdding(true)}><Plus aria-hidden="true" />Tambah</button>
+      </header>
+
+      {subscriptions.length > 0 && (
+        <section className="subscription-summary" aria-label="Ringkasan langganan">
+          <div><span>Langganan aktif</span><strong>{subscriptions.length}</strong></div>
+          <div><span>Perkiraan per bulan</span><strong>Rp {Math.round(totalMonthlyEstimate).toLocaleString('id-ID')}</strong></div>
+        </section>
+      )}
+
+      <button type="button" className="subscription-notification-link" onClick={onOpenNotifications} disabled={!onOpenNotifications}>
+        <span className="subscription-notification-icon"><Bell aria-hidden="true" /></span>
+        <strong>Notifikasi</strong>
+        <ChevronRight aria-hidden="true" />
+      </button>
+
+      {subscriptions.length === 0 ? (
+        <div className="subscription-empty">
+          <RefreshCcw aria-hidden="true" />
+          <strong>Belum ada langganan</strong>
+          <button type="button" onClick={() => setIsAdding(true)}><Plus aria-hidden="true" />Tambah langganan</button>
         </div>
-
-        {isAdding && (
-          <Card id="subscription-form" className="aureus-form-card animate-in slide-in-from-top-4">
-            <CardHeader className="pb-4"><CardTitle className="text-base">Mulai Langganan</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Atur biaya dan jadwal pembayaran berikutnya.</p></CardHeader>
-            <CardContent>
-              <form onSubmit={handleAdd} className="aureus-form">
-                <div className="form-grid">
-                  <div className="form-field"><Label htmlFor="subscription-name">Nama Layanan</Label><Input id="subscription-name" maxLength={100} aria-describedby="subscription-name-help" placeholder="Netflix, Spotify..." value={newSub.name} onChange={(event) => setNewSub({ ...newSub, name: event.target.value })} required /><p id="subscription-name-help" className="form-helper">Maksimum 100 karakter.</p></div>
-                  <div className="form-field"><Label htmlFor="subscription-amount">Biaya (Rp)</Label><Input id="subscription-amount" type="number" min="0" step="1" inputMode="numeric" placeholder="0" value={newSub.amount} onChange={(event) => setNewSub({ ...newSub, amount: event.target.value })} required /></div>
-                </div>
-                <div className="form-grid">
-                  <div className="form-field"><Label htmlFor="subscription-start">Mulai Tanggal</Label><Input id="subscription-start" type="date" value={newSub.startDate} onChange={(event) => setNewSub({ ...newSub, startDate: event.target.value })} required /></div>
-                  <div className="form-field"><Label htmlFor="subscription-cycle">Durasi (Hari)</Label><Input id="subscription-cycle" type="number" min="1" max="36600" step="1" inputMode="numeric" aria-describedby="subscription-cycle-help" placeholder="30" value={newSub.cycleDays} onChange={(event) => setNewSub({ ...newSub, cycleDays: event.target.value })} required /><p id="subscription-cycle-help" className="form-helper">Bilangan bulat 1–36.600 hari.</p></div>
-                </div>
-                <div className="form-choice"><Checkbox id="createNow" checked={newSub.createTransactionNow} onCheckedChange={(checked) => setNewSub({ ...newSub, createTransactionNow: checked === true })} className="mt-0.5" /><Label htmlFor="createNow">Buat transaksi pembayaran pertama pada tanggal mulai?</Label></div>
-                <div className="form-actions"><Button type="button" variant="outline" onClick={() => setIsAdding(false)}>Batal</Button><Button type="submit">Mulai Tracking</Button></div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid gap-4">
-          {subscriptions.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-muted bg-muted/20 px-4 py-12 text-center"><RefreshCcw aria-hidden="true" className="mx-auto mb-2 h-12 w-12 text-muted-foreground/30" /><p className="text-muted-foreground">Tidak ada langganan aktif.</p></div>
-          ) : subscriptions.map((subscription) => {
-            const daysLeft = getDaysLeft(subscription.nextPaymentDate);
-            const progress = getProgress(subscription.nextPaymentDate, subscription.cycleDays);
-            const start = parseLocalCalendarDate(subscription.startDate);
-            const next = parseLocalCalendarDate(subscription.nextPaymentDate);
-            const progressDescription = `${Math.round(progress)} persen siklus telah berlalu. ${daysLeft <= 0 ? 'Jatuh tempo hari ini.' : `${daysLeft} hari lagi.`}`;
-            return (
-              <article key={subscription.id} className="overflow-hidden rounded-xl border border-primary/20 bg-card shadow-sm transition-shadow hover:shadow-md">
-                <div className="flex flex-col gap-4 p-4">
-                  <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-4">
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div aria-hidden="true" className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-primary/10 bg-muted/30"><span className="text-[10px] font-bold uppercase leading-none text-muted-foreground">{start?.toLocaleDateString('id-ID', { month: 'short' })}</span><span className="text-lg font-black leading-none">{start?.getDate()}</span></div>
-                      <div className="min-w-0"><h3 className="break-words text-base font-bold">{subscription.name}</h3><p className="flex items-center gap-1 text-xs text-muted-foreground"><Clock aria-hidden="true" className="h-3 w-3" />{subscription.cycleDays} Hari / Siklus</p></div>
+      ) : (
+        <section className="subscription-list" aria-labelledby="subscription-list-title">
+          <div className="utility-section-heading"><h3 id="subscription-list-title">Pembayaran berikutnya</h3></div>
+          <div className="subscription-rows">
+            {subscriptions.map((subscription) => {
+              const daysLeft = getDaysLeft(subscription.nextPaymentDate);
+              const progress = getProgress(daysLeft, subscription.cycleDays);
+              const start = parseLocalCalendarDate(subscription.startDate);
+              const next = parseLocalCalendarDate(subscription.nextPaymentDate);
+              const reminderCount = countSubscriptionNotifications(notifications, subscription.id);
+              const progressDescription = `${Math.round(progress)} persen siklus telah berlalu. ${daysLeft <= 0 ? 'Jatuh tempo hari ini.' : `${daysLeft} hari lagi.`}`;
+              return (
+                <article key={subscription.id} className="subscription-card">
+                  <div className="subscription-card-top">
+                    <div className="subscription-card-identity">
+                      <span className="subscription-start-date" aria-hidden="true"><small>{start?.toLocaleDateString('id-ID', { month: 'short' })}</small><strong>{start?.getDate()}</strong></span>
+                      <div className="subscription-card-copy">
+                        <h3>{subscription.name}</h3>
+                        <div className="subscription-card-meta">
+                          <span><Clock aria-hidden="true" />{subscription.cycleDays} hari / siklus</span>
+                          {reminderCount > 0 && <span className="subscription-reminder-count" aria-label={`${reminderCount} notifikasi`}><Bell aria-hidden="true" />{reminderCount}</span>}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1"><span className="max-w-[8rem] break-words text-right font-mono text-sm font-bold sm:max-w-none sm:text-base">Rp {subscription.amount.toLocaleString('id-ID')}</span><Button type="button" size="icon" variant="ghost" aria-label={`Hapus langganan ${subscription.name}`} className="h-11 w-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setPendingDelete(subscription)}><Trash2 aria-hidden="true" className="h-4 w-4" /></Button></div>
+                    <div className="subscription-card-value">
+                      <strong>Rp {subscription.amount.toLocaleString('id-ID')}</strong>
+                      <button type="button" aria-label={`Hapus langganan ${subscription.name}`} onClick={() => setPendingDelete(subscription)}><Trash2 aria-hidden="true" /></button>
+                    </div>
                   </div>
-                  <div className="space-y-1"><div className="flex justify-between gap-2 text-xs font-medium"><span className={daysLeft <= 3 ? 'text-destructive' : 'text-muted-foreground'}>{daysLeft <= 0 ? 'Jatuh tempo hari ini!' : `${daysLeft} Hari lagi`}</span><span className="text-muted-foreground">{next?.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span></div><div role="progressbar" aria-label={`Siklus ${subscription.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={progressDescription} className="h-2 w-full overflow-hidden rounded-full bg-secondary"><div aria-hidden="true" className={`h-full rounded-full transition-all duration-500 ${daysLeft <= 3 ? 'bg-destructive' : 'bg-primary'}`} style={{ width: `${progress}%` }} /></div></div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </div>
+                  <div className="subscription-card-progress">
+                    <div><span className={daysLeft <= 3 ? 'is-urgent' : ''}>{daysLeft <= 0 ? 'Jatuh tempo hari ini' : `${daysLeft} hari lagi`}</span><span>{next?.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span></div>
+                    <div role="progressbar" aria-label={`Siklus ${subscription.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={progressDescription}><span className={daysLeft <= 3 ? 'is-urgent' : ''} style={{ width: `${progress}%` }} /></div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {isAdding && createPortal(
+        <div className="simple-dialog-backdrop subscription-add-backdrop" role="presentation">
+          <section className="simple-dialog subscription-add-dialog" role="dialog" aria-modal="true" aria-labelledby="subscription-add-title">
+            <header>
+              <div><h2 id="subscription-add-title">Tambah langganan</h2></div>
+              <div className="dialog-header-actions">
+                <label className="dialog-header-date" title="Pilih tanggal mulai">
+                  <CalendarDays aria-hidden="true" />
+                  <input aria-label="Tanggal mulai" type="date" value={newSub.startDate} onChange={(event) => setNewSub({ ...newSub, startDate: event.target.value })} required />
+                </label>
+                <button type="button" aria-label="Tutup tambah langganan" onClick={closeAdd}><X aria-hidden="true" /></button>
+              </div>
+            </header>
+            <form onSubmit={handleAdd}>
+              <div className="form-field"><label htmlFor="subscription-name">Nama layanan</label><input id="subscription-name" autoFocus maxLength={100} placeholder="Netflix" value={newSub.name} onChange={(event) => setNewSub({ ...newSub, name: event.target.value })} required /></div>
+              <div className="form-field"><label htmlFor="subscription-amount">Biaya (Rp)</label><input id="subscription-amount" type="number" min="0" step="1" inputMode="numeric" placeholder="0" value={newSub.amount} onChange={(event) => setNewSub({ ...newSub, amount: event.target.value })} required /></div>
+              <div className="subscription-form-row">
+                <div className="form-field"><label htmlFor="subscription-cycle">Siklus (hari)</label><input id="subscription-cycle" type="number" min="1" max="36600" step="1" inputMode="numeric" value={newSub.cycleDays} onChange={(event) => setNewSub({ ...newSub, cycleDays: event.target.value })} required /></div>
+              </div>
+              <div className="subscription-first-payment"><Checkbox id="createNow" aria-label="Catat pembayaran pertama" checked={newSub.createTransactionNow} onCheckedChange={(checked) => setNewSub({ ...newSub, createTransactionNow: checked === true })} /><label htmlFor="createNow"><strong>Catat pembayaran pertama</strong></label></div>
+              <button type="submit" className="simple-primary" disabled={!newSub.name.trim() || newSub.amount === ''}>Simpan</button>
+            </form>
+          </section>
+        </div>,
+        document.body,
+      )}
 
       <DeleteConfirmation
         open={pendingDelete !== null}
-        target={`Langganan “${pendingDelete?.name ?? ''}”`}
+        target={`Langganan "${pendingDelete?.name ?? ''}"`}
         subject="langganan"
         onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
-        onConfirm={() => {
-          if (pendingDelete) onSubscriptionsChange((current) => current.filter(({ id }) => id !== pendingDelete.id));
-          setPendingDelete(null);
-        }}
+        onConfirm={confirmDelete}
       />
-    </>
+    </section>
   );
 };
 

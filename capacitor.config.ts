@@ -5,6 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Aureus',
   webDir: 'dist',
   plugins: {
+    LocalNotifications: {
+      presentationOptions: ['sound', 'banner', 'list'],
+      iconColor: '#D7DF70',
+    },
     SystemBars: {
       // Capacitor 8 injects --safe-area-inset-* for affected Android
       // WebViews. Phase 3 CSS consumes those values before env() fallbacks.

@@ -50,18 +50,20 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
     return period === 'all' || day?.startsWith(period);
   }), [period, transactions]);
 
-  const visibleTransactions = useMemo(() => {
+  const searchedTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('id-ID');
     return periodTransactions
-      .filter((transaction) => typeFilter === 'all' || transaction.type === typeFilter)
       .filter((transaction) => !normalizedQuery || `${transaction.description} ${transaction.category}`.toLocaleLowerCase('id-ID').includes(normalizedQuery))
       .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-  }, [periodTransactions, query, typeFilter]);
+  }, [periodTransactions, query]);
+
+  const visibleTransactions = useMemo(() => searchedTransactions
+    .filter((transaction) => typeFilter === 'all' || transaction.type === typeFilter), [searchedTransactions, typeFilter]);
 
   const totals = useMemo(() => ({
-    income: visibleTransactions.filter(({ type }) => type === 'income').reduce((sum, { amount }) => sum + amount, 0),
-    expense: visibleTransactions.filter(({ type }) => type === 'expense').reduce((sum, { amount }) => sum + amount, 0),
-  }), [visibleTransactions]);
+    income: searchedTransactions.filter(({ type }) => type === 'income').reduce((sum, { amount }) => sum + amount, 0),
+    expense: searchedTransactions.filter(({ type }) => type === 'expense').reduce((sum, { amount }) => sum + amount, 0),
+  }), [searchedTransactions]);
 
   const groups = useMemo(() => {
     const grouped = new Map<string, Transaction[]>();
@@ -87,7 +89,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
   return (
     <section className="activity-screen" aria-labelledby="activity-title">
       <header className="activity-page-header">
-        <h1 id="activity-title">History</h1>
+        <h1 id="activity-title">Transaction</h1>
         <div className="activity-period-select">
           <CalendarDays aria-hidden="true" />
           <label className="sr-only" htmlFor="activity-period">Periode</label>
@@ -101,7 +103,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
         </div>
       </header>
 
-      <section className="activity-controls" aria-label="Cari dan filter transaksi">
+      <section className="activity-controls" aria-label="Pencarian transaksi">
         <div className="activity-search-field">
           <Search aria-hidden="true" />
           <label className="sr-only" htmlFor="activity-search">Cari transaksi</label>
@@ -119,16 +121,6 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
             </button>
           )}
         </div>
-
-        <div className="activity-type-filters" aria-label="Filter jenis transaksi">
-          {([
-            ['all', 'Semua'],
-            ['expense', 'Pengeluaran'],
-            ['income', 'Pemasukan'],
-          ] as const).map(([value, label]) => (
-            <button key={value} type="button" aria-pressed={typeFilter === value} onClick={() => setTypeFilter(value)}>{label}</button>
-          ))}
-        </div>
       </section>
 
       <section className="activity-history" aria-labelledby="activity-history-title">
@@ -137,15 +129,25 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
           <p aria-live="polite">{visibleTransactions.length} {hasListFilter ? 'hasil' : 'transaksi'}</p>
         </div>
 
-        <div className="activity-history-overview" aria-label={`Ringkasan ${periodLabel}`}>
-          <div className={`activity-overview-item is-income${totals.income === 0 ? ' is-zero' : ''}`}>
+        <div className="activity-history-overview" aria-label={`Ringkasan dan filter ${periodLabel}`}>
+          <button
+            type="button"
+            className="activity-overview-item is-income"
+            aria-pressed={typeFilter === 'income'}
+            onClick={() => setTypeFilter((current) => current === 'income' ? 'all' : 'income')}
+          >
             <ArrowDownLeft aria-hidden="true" />
             <span><small>Pemasukan</small><strong>Rp{totals.income.toLocaleString('id-ID')}</strong></span>
-          </div>
-          <div className={`activity-overview-item${totals.expense === 0 ? ' is-zero' : ''}`}>
+          </button>
+          <button
+            type="button"
+            className={`activity-overview-item${totals.expense === 0 ? ' is-zero' : ''}`}
+            aria-pressed={typeFilter === 'expense'}
+            onClick={() => setTypeFilter((current) => current === 'expense' ? 'all' : 'expense')}
+          >
             <ArrowUpRight aria-hidden="true" />
             <span><small>Pengeluaran</small><strong>Rp{totals.expense.toLocaleString('id-ID')}</strong></span>
-          </div>
+          </button>
         </div>
 
         {groups.length === 0 ? (

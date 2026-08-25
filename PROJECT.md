@@ -211,8 +211,10 @@ There is no global state library. `Index.tsx` owns financial state with React st
 
 | Key | Content | Role |
 | --- | --- | --- |
-| `aureusLedgerV4` | `{ version: 4, transactions, subscriptions, categories }` | Authoritative combined snapshot. |
-| `aureusLedgerV3` | `{ version: 3, transactions, subscriptions }` | Previous snapshot read during migration. |
+| `aureusLedgerV6` | `{ version: 6, transactions, subscriptions, categories, notifications, notificationPreferences }` | Authoritative combined snapshot. |
+| `aureusLedgerV5` | Previous notification format | Previous snapshot read during migration. |
+| `aureusLedgerV4` | `{ version: 4, transactions, subscriptions, categories }` | Older snapshot read during migration. |
+| `aureusLedgerV3` | `{ version: 3, transactions, subscriptions }` | Older snapshot read during migration. |
 | `transactions` | Transaction array | Legacy compatibility mirror. |
 | `subscriptions` | Subscription array | Legacy compatibility mirror. |
 | `theme` | `light` or `dark` | UI preference. |
@@ -221,9 +223,9 @@ There is no global state library. `Index.tsx` owns financial state with React st
 
 Hydration follows this order:
 
-1. `hydrateLedger` reads `aureusLedgerV4`.
-2. A valid version 4 snapshot wins over every older source.
-3. If no version 4 snapshot exists, hydration migrates a valid `aureusLedgerV3` snapshot with default categories.
+1. `hydrateLedger` reads `aureusLedgerV6`.
+2. A valid version 6 snapshot wins over every older source.
+3. If no version 6 snapshot exists, hydration migrates valid version 5, version 4, or version 3 snapshots. Version 5 subscription rules become reusable reminder items. Missing notification data becomes an empty list with notifications off.
 4. If no valid combined snapshot exists, hydration checks `transactions` and `subscriptions`.
 5. Recovery decoders omit invalid individual legacy records. They can repair missing or duplicate legacy IDs.
 6. A malformed authoritative value or wrong-shaped legacy value disables automatic persistence. This preserves the raw value instead of overwriting it with an empty array.
@@ -231,11 +233,11 @@ Hydration follows this order:
 
 Persistence follows this order:
 
-1. `persistLedger` writes `aureusLedgerV4`.
+1. `persistLedger` writes `aureusLedgerV6`.
 2. Only after the authoritative write succeeds, it writes `transactions`.
 3. It then writes `subscriptions`.
 
-Do not move financial storage writes back into feature components. One combined persistence path keeps subscription checkpoints and renewal transactions in the same snapshot.
+Do not move persisted data writes back into feature components. One combined path keeps transactions, subscription checkpoints, categories, and notification rules in the same snapshot.
 
 ## Transaction write paths
 
@@ -275,7 +277,8 @@ The parser rejects multiple separate amount candidates and multiple separate dat
 The platform split is:
 
 - Browser: `SpeechRecognition` or `webkitSpeechRecognition` with `id-ID`.
-- Android: `@capacitor-community/speech-recognition` with a native permission request after the user starts recognition.
+- Android: `@capacitor-community/speech-recognition` with inline recognition and `popup: false`.
+- Native code checks microphone permission before starting. It requests permission only from the untouched `prompt` state. Denied or rationale states never reopen a system prompt.
 
 The native plugin's `stop()` promise is not a reliable completion signal. `VoiceInput` sends `SpeechRecognition.stop()` without awaiting it and waits for the `listeningState` event with status `stopped`. Operation IDs invalidate late results. Preserve both behaviors when changing voice lifecycle code.
 
@@ -298,9 +301,17 @@ The user reviews the parsed amount and description before saving. In the active 
 
 `Index.addReconciledTransactions` calls `mergeTransactionsIdempotently` before updating transaction state.
 
+### Notifications
+
+`src/domain/notification.ts` validates reusable reminder items. Each item stores days before due, time, and the subscription IDs that use it. One item can apply to several subscriptions and repeats for each billing cycle.
+
+`src/platform/notifications.ts` owns Capacitor scheduling. It serializes reschedules, caps Aureus at 64 pending native notifications, and sets `isExactNotification: false` on every item. The Android manifest removes `SCHEDULE_EXACT_ALARM`, so enabling notifications never opens the separate "Alarms & reminders" settings screen. The master switch is the only route that requests notification permission.
+
+The Notifications page under Others creates items and assigns them to subscriptions. Subscription rows show a bell count. Deleting a subscription removes its ID from reminder items without deleting those items.
+
 ### Restore
 
-A confirmed restore replaces transactions, subscriptions, and categories in one React batch. Restore is not a merge operation.
+A confirmed restore replaces transactions, subscriptions, categories, and notification rules in one React batch. Restore is not a merge operation. Restored notification rules remain off until the user enables notifications on the current device.
 
 ## Date rules
 
@@ -336,17 +347,20 @@ The current backup envelope is:
 
 ```ts
 interface BackupEnvelope {
-	version: '4.0';
+	version: '6.0';
 	exportDate: string;
 	transactionCount: number;
 	subscriptionCount: number;
+	notificationCount: number;
 	transactions: Transaction[];
 	subscriptions: Subscription[];
 	categories: CategoryCatalog;
+	notifications: AppNotification[];
+	notificationPreferences: NotificationPreferences;
 }
 ```
 
-Backup version `4.0` is separate from the numeric local ledger version `4`. Versions `2.0` and `3.0` remain read-only restore formats and recover the default category catalog.
+Backup version `6.0` is separate from the numeric local ledger version `6`. Versions `2.0` through `5.0` remain read-only restore formats. Version 5 subscription rules become reusable reminder items. Missing notification data becomes an empty list with notifications off.
 
 The limits are:
 
@@ -548,8 +562,9 @@ Use this map to find the first relevant implementation and regression tests.
 | Transaction fields or limits | `src/domain/types.ts`, `transaction-validation.ts`, `ledger.ts` | `transaction-validation.test.ts`, `ledger.test.ts`, `backup.test.ts` |
 | Manual transaction entry | `QuickTransactionEntry.tsx`, `TransactionForm.tsx`, `transaction-action.ts`, `Index.tsx` | `QuickTransactionEntry.test.tsx`, `TransactionForm.test.tsx`, `transaction-action.test.ts` |
 | Voice amount, type, date, or category parsing | `voice-parser.ts`, `categories.ts` | `voice-parser.test.ts` |
-| Voice permission or recognizer lifecycle | `QuickTransactionEntry.tsx`, `VoiceInput.tsx`, `capacitor.config.ts`, Android manifest | `QuickTransactionEntry.test.tsx`, `VoiceInput.test.tsx`, `VoiceInput.native.test.tsx`, Android assertions |
+| Voice permission or recognizer lifecycle | `QuickTransactionEntry.tsx`, `VoiceInput.tsx`, `capacitor.config.ts`, Android manifest | `QuickTransactionEntry.test.tsx`, `QuickTransactionEntry.native.test.tsx`, `VoiceInput.test.tsx`, `VoiceInput.native.test.tsx`, Android assertions |
 | Subscription validation or renewal | `subscription.ts`, `SubscriptionManager.tsx`, `id.ts` | `subscription.test.ts`, `SubscriptionManager.test.tsx`, `id.test.ts`, `ledger.test.ts` |
+| Notification validation, permission, or scheduling | `notification.ts`, `NotificationManager.tsx`, `notifications.ts`, Android manifest | `notification.test.ts`, `NotificationManager.test.tsx`, `notifications.test.ts`, Android assertions |
 | Storage or migration | `ledger.ts`, `backup.ts`, `subscription.ts` | `ledger.test.ts`, `backup.test.ts`, `subscription-storage.test.ts` |
 | Backup schema or restore UX | `backup.ts`, `BackupRestore.tsx`, `Index.tsx` | `backup.test.ts`, `BackupRestore.test.tsx` |
 | Date or period behavior | `calendar-date.ts`, `period.ts`, `dashboard-period.ts` | `calendar-date.test.ts`, `period.test.ts`, `dashboard-period.test.ts`, affected component tests |
@@ -575,7 +590,7 @@ These rules protect data correctness and platform security:
 - Keep the authoritative ledger write ahead of the legacy mirror writes.
 - Do not overwrite malformed persisted data during startup.
 - Keep backup restore strict, all-or-nothing, and confirmed before replacement.
-- Keep backup version `4.0` distinct from ledger version `4`.
+- Keep backup version `6.0` distinct from ledger version `6`.
 - Use `calendar-date.ts` for calendar inputs and subscription arithmetic.
 - Keep Home totals, category amounts, frequency, and category ranking on the same dashboard period.
 - Keep CSV formula neutralization and RFC 4180 escaping.
