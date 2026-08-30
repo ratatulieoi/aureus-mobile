@@ -18,7 +18,7 @@ const AboutSection: React.FC = () => (
     </section>
 
     <dl className="about-details">
-      <div><dt>Versi</dt><dd>2.5.3</dd></div>
+      <div><dt>Versi</dt><dd>2.5.4</dd></div>
       <div><dt>Penyimpanan</dt><dd>Lokal di perangkat</dd></div>
       <div><dt>Proyek</dt><dd>Open-source</dd></div>
     </dl>

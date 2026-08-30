@@ -53,8 +53,10 @@ for (const domain of ['root', 'file', 'database', 'sharedpref', 'external', 'dev
 assert.match(extractionRules, /<cloud-backup>/);
 assert.match(extractionRules, /<device-transfer>/);
 
-assert.match(buildGradle, /minifyEnabled\s*=\s*true/);
-assert.match(buildGradle, /shrinkResources\s*=\s*true/);
+assert.match(buildGradle, /minifyEnabled\s*=\s*false/, 'Release bytecode shrinking can break reflected Capacitor permission entry points');
+assert.match(buildGradle, /shrinkResources\s*=\s*false/, 'Release resources must remain aligned with the unshrunk native graph');
+assert.doesNotMatch(buildGradle, /minifyEnabled\s*=\s*true/);
+assert.doesNotMatch(buildGradle, /shrinkResources\s*=\s*true/);
 assert.match(buildGradle, /proguard-android-optimize\.txt/);
 assert.match(buildGradle, /AUREUS_VERSION_CODE/);
 assert.match(buildGradle, /AUREUS_VERSION_NAME/);
