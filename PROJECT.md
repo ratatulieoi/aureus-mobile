@@ -75,16 +75,16 @@ The page loads expensive feature sections with `React.lazy`. `src/components/Laz
 
 ## Active UI map
 
-`src/components/BottomNav.tsx` defines the `NavTab` union. It renders the fixed liquid-glass primary navigation in the physical order Subs, Home, then History. The center Home control shows only the Aureus mark. `src/components/Header.tsx` renders the Aureus lockup and a three-dot utility menu for theme switching, direct backup access, and Lainnya.
+`src/components/BottomNav.tsx` defines the `NavTab` union. It renders a fixed, blurred dock with Home, Transaction, Subs, and Others, followed by the separate add control. `src/components/Header.tsx` renders the Aureus lockup and a three-dot utility menu for theme switching, direct backup access, and Others.
 
 | Destination | Entry point | Active components | Purpose |
 | --- | --- | --- | --- |
-| `home` | Center Aureus mark | `DashboardHome`, `QuickTransactionEntry` | Show period totals, switch transaction type, rank categories, and create transactions. |
-| `activity` | `History` in the bottom dock | `ActivityScreen` | Search and filter monthly transactions, show type-aware totals, group rows by date, and edit or delete a transaction. |
+| `home` | `Home` in the bottom dock | `DashboardHome`, `QuickTransactionEntry` | Show period totals, switch transaction type, rank categories, and create transactions. |
+| `activity` | `Transaction` in the bottom dock | `ActivityScreen` | Search and filter monthly transactions, show type-aware totals, group rows by date, and edit or delete a transaction. |
 | `subs` | `Subs` in the bottom dock | `SubscriptionManager` | Create subscriptions and reconcile due payments. |
-| `more` | `Lainnya` in the three-dot menu | `MoreMenu`, `CategoryManager`, `MonthlyReports`, `BackupRestore`, `ThemeToggle`, `AboutSection` | Manage categories and open reports, backup, appearance, or application information. |
+| `more` | `Others` in the bottom dock or utility menu | `MoreMenu`, `CategoryManager`, `MonthlyReports`, `BackupRestore`, `ThemeToggle`, `AboutSection` | Manage categories and open reports, backup, appearance, or application information. |
 
-Horizontal swiping follows the bottom dock: Subs, Home, History. `more` is not part of the swipe sequence. The utility menu can open Backup directly in the `more` view.
+Horizontal swiping follows the bottom dock: Home, Transaction, Subs, then Others. The utility menu can open Backup directly in the `more` view.
 
 The shared component layers are:
 
@@ -286,7 +286,7 @@ The user reviews the parsed amount and description before saving. In the active 
 
 ### Subscription entry and renewal
 
-`src/components/SubscriptionManager.tsx` validates a new subscription before changing state. If the user selects the first-payment option, the component creates the payment transaction before it adds the subscription.
+`src/components/SubscriptionManager.tsx` validates a new subscription before changing state. If the user selects the first-payment option, the component creates the payment transaction before it adds the subscription. Users can hold a row's drag handle and move it vertically. The reordered array flows through `Index.tsx`, so ledger persistence and backups keep the chosen order.
 
 `reconcileSubscriptions` applies this renewal policy:
 
@@ -303,9 +303,9 @@ The user reviews the parsed amount and description before saving. In the active 
 
 ### Notifications
 
-`src/domain/notification.ts` validates reusable reminder items. Each item stores days before due, time, and the subscription IDs that use it. One item can apply to several subscriptions and repeats for each billing cycle.
+`src/domain/notification.ts` validates reusable reminder items. Each item stores an editable title and message, days before due, time, and the subscription IDs that use it. The title and message support `{name}`, `{amount}`, and `{due}` placeholders. One item can apply to several subscriptions and repeats for each billing cycle.
 
-`src/platform/notifications.ts` owns Capacitor scheduling. It serializes reschedules, caps Aureus at 64 pending native notifications, and sets `isExactNotification: false` on every item. The Android manifest removes `SCHEDULE_EXACT_ALARM`, so enabling notifications never opens the separate "Alarms & reminders" settings screen. The master switch is the only route that requests notification permission.
+The notification editor opens a dedicated 24-hour picker with separate hour and minute selectors instead of free-form time entry. On a subscription card, holding the bell count temporarily shows stacked tooltips with the assigned item names, such as `H-3`, and their times. Notification titles and messages only control the Android notification content. Android Back dismisses the topmost open menu, picker, form, or confirmation dialog before the app can exit. `src/platform/notifications.ts` resolves the title and message placeholders for each assigned subscription, owns Capacitor scheduling, serializes reschedules, caps Aureus at 64 pending native notifications, and sets `isExactNotification: false` on every item. The Android manifest removes `SCHEDULE_EXACT_ALARM`, so enabling notifications never opens the separate "Alarms & reminders" settings screen. The master switch is the only route that requests notification permission.
 
 The Notifications page under Others creates items and assigns them to subscriptions. Subscription rows show a bell count. Deleting a subscription removes its ID from reminder items without deleting those items.
 
@@ -435,7 +435,7 @@ The active style contracts include:
 - a visible global `focus-visible` outline,
 - at least 44 CSS-pixel touch targets for common controls,
 - safe-area utilities for the sticky header, fixed bottom navigation, dialogs, and content offsets,
-- a neutral liquid-glass bottom dock with geometry-matched displacement maps, low-opacity white surfaces, edge-weighted refraction, soft blur, bright rims, readable labels, no colored glow, and no visual active-page cue,
+- a neutral bottom dock with ordinary `4px` backdrop blur, transparent surfaces, bright rims, readable labels, and an inner blurred capsule for the active page,
 - `viewport-fit=cover` in `index.html`,
 - a global `prefers-reduced-motion: reduce` override.
 
@@ -576,7 +576,7 @@ These rules protect data correctness and platform security:
 - Keep backup restore strict, all-or-nothing, and confirmed before replacement.
 - Keep backup version `6.0` distinct from ledger version `6`.
 - Use `calendar-date.ts` for calendar inputs and subscription arithmetic.
-- Keep Home totals, category amounts, frequency, and category ranking on the same dashboard period.
+- Keep Home totals, category amounts, and displayed counts on the selected dashboard period. Rank categories by their all-time transaction frequency so the order does not reset when the period or day changes.
 - Keep CSV formula neutralization and RFC 4180 escaping.
 - Build printable reports with DOM text nodes. Do not parse stored fields as markup.
 - Keep Android exports inside `cache/aureus-exports/` and keep the TypeScript and FileProvider paths equal.

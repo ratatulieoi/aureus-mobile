@@ -20,6 +20,7 @@ import type { TransactionType } from '@/domain/types';
 import { parsePositiveFiniteAmount } from '@/domain/transaction-validation';
 import { calendarDateToLocalInstant, formatLocalCalendarDate } from '@/domain/calendar-date';
 import { attemptTransactionCommit } from '@/domain/transaction-action';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface TransactionFormProps {
   onAddTransaction: (transaction: NewTransaction) => boolean;
@@ -57,6 +58,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     onClose();
     window.requestAnimationFrame(() => returnFocusRef.current?.focus());
   };
+  useMobileBackDismiss(!isSubmitting, requestClose);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();

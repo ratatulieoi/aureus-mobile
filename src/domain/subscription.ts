@@ -115,6 +115,21 @@ export function decodeStoredSubscriptions(
  * A subscription requiring more than the bound is left completely unchanged
  * and emits no partial history; the UI can report it for manual correction.
  */
+export function reorderSubscriptions(
+  subscriptions: readonly Subscription[],
+  activeId: string,
+  overId: string,
+): Subscription[] {
+  const previousIndex = subscriptions.findIndex(({ id }) => id === activeId);
+  const nextIndex = subscriptions.findIndex(({ id }) => id === overId);
+  if (previousIndex < 0 || nextIndex < 0 || previousIndex === nextIndex) return [...subscriptions];
+  const reordered = [...subscriptions];
+  const [moved] = reordered.splice(previousIndex, 1);
+  if (!moved) return [...subscriptions];
+  reordered.splice(nextIndex, 0, moved);
+  return reordered;
+}
+
 export function areSubscriptionListsEqual(
   left: readonly Subscription[],
   right: readonly Subscription[],

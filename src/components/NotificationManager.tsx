@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, BellOff, ChevronRight, Clock3, Plus, Trash2, X } from 'lucide-react';
+import { Bell, BellOff, Check, ChevronRight, Clock3, Plus, Trash2, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { AppNotification, NotificationPreferences, Subscription } from '@/domain/types';
 import { generateId } from '@/domain/id';
-import { notificationItemLabel, validateAndNormalizeAppNotification } from '@/domain/notification';
+import {
+  DEFAULT_NOTIFICATION_MESSAGE,
+  DEFAULT_NOTIFICATION_TITLE,
+  MAX_NOTIFICATION_MESSAGE_LENGTH,
+  MAX_NOTIFICATION_TITLE_LENGTH,
+  notificationItemLabel,
+  notificationItemName,
+  validateAndNormalizeAppNotification,
+} from '@/domain/notification';
 import {
   checkNotificationPermission,
   requestNotificationPermission,
@@ -24,11 +32,19 @@ interface NotificationManagerProps {
 
 interface TimingEditor {
   id: string | null;
+  title: string;
+  message: string;
   daysBefore: string;
   time: string;
 }
 
-const newTimingEditor = (): TimingEditor => ({ id: null, daysBefore: '3', time: '08:00' });
+const newTimingEditor = (): TimingEditor => ({
+  id: null,
+  title: DEFAULT_NOTIFICATION_TITLE,
+  message: DEFAULT_NOTIFICATION_MESSAGE,
+  daysBefore: '3',
+  time: '08:00',
+});
 
 const NotificationManager: React.FC<NotificationManagerProps> = ({
   notifications,
@@ -41,13 +57,16 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
   const [permissionChecked, setPermissionChecked] = useState(false);
   const [permissionBusy, setPermissionBusy] = useState(false);
   const [editor, setEditor] = useState<TimingEditor | null>(null);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [draftTime, setDraftTime] = useState('08:00');
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AppNotification | null>(null);
 
-  useMobileBackDismiss(editor !== null || assigningId !== null, () => {
+  useMobileBackDismiss((editor !== null || assigningId !== null) && pendingDelete === null, () => {
     setEditor(null);
     setAssigningId(null);
   });
+  useMobileBackDismiss(timePickerOpen, () => setTimePickerOpen(false));
 
   const assigning = notifications.find(({ id }) => id === assigningId) ?? null;
 
@@ -98,6 +117,8 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
     const existing = notifications.find((notification) => notification.id === editor.id);
     const validation = validateAndNormalizeAppNotification({
       id,
+      title: editor.title,
+      message: editor.message,
       daysBefore: Number(editor.daysBefore),
       time: editor.time,
       subscriptionIds: existing?.subscriptionIds ?? [],
@@ -107,6 +128,8 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
       return;
     }
     const duplicate = notifications.some((notification) => notification.id !== editor.id
+      && notification.title === validation.value.title
+      && notification.message === validation.value.message
       && notification.daysBefore === validation.value.daysBefore
       && notification.time === validation.value.time);
     if (duplicate) {
@@ -137,9 +160,21 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
     });
   };
 
+  const openTimePicker = () => {
+    if (!editor) return;
+    setDraftTime(editor.time);
+    setTimePickerOpen(true);
+  };
+
   const openTimingEditor = (notification: AppNotification) => {
     setAssigningId(null);
-    setEditor({ id: notification.id, daysBefore: String(notification.daysBefore), time: notification.time });
+    setEditor({
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      daysBefore: String(notification.daysBefore),
+      time: notification.time,
+    });
   };
 
   return (
@@ -218,7 +253,7 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
                 </div>
               )}
               <div className="notification-assignment-actions">
-                <button type="button" onClick={() => openTimingEditor(assigning)}>Ubah waktu</button>
+                <button type="button" onClick={() => openTimingEditor(assigning)}>Ubah notifikasi</button>
                 <button type="button" className="is-destructive" onClick={() => { setAssigningId(null); setPendingDelete(assigning); }}><Trash2 aria-hidden="true" />Hapus</button>
               </div>
             </div>
@@ -231,22 +266,61 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
         <div className="simple-dialog-backdrop notification-editor-backdrop" role="presentation">
           <section className="simple-dialog notification-editor notification-timing-editor" role="dialog" aria-modal="true" aria-labelledby="notification-editor-title">
             <header>
-              <div><h2 id="notification-editor-title">{editor.id ? 'Ubah waktu' : 'Tambah notifikasi'}</h2></div>
+              <div><h2 id="notification-editor-title">{editor.id ? 'Ubah notifikasi' : 'Tambah notifikasi'}</h2></div>
               <button type="button" aria-label="Tutup notifikasi" onClick={() => setEditor(null)}><X aria-hidden="true" /></button>
             </header>
             <form onSubmit={saveTiming}>
+              <div className="form-field">
+                <label htmlFor="notification-custom-title">Judul</label>
+                <input id="notification-custom-title" autoFocus maxLength={MAX_NOTIFICATION_TITLE_LENGTH} placeholder="Contoh: Pengingat {name}" value={editor.title} onChange={(event) => setEditor({ ...editor, title: event.target.value })} required />
+              </div>
+              <div className="form-field">
+                <label htmlFor="notification-message">Pesan</label>
+                <textarea id="notification-message" maxLength={MAX_NOTIFICATION_MESSAGE_LENGTH} rows={3} placeholder="Contoh: Siapkan Rp {amount} untuk {name}." value={editor.message} onChange={(event) => setEditor({ ...editor, message: event.target.value })} required />
+              </div>
+              <p className="notification-template-help"><span>{'{name}'}</span> nama layanan <span>{'{amount}'}</span> biaya <span>{'{due}'}</span> waktu pembayaran</p>
               <div className="notification-relative-row">
                 <div className="form-field">
-                  <label htmlFor="notification-days-before">Hari sebelum</label>
-                  <input id="notification-days-before" autoFocus type="number" min="0" max="36600" step="1" inputMode="numeric" value={editor.daysBefore} onChange={(event) => setEditor({ ...editor, daysBefore: event.target.value })} required />
+                  <label htmlFor="notification-days-before">Hari lebih awal</label>
+                  <input id="notification-days-before" type="number" min="0" max="36600" step="1" inputMode="numeric" value={editor.daysBefore} onChange={(event) => setEditor({ ...editor, daysBefore: event.target.value })} required />
                 </div>
                 <div className="form-field">
-                  <label htmlFor="notification-time">Waktu</label>
-                  <input id="notification-time" type="text" inputMode="numeric" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" maxLength={5} placeholder="08:00" value={editor.time} onChange={(event) => setEditor({ ...editor, time: event.target.value })} required />
+                  <span className="form-field-label" id="notification-time-label">Waktu</span>
+                  <button type="button" className="notification-time-button" aria-labelledby="notification-time-label notification-time-value" onClick={openTimePicker}>
+                    <Clock3 aria-hidden="true" /><span id="notification-time-value">{editor.time}</span><ChevronRight aria-hidden="true" />
+                  </button>
                 </div>
               </div>
               <button type="submit" className="simple-primary">Simpan</button>
             </form>
+          </section>
+        </div>,
+        document.body,
+      )}
+
+      {editor && timePickerOpen && createPortal(
+        <div className="notification-time-picker-backdrop" role="presentation">
+          <section className="notification-time-picker" role="dialog" aria-modal="true" aria-labelledby="notification-time-picker-title">
+            <header>
+              <button type="button" aria-label="Batal pilih waktu" onClick={() => setTimePickerOpen(false)}><X aria-hidden="true" /></button>
+              <div><h2 id="notification-time-picker-title">Pilih waktu</h2><p>Format 24 jam</p></div>
+              <button type="button" aria-label="Gunakan waktu" onClick={() => { setEditor({ ...editor, time: draftTime }); setTimePickerOpen(false); }}><Check aria-hidden="true" /></button>
+            </header>
+            <div className="notification-time-selectors" aria-label="Waktu 24 jam">
+              <label>
+                <span>Jam</span>
+                <select aria-label="Jam" value={draftTime.slice(0, 2)} onChange={(event) => setDraftTime(`${event.target.value}:${draftTime.slice(3, 5)}`)}>
+                  {Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0')).map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                </select>
+              </label>
+              <span aria-hidden="true">:</span>
+              <label>
+                <span>Menit</span>
+                <select aria-label="Menit" value={draftTime.slice(3, 5)} onChange={(event) => setDraftTime(`${draftTime.slice(0, 2)}:${event.target.value}`)}>
+                  {Array.from({ length: 60 }, (_, minute) => String(minute).padStart(2, '0')).map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                </select>
+              </label>
+            </div>
           </section>
         </div>,
         document.body,
@@ -267,13 +341,13 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
 };
 
 function notificationDayLabel(notification: AppNotification): string {
-  return `H-${notification.daysBefore}`;
+  return notificationItemName(notification);
 }
 
 function subscriptionReminderMessage(subscriptionName: string, notification: AppNotification): string {
   return notification.daysBefore === 0
-    ? `${subscriptionName} akan diingatkan saat jatuh tempo pukul ${notification.time}`
-    : `${subscriptionName} akan diingatkan ${notification.daysBefore} hari sebelum pukul ${notification.time}`;
+    ? `${subscriptionName} akan diingatkan pada hari pembayaran, pukul ${notification.time}`
+    : `${subscriptionName} akan diingatkan ${notification.daysBefore} hari lebih awal, pukul ${notification.time}`;
 }
 
 export default NotificationManager;

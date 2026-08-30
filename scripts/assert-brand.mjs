@@ -54,9 +54,6 @@ for (const relativePath of [
   assert.ok(file.size > 1_000, `${relativePath} must contain rendered Aureus artwork`);
 }
 
-const buttonMap = await stat(path.join(root, 'public/brand/liquid-glass-button-map.png'));
-assert.ok(buttonMap.size > 1_000, 'The liquid-glass button displacement map must contain rendered map data');
-
 for (const removedTemplateFile of ['public/placeholder.svg', 'src/App.css']) {
   await assert.rejects(access(path.join(root, removedTemplateFile)), undefined, `${removedTemplateFile} must stay removed`);
 }

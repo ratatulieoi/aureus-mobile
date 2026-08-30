@@ -34,7 +34,7 @@ describe('BackupRestore dialog', () => {
     const user = userEvent.setup();
     const transaction: Transaction = { id: 'tx-1', type: 'expense', amount: 10_000, category: 'Tagihan', description: 'Internet', date: '2026-02-10T12:00:00.000Z' };
     const subscription: Subscription = { id: 'sub-1', name: 'Internet', amount: 10_000, startDate: '2026-01-01', cycleDays: 30, nextPaymentDate: '2026-03-01', color: 'bg-red-200 text-red-800' };
-    const notification: AppNotification = { id: 'note-1', daysBefore: 3, time: '08:00', subscriptionIds: ['sub-1'] };
+    const notification: AppNotification = { id: 'note-1', title: '{name} jatuh tempo', message: 'Tagihan Rp {amount} jatuh tempo {due}.', daysBefore: 3, time: '08:00', subscriptionIds: ['sub-1'] };
     const categories = createDefaultCategoryCatalog();
     categories.expense.push('Internet');
     writeNativeExportFile.mockResolvedValue({ uri: 'content://backup' });

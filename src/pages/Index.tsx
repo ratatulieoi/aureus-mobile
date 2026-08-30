@@ -229,6 +229,7 @@ const Index = () => {
 
   const startPageSwipe = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'mouse' || event.button !== 0 || pageSettlingRef.current) return;
+    if (event.target instanceof Element && event.target.closest('[data-no-page-swipe="true"]')) return;
     if (TAB_ORDER.indexOf(activeTab as PrimaryNavTab) < 0) return;
     pageSwipeRef.current = {
       pointerId: event.pointerId,

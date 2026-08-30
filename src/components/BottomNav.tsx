@@ -18,12 +18,12 @@ const DESTINATIONS: ReadonlyArray<{ tab: PrimaryNavTab; label: string; icon: Rea
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => (
   <div className="bottom-nav-positioner">
-    <nav className="bottom-nav-liquid dock-glass-surface" aria-label="Navigasi utama">
+    <nav className="bottom-nav-dock blurred-surface" aria-label="Navigasi utama">
       {DESTINATIONS.map(({ tab, label, icon: Icon }) => (
         <button
           key={tab}
           type="button"
-          className="bottom-nav-destination dock-glass-destination"
+          className="bottom-nav-destination blurred-destination"
           aria-current={activeTab === tab ? 'page' : undefined}
           onClick={() => onTabChange(tab)}
         >

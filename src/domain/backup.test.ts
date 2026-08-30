@@ -181,6 +181,8 @@ describe('strict backup decoding', () => {
     const manySubscriptions = Array.from({ length: 5_001 }, (_, index) => ({ ...subscription, id: `sub-${index}` }));
     const manyNotifications = Array.from({ length: 5_001 }, (_, index) => ({
       id: `note-${index}`,
+      title: '{name} jatuh tempo',
+      message: 'Tagihan Rp {amount} jatuh tempo {due}.',
       daysBefore: 3,
       time: '08:00',
       subscriptionIds: [`sub-${index}`],

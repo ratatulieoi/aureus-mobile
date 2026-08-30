@@ -3,6 +3,10 @@ import { isValidIdentifier } from '@/domain/transaction-validation';
 import type { AppNotification, NotificationPreferences, Subscription } from '@/domain/types';
 
 export const MAX_NOTIFICATION_DAYS_BEFORE = 36_600;
+export const MAX_NOTIFICATION_TITLE_LENGTH = 100;
+export const MAX_NOTIFICATION_MESSAGE_LENGTH = 500;
+export const DEFAULT_NOTIFICATION_TITLE = 'Pengingat {name}';
+export const DEFAULT_NOTIFICATION_MESSAGE = 'Siapkan Rp {amount} untuk {name}.';
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = { enabled: false };
 
 export type NotificationValidationResult =
@@ -17,6 +21,13 @@ function normalizeTime(value: unknown): string | null {
   return typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
 }
 
+function normalizeNotificationText(value: unknown, fallback: string, maxLength: number): string | null {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length > 0 && normalized.length <= maxLength ? normalized : null;
+}
+
 export function validateAndNormalizeAppNotification(
   value: unknown,
   subscriptionIds: ReadonlySet<string> | null = null,
@@ -27,6 +38,10 @@ export function validateAndNormalizeAppNotification(
   if (!Number.isSafeInteger(value.daysBefore) || (value.daysBefore as number) < 0 || (value.daysBefore as number) > MAX_NOTIFICATION_DAYS_BEFORE) {
     return { ok: false, error: 'Jumlah hari tidak valid' };
   }
+  const title = normalizeNotificationText(value.title, DEFAULT_NOTIFICATION_TITLE, MAX_NOTIFICATION_TITLE_LENGTH);
+  if (!title) return { ok: false, error: 'Judul notifikasi tidak valid' };
+  const message = normalizeNotificationText(value.message, DEFAULT_NOTIFICATION_MESSAGE, MAX_NOTIFICATION_MESSAGE_LENGTH);
+  if (!message) return { ok: false, error: 'Pesan notifikasi tidak valid' };
   const time = normalizeTime(value.time);
   if (!time) return { ok: false, error: 'Waktu notifikasi tidak valid' };
   if (!Array.isArray(value.subscriptionIds)) return { ok: false, error: 'Daftar langganan tidak valid' };
@@ -40,7 +55,7 @@ export function validateAndNormalizeAppNotification(
       normalizedIds.push(subscriptionId);
     }
   }
-  return { ok: true, value: { id, daysBefore: value.daysBefore as number, time, subscriptionIds: normalizedIds } };
+  return { ok: true, value: { id, title, message, daysBefore: value.daysBefore as number, time, subscriptionIds: normalizedIds } };
 }
 
 export function decodeStoredNotifications(
@@ -92,7 +107,12 @@ export function migrateLegacyNotifications(
     let id = typeof candidate.id === 'string' && isValidIdentifier(candidate.id.trim()) ? candidate.id.trim() : `note-migrated-${byTiming.size + 1}`;
     while (usedIds.has(id)) id = `${id}-${usedIds.size + 1}`;
     usedIds.add(id);
-    byTiming.set(key, { id, daysBefore: daysBefore as number, time, subscriptionIds: [subscriptionId] });
+    const title = normalizeNotificationText(candidate.title, DEFAULT_NOTIFICATION_TITLE, MAX_NOTIFICATION_TITLE_LENGTH) ?? DEFAULT_NOTIFICATION_TITLE;
+    const legacyBody = 'body' in candidate ? candidate.body : undefined;
+    const message = legacyBody === ''
+      ? DEFAULT_NOTIFICATION_MESSAGE
+      : normalizeNotificationText(legacyBody, DEFAULT_NOTIFICATION_MESSAGE, MAX_NOTIFICATION_MESSAGE_LENGTH) ?? DEFAULT_NOTIFICATION_MESSAGE;
+    byTiming.set(key, { id, title, message, daysBefore: daysBefore as number, time, subscriptionIds: [subscriptionId] });
   }
   return Array.from(byTiming.values());
 }
@@ -115,8 +135,29 @@ export function countSubscriptionNotifications(notifications: readonly AppNotifi
   return notifications.filter(({ subscriptionIds }) => subscriptionIds.includes(subscriptionId)).length;
 }
 
+export function notificationItemName(notification: AppNotification): string {
+  return `H-${notification.daysBefore}`;
+}
+
 export function notificationItemLabel(notification: AppNotification): string {
-  return `${notification.daysBefore === 0 ? 'Hari jatuh tempo' : `${notification.daysBefore} hari sebelum`} · ${notification.time}`;
+  return `${notificationItemName(notification)} · ${notification.time}`;
+}
+
+export function formatNotificationTemplate(
+  template: string,
+  notification: AppNotification,
+  subscription: Subscription,
+): string {
+  const due = notification.daysBefore === 0 ? 'hari ini' : `${notification.daysBefore} hari lagi`;
+  const replacements: Record<string, string> = {
+    '{name}': subscription.name,
+    '{amount}': subscription.amount.toLocaleString('id-ID'),
+    '{due}': due,
+  };
+  return Object.entries(replacements).reduce(
+    (text, [placeholder, replacement]) => text.split(placeholder).join(replacement),
+    template,
+  );
 }
 
 export interface NotificationOccurrence {

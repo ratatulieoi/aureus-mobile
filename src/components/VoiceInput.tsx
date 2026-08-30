@@ -17,6 +17,7 @@ import { parseVoiceTransaction, type ParsedVoiceTransaction } from '@/domain/voi
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { attemptTransactionCommit } from '@/domain/transaction-action';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface VoiceInputProps {
   onAddTransaction: (transaction: NewTransaction) => boolean;
@@ -298,6 +299,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onAddTransaction, onClose }) =>
     onClose();
     window.requestAnimationFrame(() => returnFocusRef.current?.focus());
   };
+  useMobileBackDismiss(!dismissalBlocked, requestClose);
 
   const handleCategoryChange = (newCategory: string) => {
     if (!parsedTransaction) return;

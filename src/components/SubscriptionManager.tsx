@@ -1,14 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, CalendarDays, ChevronRight, Clock, Plus, RefreshCcw, Trash2, X } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type Modifier,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Bell, CalendarDays, ChevronRight, Clock, GripVertical, Plus, RefreshCcw, Trash2, X } from 'lucide-react';
 import DeleteConfirmation from '@/components/DeleteConfirmation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import type { AppNotification, NewTransaction, Subscription, Transaction } from '@/domain/types';
 import { addCalendarDays, calendarDateToLocalInstant, formatLocalCalendarDate, parseLocalCalendarDate } from '@/domain/calendar-date';
 import { generateId } from '@/domain/id';
-import { countSubscriptionNotifications } from '@/domain/notification';
-import { areSubscriptionListsEqual, reconcileSubscriptions, SUBSCRIPTION_COLORS, validateAndNormalizeSubscription } from '@/domain/subscription';
+import { countSubscriptionNotifications, notificationItemName } from '@/domain/notification';
+import { areSubscriptionListsEqual, reconcileSubscriptions, reorderSubscriptions, SUBSCRIPTION_COLORS, validateAndNormalizeSubscription } from '@/domain/subscription';
 import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface SubscriptionManagerProps {
@@ -28,6 +46,19 @@ interface NewSubscriptionState {
   startDate: string;
   createTransactionNow: boolean;
 }
+
+interface SubscriptionCardProps {
+  subscription: Subscription;
+  notifications: AppNotification[];
+  today: string;
+  onDelete?: (subscription: Subscription) => void;
+  dragHandle?: React.ReactNode;
+  overlay?: boolean;
+}
+
+type SortableSubscriptionCardProps = Omit<SubscriptionCardProps, 'dragHandle' | 'overlay'>;
+
+const restrictSubscriptionDragToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
 const emptyForm = (): NewSubscriptionState => ({
   name: '',
@@ -50,9 +81,14 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Subscription | null>(null);
   const [newSub, setNewSub] = useState<NewSubscriptionState>(emptyForm);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const reconciledSignatureRef = useRef<string>('');
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 120, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
-  useMobileBackDismiss(isAdding, () => setIsAdding(false));
+  useMobileBackDismiss(isAdding && pendingDelete === null, () => setIsAdding(false));
 
   useEffect(() => {
     const signature = JSON.stringify(subscriptions.map(({ id, nextPaymentDate, amount, cycleDays }) => [id, nextPaymentDate, amount, cycleDays]));
@@ -119,14 +155,14 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     toast({ title: 'Langganan ditambahkan', description: `${result.value.name} akan dilacak mulai sekarang.` });
   };
 
-  const getDaysLeft = (nextPayment: string) => {
-    const current = parseLocalCalendarDate(today);
-    const target = parseLocalCalendarDate(nextPayment);
-    if (!current || !target) return 0;
-    return Math.round((target.getTime() - current.getTime()) / 86_400_000);
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveDragId(null);
+    if (!over || active.id === over.id) return;
+    onSubscriptionsChange((current) => {
+      const reordered = reorderSubscriptions(current, String(active.id), String(over.id));
+      return areSubscriptionListsEqual(current, reordered) ? current : reordered;
+    });
   };
-
-  const getProgress = (daysLeft: number, cycleDays: number) => Math.min(100, Math.max(0, ((cycleDays - Math.max(0, daysLeft)) / cycleDays) * 100));
 
   const confirmDelete = () => {
     if (!pendingDelete) return;
@@ -145,10 +181,9 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       </header>
 
       {subscriptions.length > 0 && (
-        <section className="subscription-summary" aria-label="Ringkasan langganan">
-          <div><span>Langganan aktif</span><strong>{subscriptions.length}</strong></div>
-          <div><span>Perkiraan per bulan</span><strong>Rp {Math.round(totalMonthlyEstimate).toLocaleString('id-ID')}</strong></div>
-        </section>
+        <p className="subscription-monthly-estimate">
+          Perkiraan per bulan <strong>Rp {Math.round(totalMonthlyEstimate).toLocaleString('id-ID')}</strong>
+        </p>
       )}
 
       <button type="button" className="subscription-notification-link" onClick={onOpenNotifications} disabled={!onOpenNotifications}>
@@ -166,40 +201,47 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       ) : (
         <section className="subscription-list" aria-labelledby="subscription-list-title">
           <div className="utility-section-heading"><h3 id="subscription-list-title">Pembayaran berikutnya</h3></div>
-          <div className="subscription-rows">
-            {subscriptions.map((subscription) => {
-              const daysLeft = getDaysLeft(subscription.nextPaymentDate);
-              const progress = getProgress(daysLeft, subscription.cycleDays);
-              const start = parseLocalCalendarDate(subscription.startDate);
-              const next = parseLocalCalendarDate(subscription.nextPaymentDate);
-              const reminderCount = countSubscriptionNotifications(notifications, subscription.id);
-              const progressDescription = `${Math.round(progress)} persen siklus telah berlalu. ${daysLeft <= 0 ? 'Jatuh tempo hari ini.' : `${daysLeft} hari lagi.`}`;
-              return (
-                <article key={subscription.id} className="subscription-card">
-                  <div className="subscription-card-top">
-                    <div className="subscription-card-identity">
-                      <span className="subscription-start-date" aria-hidden="true"><small>{start?.toLocaleDateString('id-ID', { month: 'short' })}</small><strong>{start?.getDate()}</strong></span>
-                      <div className="subscription-card-copy">
-                        <h3>{subscription.name}</h3>
-                        <div className="subscription-card-meta">
-                          <span><Clock aria-hidden="true" />{subscription.cycleDays} hari / siklus</span>
-                          {reminderCount > 0 && <span className="subscription-reminder-count" aria-label={`${reminderCount} notifikasi`}><Bell aria-hidden="true" />{reminderCount}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="subscription-card-value">
-                      <strong>Rp {subscription.amount.toLocaleString('id-ID')}</strong>
-                      <button type="button" aria-label={`Hapus langganan ${subscription.name}`} onClick={() => setPendingDelete(subscription)}><Trash2 aria-hidden="true" /></button>
-                    </div>
-                  </div>
-                  <div className="subscription-card-progress">
-                    <div><span className={daysLeft <= 3 ? 'is-urgent' : ''}>{daysLeft <= 0 ? 'Jatuh tempo hari ini' : `${daysLeft} hari lagi`}</span><span>{next?.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span></div>
-                    <div role="progressbar" aria-label={`Siklus ${subscription.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={progressDescription}><span className={daysLeft <= 3 ? 'is-urgent' : ''} style={{ width: `${progress}%` }} /></div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictSubscriptionDragToVerticalAxis]}
+            onDragStart={({ active }) => setActiveDragId(String(active.id))}
+            onDragCancel={() => setActiveDragId(null)}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={subscriptions.map(({ id }) => id)} strategy={verticalListSortingStrategy}>
+              <div className="subscription-rows">
+                {subscriptions.map((subscription) => (
+                  <SortableSubscriptionCard
+                    key={subscription.id}
+                    subscription={subscription}
+                    notifications={notifications}
+                    today={today}
+                    onDelete={setPendingDelete}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+            {createPortal(
+              <DragOverlay
+                modifiers={[restrictSubscriptionDragToVerticalAxis]}
+                dropAnimation={{ duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' }}
+              >
+                {activeDragId ? (
+                  <SubscriptionCard
+                    subscription={subscriptions.find(({ id }) => id === activeDragId) ?? subscriptions[0]}
+                    notifications={notifications}
+                    today={today}
+                    overlay
+                  />
+                ) : null}
+              </DragOverlay>,
+              document.body,
+            )}
+            <p className="sr-only" role="status" aria-live="polite">
+              {activeDragId ? `Mengurutkan ${subscriptions.find(({ id }) => id === activeDragId)?.name ?? 'langganan'}` : ''}
+            </p>
+          </DndContext>
         </section>
       )}
 
@@ -238,6 +280,142 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
         onConfirm={confirmDelete}
       />
     </section>
+  );
+};
+
+const SortableSubscriptionCard: React.FC<SortableSubscriptionCardProps> = ({
+  subscription,
+  notifications,
+  today,
+  onDelete,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: subscription.id,
+    transition: { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`subscription-sortable${isDragging ? ' is-dragging' : ''}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+    >
+      <SubscriptionCard
+        subscription={subscription}
+        notifications={notifications}
+        today={today}
+        onDelete={onDelete}
+        dragHandle={(
+          <button
+            type="button"
+            className="subscription-drag-handle"
+            data-no-page-swipe="true"
+            aria-label={`Ubah urutan ${subscription.name}`}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical aria-hidden="true" />
+          </button>
+        )}
+      />
+    </div>
+  );
+};
+
+const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
+  subscription,
+  notifications,
+  today,
+  onDelete,
+  dragHandle,
+  overlay = false,
+}) => {
+  const current = parseLocalCalendarDate(today);
+  const target = parseLocalCalendarDate(subscription.nextPaymentDate);
+  const daysLeft = current && target
+    ? Math.round((target.getTime() - current.getTime()) / 86_400_000)
+    : 0;
+  const progress = Math.min(100, Math.max(0, ((subscription.cycleDays - Math.max(0, daysLeft)) / subscription.cycleDays) * 100));
+  const start = parseLocalCalendarDate(subscription.startDate);
+  const next = parseLocalCalendarDate(subscription.nextPaymentDate);
+  const assignedNotifications = notifications.filter(({ subscriptionIds }) => subscriptionIds.includes(subscription.id));
+  const reminderCount = countSubscriptionNotifications(notifications, subscription.id);
+  const [showReminderTooltips, setShowReminderTooltips] = useState(false);
+  const reminderHoldTimer = useRef<number | null>(null);
+  const reminderHeld = useRef(false);
+  const clearReminderHold = () => {
+    if (reminderHoldTimer.current !== null) window.clearTimeout(reminderHoldTimer.current);
+    reminderHoldTimer.current = null;
+    setShowReminderTooltips(false);
+  };
+  const progressDescription = `${Math.round(progress)} persen siklus telah berlalu. ${daysLeft <= 0 ? 'Jatuh tempo hari ini.' : `${daysLeft} hari lagi.`}`;
+
+  return (
+    <article className={`subscription-card${overlay ? ' is-overlay' : ''}${showReminderTooltips ? ' has-reminder-tooltips' : ''}`}>
+      <div className="subscription-card-top">
+        {dragHandle ?? <span className="subscription-drag-placeholder" aria-hidden="true"><GripVertical /></span>}
+        <div className="subscription-card-identity">
+          <span className="subscription-start-date" aria-hidden="true"><small>{start?.toLocaleDateString('id-ID', { month: 'short' })}</small><strong>{start?.getDate()}</strong></span>
+          <div className="subscription-card-copy">
+            <h3>{subscription.name}</h3>
+            <div className="subscription-card-meta">
+              <span><Clock aria-hidden="true" />{subscription.cycleDays} hari / siklus</span>
+              {reminderCount > 0 && (
+                <span className="subscription-reminder-hold">
+                  <button
+                    type="button"
+                    className="subscription-reminder-count"
+                    data-no-page-swipe="true"
+                    aria-label={`${reminderCount} notifikasi ${subscription.name}. Tahan untuk melihat.`}
+                    aria-expanded={showReminderTooltips}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onPointerDown={(event) => {
+                      if (overlay || (event.pointerType === 'mouse' && event.button !== 0)) return;
+                      reminderHeld.current = false;
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      reminderHoldTimer.current = window.setTimeout(() => {
+                        reminderHeld.current = true;
+                        setShowReminderTooltips(true);
+                      }, 300);
+                    }}
+                    onPointerUp={clearReminderHold}
+                    onPointerCancel={clearReminderHold}
+                    onLostPointerCapture={clearReminderHold}
+                    onClick={(event) => {
+                      if (reminderHeld.current) event.preventDefault();
+                      reminderHeld.current = false;
+                    }}
+                    disabled={overlay}
+                  ><Bell aria-hidden="true" />{reminderCount}</button>
+                  {showReminderTooltips && (
+                    <span className="subscription-reminder-tooltips" role="tooltip">
+                      {assignedNotifications.map((notification) => (
+                        <span key={notification.id}><strong>{notificationItemName(notification)}</strong><time dateTime={notification.time}>{notification.time}</time></span>
+                      ))}
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="subscription-card-value">
+          <strong>Rp {subscription.amount.toLocaleString('id-ID')}</strong>
+          {onDelete ? <button type="button" aria-label={`Hapus langganan ${subscription.name}`} onClick={() => onDelete(subscription)}><Trash2 aria-hidden="true" /></button> : <span className="subscription-delete-placeholder" aria-hidden="true" />}
+        </div>
+      </div>
+      <div className="subscription-card-progress">
+        <div><span className={daysLeft <= 3 ? 'is-urgent' : ''}>{daysLeft <= 0 ? 'Jatuh tempo hari ini' : `${daysLeft} hari lagi`}</span><span>{next?.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span></div>
+        <div role="progressbar" aria-label={`Siklus ${subscription.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={progressDescription}><span className={daysLeft <= 3 ? 'is-urgent' : ''} style={{ width: `${progress}%` }} /></div>
+      </div>
+    </article>
   );
 };
 

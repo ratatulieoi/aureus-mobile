@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications, type PermissionStatus } from '@capacitor/local-notifications';
 import type { AppNotification, NotificationPreferences, Subscription } from '@/domain/types';
-import { notificationOccurrences } from '@/domain/notification';
+import { formatNotificationTemplate, notificationOccurrences } from '@/domain/notification';
 
 const CHANNEL_ID = 'aureus-reminders';
 const OWNED_NOTIFICATION_MIN = 100_000_000;
@@ -76,10 +76,8 @@ async function performNotificationSync(
   const scheduled = assigned.flatMap((notification) => notificationOccurrences(notification, subscriptions, now, perItemLimit)
     .map(({ at, subscription }, occurrenceIndex) => ({
       id: reserveNativeNotificationId(`${notification.id}:${subscription.id}`, occurrenceIndex, usedIds),
-      title: `${subscription.name} jatuh tempo`,
-      body: notification.daysBefore === 0
-        ? `Tagihan Rp ${subscription.amount.toLocaleString('id-ID')} jatuh tempo hari ini.`
-        : `Tagihan Rp ${subscription.amount.toLocaleString('id-ID')} jatuh tempo ${notification.daysBefore} hari lagi.`,
+      title: formatNotificationTemplate(notification.title, notification, subscription),
+      body: formatNotificationTemplate(notification.message, notification, subscription),
       schedule: { at },
       channelId: CHANNEL_ID,
       autoCancel: true,

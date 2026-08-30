@@ -18,29 +18,30 @@ Header menampilkan mark dan nama Aureus di kiri serta tombol tiga titik di kanan
 
 - Ganti tema;
 - Backup & pulihkan;
-- Lainnya.
+- Others.
 
-Navigasi utama berada pada dock tetap di bagian bawah. Dock memakai liquid glass netral dengan permukaan putih sangat transparan, pembiasan SVG, blur lembut, dan rim terang. Dock tidak memakai glow atau sapuan warna lime. Identitas Aureus tetap terlihat melalui warna mark. Dock menghormati safe area perangkat.
+Navigasi utama berada pada dock tetap di bagian bawah. Dock memakai blur latar `4px`, permukaan transparan, dan rim terang. Dock tidak memakai filter SVG, pembiasan, glow, atau sapuan warna lime. Kapsul blur di dalam dock menandai halaman aktif. Dock menghormati safe area perangkat.
 
 Susunan dock adalah:
 
-- Subs di kiri;
-- tombol Home berbentuk lingkaran di tengah;
-- History di kanan.
+- Home;
+- Transaction;
+- Subs;
+- Others;
+- tombol tambah terpisah di kanan.
 
-Tombol Home hanya menampilkan mark Aureus dan membuka dashboard. Dock tidak menampilkan penanda visual untuk halaman aktif. Label, latar, rim, dan mark tetap terlihat sama setelah pengguna berpindah halaman. Keadaan halaman aktif tetap diumumkan kepada pembaca layar.
+Tombol tambah masih nonaktif. Setiap tujuan menampilkan ikon dan label. Tujuan aktif memiliki kapsul blur di dalam dock dan tetap diumumkan kepada pembaca layar.
 
 Pengguna dapat berpindah halaman dengan menekan tombol dock atau menggeser isi halaman secara horizontal:
 
 - geser ke kiri membuka halaman berikutnya;
 - geser ke kanan membuka halaman sebelumnya;
-- urutan geser mengikuti posisi dock, yaitu Subs, Home, lalu History;
-- gestur berhenti pada Subs dan History;
-- Lainnya tidak masuk urutan geser dan hanya dibuka dari menu tiga titik;
+- urutan geser mengikuti posisi dock, yaitu Home, Transaction, Subs, lalu Others;
+- gestur berhenti pada Home dan Others;
 - gerakan vertikal tetap menggulir isi halaman;
 - gestur horizontal dapat dimulai dari bagian mana pun di dalam halaman.
 
-Isi halaman memiliki ruang bawah yang cukup agar kontrol terakhir tidak tertutup dock. Dashboard tidak menampilkan kolom Pencarian atau tombol tambah di bagian bawah. Penambahan kategori tersedia melalui Lainnya lalu Kelola kategori.
+Isi halaman memiliki ruang bawah yang cukup agar kontrol terakhir tidak tertutup dock. Penambahan kategori tersedia melalui Others lalu Kelola kategori.
 
 ## Dashboard
 
@@ -112,24 +113,25 @@ Filter mengubah:
 
 - total pengeluaran dan pemasukan;
 - jumlah pada setiap kategori;
-- frekuensi kategori;
-- urutan kategori.
+- frekuensi kategori yang ditampilkan.
+
+Filter tidak mengubah urutan kategori.
 
 Mengganti jenis Pengeluaran atau Pemasukan tidak mengubah filter yang sedang aktif.
 
 Jika periode tidak memiliki transaksi:
 
 - kedua total menjadi Rp0;
-- kategori kembali ke urutan bawaan;
+- urutan kategori tetap mengikuti frekuensi penggunaan sepanjang waktu;
 - semua kategori menampilkan `••••`.
 
 `Hari ini` mengikuti tanggal dan zona waktu perangkat. Jika aplikasi tetap terbuka ketika tanggal berganti, Hari ini dan seluruh rentang periode dihitung ulang secara otomatis.
 
 ## Urutan kategori
 
-Kategori dirangking berdasarkan frekuensi transaksi terbaru pada tanggal yang sedang dipilih.
+Kategori dirangking berdasarkan frekuensi seluruh transaksi yang tersimpan. Pergantian hari atau filter periode tidak mereset urutan.
 
-Kategori yang lebih sering digunakan muncul lebih dahulu. Jika dua kategori memiliki frekuensi yang sama, gunakan urutan bawaan kategori.
+Kategori yang lebih sering digunakan sepanjang waktu muncul lebih dahulu. Jika dua kategori memiliki frekuensi yang sama, gunakan urutan bawaan kategori.
 
 Dashboard menampilkan lima kategori teratas terlebih dahulu.
 
@@ -252,7 +254,7 @@ Jika tanggal transaksi masuk dalam filter yang sedang aktif:
 2. total jenis transaksi diperbarui;
 3. jumlah kategori diperbarui;
 4. frekuensi kategori diperbarui;
-5. urutan kategori dihitung ulang;
+5. urutan kategori sepanjang waktu dihitung ulang;
 6. Latest diperbarui;
 7. formulir ditutup;
 8. pesan berhasil ditampilkan.
@@ -264,8 +266,9 @@ Jika tanggal transaksi berada di luar filter yang sedang aktif:
 1. transaksi tetap disimpan;
 2. transaksi masuk ke riwayat dan Latest;
 3. total yang sedang ditampilkan tidak berubah;
-4. jumlah dan ranking kategori yang sedang ditampilkan tidak berubah;
-5. filter tidak berubah;
+4. jumlah kategori yang sedang ditampilkan tidak berubah;
+5. urutan kategori sepanjang waktu dapat berubah;
+6. filter tidak berubah;
 6. formulir ditutup;
 7. pesan berhasil ditampilkan.
 
@@ -278,6 +281,12 @@ Jika pengguna menutup formulir sebelum memilih Simpan:
 - tidak ada draf yang disimpan.
 
 Jika papan ketik sedang terbuka, tindakan kembali pertama menutup papan ketik. Tindakan kembali berikutnya menutup formulir.
+
+## Urutan langganan
+
+Halaman Langganan tidak menampilkan jumlah langganan aktif. Perkiraan biaya bulanan tetap tersedia sebagai satu baris ringkas, dan tombol Notifikasi memakai tinggi yang lebih kecil agar daftar terlihat lebih awal.
+
+Setiap kartu langganan memiliki pegangan urut. Pengguna dapat menahan pegangan lalu menggeser kartu secara vertikal. Urutan baru disimpan bersama data lokal dan dipertahankan dalam backup. Pegangan tidak memicu gestur perpindahan halaman.
 
 ## Langganan gratis
 

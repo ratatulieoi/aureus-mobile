@@ -8,7 +8,6 @@ const buttonSource = readFileSync(new URL('./components/ui/button.tsx', import.m
 const aboutSource = readFileSync(new URL('./components/AboutSection.tsx', import.meta.url), 'utf8');
 const budgetSource = readFileSync(new URL('./components/BudgetManager.tsx', import.meta.url), 'utf8');
 const bottomNavSource = readFileSync(new URL('./components/BottomNav.tsx', import.meta.url), 'utf8');
-const liquidGlassSource = readFileSync(new URL('./components/LiquidGlassFilter.tsx', import.meta.url), 'utf8');
 const inputSource = readFileSync(new URL('./components/ui/input.tsx', import.meta.url), 'utf8');
 const selectSource = readFileSync(new URL('./components/ui/select.tsx', import.meta.url), 'utf8');
 const dialogSource = readFileSync(new URL('./components/ui/dialog.tsx', import.meta.url), 'utf8');
@@ -68,29 +67,26 @@ describe('global accessibility CSS', () => {
     expect(budgetSource).toContain('text-accent-text');
   });
 
-  it('keeps the fixed refractive glass navigation layered with a contained active cue', () => {
+  it('keeps the fixed blurred navigation layered with a contained active cue', () => {
     expect(css).toMatch(/\.bottom-nav-positioner\s*\{[^}]*position:\s*fixed/s);
-    expect(css).toMatch(/\.bottom-nav-liquid\s*\{[^}]*height:\s*60px;[^}]*background:\s*transparent/s);
-    expect(css).toMatch(/\.dock-glass-surface::before\s*\{[^}]*z-index:\s*0;[^}]*box-shadow:[^}]*inset 1px 1px/s);
-    expect(css).toMatch(/\.dock-glass-surface::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\)/s);
-    expect(css).not.toMatch(/\.dock-glass-surface::after\s*\{[^}]*background:/s);
+    expect(css).toMatch(/\.bottom-nav-dock\s*\{[^}]*height:\s*60px;[^}]*background:\s*transparent/s);
+    expect(css).toMatch(/\.blurred-surface::before\s*\{[^}]*z-index:\s*0;[^}]*box-shadow:[^}]*inset 1px 1px/s);
+    expect(css).toMatch(/\.blurred-surface::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*blur\(4px\);[^}]*-webkit-backdrop-filter:\s*blur\(4px\)/s);
+    expect(css).not.toMatch(/\.blurred-surface::after\s*\{[^}]*background:/s);
     expect(css).toMatch(/\.bottom-nav-add\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;[^}]*border:\s*0;[^}]*background:\s*transparent/s);
     expect(css).toMatch(/\.bottom-nav-add::before\s*\{[^}]*box-shadow:[^}]*inset 1px 1px/s);
-    expect(css).toMatch(/\.bottom-nav-add::after\s*\{[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\)/s);
+    expect(css).toMatch(/\.bottom-nav-add::after\s*\{[^}]*backdrop-filter:\s*blur\(4px\);[^}]*-webkit-backdrop-filter:\s*blur\(4px\)/s);
     expect(css).not.toMatch(/\.bottom-nav-add::after\s*\{[^}]*background:/s);
-    expect(css).toMatch(/\.dock-glass-destination\[aria-current="page"\]::before,[\s\S]*?\.dock-glass-destination\[data-glass-active="true"\]::before\s*\{[^}]*background-color:\s*rgb\(255 255 255 \/ \.1\);[^}]*box-shadow:[^}]*inset 1px 1px/s);
-    expect(css).toMatch(/\.dock-glass-destination\[aria-current="page"\]::after,[\s\S]*?\.dock-glass-destination\[data-glass-active="true"\]::after\s*\{[^}]*backdrop-filter:\s*url\("#btn-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#btn-glass"\) blur\(5px\)/s);
+    expect(css).toMatch(/\.blurred-destination\[aria-current="page"\]::before,[\s\S]*?\.blurred-destination\[data-surface-active="true"\]::before\s*\{[^}]*background-color:\s*rgb\(255 255 255 \/ \.1\);[^}]*box-shadow:[^}]*inset 1px 1px/s);
+    expect(css).toMatch(/\.blurred-destination\[aria-current="page"\]::after,[\s\S]*?\.blurred-destination\[data-surface-active="true"\]::after\s*\{[^}]*backdrop-filter:\s*blur\(4px\);[^}]*-webkit-backdrop-filter:\s*blur\(4px\)/s);
     expect(css).toMatch(/\.app-content\s*\{[^}]*padding-bottom:\s*calc\(/s);
     expect(css).toMatch(/\.dashboard-home\s*\{[^}]*safe-area-inset-bottom/s);
-    expect(css).not.toMatch(/\.bottom-nav-liquid\s*\{[^}]*(brand-lime|brand-paper)/s);
+    expect(css).not.toMatch(/\.bottom-nav-dock\s*\{[^}]*(brand-lime|brand-paper)/s);
     expect(css).not.toMatch(/\.bottom-nav-(?:destination|add)\.is-active/);
-    expect(bottomNavSource).toContain('bottom-nav-liquid dock-glass-surface');
-    expect(bottomNavSource).toContain('bottom-nav-destination dock-glass-destination');
+    expect(bottomNavSource).toContain('bottom-nav-dock blurred-surface');
+    expect(bottomNavSource).toContain('bottom-nav-destination blurred-destination');
     expect(bottomNavSource).not.toContain('is-active');
-    expect(liquidGlassSource).toContain('id="container-glass"');
-    expect(liquidGlassSource).toContain('stitchTiles="stitch"');
-    expect(liquidGlassSource).toContain('scale="40"');
-    expect(liquidGlassSource).toContain('/brand/liquid-glass-button-map.png');
+    expect(css).not.toMatch(/backdrop-filter:\s*url\(/);
   });
 
   it('uses one solid, soft form system without gradients', () => {
@@ -99,7 +95,6 @@ describe('global accessibility CSS', () => {
     expect(inputSource).toContain('var(--home-surface)');
     expect(selectSource).toContain('aureus-select-trigger');
     expect(selectSource).toContain('var(--home-surface)');
-    expect(selectSource).not.toContain('liquid-glass-overlay');
     expect(dialogSource).toContain('rounded-2xl');
     expect(dialogSource).toContain('var(--home-surface)');
     expect(css).toMatch(/\.form-field\s*\{[^}]*display:\s*grid;[^}]*gap:/s);
@@ -108,17 +103,15 @@ describe('global accessibility CSS', () => {
     expect(css).toMatch(/\.month-picker-backdrop\s*\{[^}]*position:\s*fixed;[^}]*background:\s*transparent;/s);
     expect(css).toMatch(/\.month-picker-box\s*\{[^}]*position:\s*fixed;[^}]*border-radius:\s*1\.35rem;[^}]*background:\s*transparent;[^}]*isolation:\s*isolate;/s);
     expect(css).toMatch(/\.month-picker-box::before,[\s\S]*?\.month-picker-box::after\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;/s);
-    expect(css).toMatch(/\.month-picker-box::after\s*\{[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);/s);
+    expect(css).toMatch(/\.month-picker-box::after\s*\{[^}]*backdrop-filter:\s*blur\(4px\);[^}]*-webkit-backdrop-filter:\s*blur\(4px\);/s);
     expect(css).not.toMatch(/\.month-picker-box::after\s*\{[^}]*background:/s);
     expect(css).toMatch(/\.month-picker-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/s);
     expect(css).toMatch(/\.month-picker-destination\s*\{[^}]*min-height:\s*54px;[^}]*border:\s*0;[^}]*background:\s*transparent;/s);
     expect(css).toMatch(/\.month-picker-destination:disabled\s*\{[^}]*opacity:\s*\.35;/s);
     expect(css).toMatch(/\.quick-period-picker\s*\{[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s);
-    expect(css).toMatch(/\.liquid-glass-overlay::after\s*\{[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\)/s);
-    expect(css).not.toMatch(/\.liquid-glass-overlay::after\s*\{[^}]*background:/s);
+    expect(css).toMatch(/\.blurred-overlay::after\s*\{[^}]*backdrop-filter:\s*blur\(4px\);[^}]*-webkit-backdrop-filter:\s*blur\(4px\)/s);
+    expect(css).not.toMatch(/\.blurred-overlay::after\s*\{[^}]*background:/s);
     expect(css).not.toMatch(/\.(?:month-dock|month-picker-row|month-picker-docks|year-trigger|year-list|month-grid)\b/);
-    expect(liquidGlassSource).toContain('filterUnits="objectBoundingBox"');
-    expect(liquidGlassSource).toMatch(/id="btn-glass"[\s\S]*?x="0"[\s\S]*?y="0"[\s\S]*?width="1"[\s\S]*?height="1"/);
   });
 
   it('keeps transaction sheets flat and uses non-glowing focus feedback', () => {
@@ -130,6 +123,8 @@ describe('global accessibility CSS', () => {
     expect(css).not.toMatch(/\.transaction-amount-control(?::focus-within)?\s*\{[^}]*box-shadow:/s);
     expect(css).not.toMatch(/\.transaction-line-field(?::focus-within)?\s*\{[^}]*box-shadow:/s);
     expect(css).toMatch(/\.transaction-sheet-form\s*\{[^}]*gap:\s*\.85rem;[^}]*padding:\s*\.85rem 1rem max\(1rem,/s);
+    expect(css).toMatch(/\.subscription-add-dialog\s*\{[^}]*box-shadow:\s*none;/s);
+    expect(css).toMatch(/\.subscription-reminder-tooltips\s*\{[^}]*box-shadow:\s*none;/s);
     expect(css).toMatch(/\.latest-list\s*\{[^}]*max-height:\s*162px;[^}]*overflow-y:\s*auto;[^}]*scrollbar-width:\s*none;/s);
     expect(css).toMatch(/\.latest-list::-webkit-scrollbar\s*\{[^}]*display:\s*none;/s);
   });

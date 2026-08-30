@@ -76,7 +76,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenMore, onOpenBackup }) => {
           {menuOpen && menuAnchor && createPortal(
             <div
               ref={menuPanelRef}
-              className="app-overflow-menu liquid-glass-overlay"
+              className="app-overflow-menu blurred-overlay"
               role="menu"
               aria-label="Menu Aureus"
               style={{ position: 'fixed', top: menuAnchor.top, right: menuAnchor.right }}

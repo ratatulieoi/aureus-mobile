@@ -19,7 +19,7 @@ const subscriptions: Subscription[] = [
   { id: 'sub-1', name: 'Netflix', amount: 59_000, startDate: '2026-01-01', cycleDays: 30, nextPaymentDate: '2026-09-12', color: 'red' },
   { id: 'sub-2', name: 'Spotify', amount: 54_000, startDate: '2026-01-01', cycleDays: 30, nextPaymentDate: '2026-09-14', color: 'green' },
 ];
-const notification: AppNotification = { id: 'note-1', daysBefore: 7, time: '09:00', subscriptionIds: ['sub-1', 'sub-2'] };
+const notification: AppNotification = { id: 'note-1', title: '{name} jatuh tempo', message: 'Tagihan Rp {amount} jatuh tempo {due}.', daysBefore: 7, time: '09:00', subscriptionIds: ['sub-1', 'sub-2'] };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -47,8 +47,23 @@ describe('native notification adapter', () => {
     const scheduled = nativeMock.schedule.mock.calls[0][0].notifications;
     expect(scheduled).toHaveLength(64);
     expect(scheduled.every((item: { isExactNotification: boolean }) => item.isExactNotification === false)).toBe(true);
-    expect(scheduled.some((item: { title: string }) => item.title === 'Netflix jatuh tempo')).toBe(true);
-    expect(scheduled.some((item: { title: string }) => item.title === 'Spotify jatuh tempo')).toBe(true);
+    expect(scheduled.some((item: { title: string; body: string }) => item.title === 'Netflix jatuh tempo' && item.body === 'Tagihan Rp 59.000 jatuh tempo 7 hari lagi.')).toBe(true);
+    expect(scheduled.some((item: { title: string; body: string }) => item.title === 'Spotify jatuh tempo' && item.body === 'Tagihan Rp 54.000 jatuh tempo 7 hari lagi.')).toBe(true);
+  });
+
+  it('uses custom title and message templates for native notifications', async () => {
+    await syncLocalNotifications({ enabled: true }, [{
+      ...notification,
+      title: 'Bayar {name}',
+      message: 'Siapkan Rp {amount}, jatuh tempo {due}.',
+      subscriptionIds: ['sub-1'],
+    }], subscriptions, new Date(2026, 8, 1, 10));
+
+    const scheduled = nativeMock.schedule.mock.calls[0][0].notifications;
+    expect(scheduled[0]).toMatchObject({
+      title: 'Bayar Netflix',
+      body: 'Siapkan Rp 59.000, jatuh tempo 7 hari lagi.',
+    });
   });
 
   it('serializes rapid reschedules', async () => {

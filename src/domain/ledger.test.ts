@@ -97,7 +97,7 @@ describe('ledger state boundaries', () => {
     expect(hydrateLedger({ getItem: (key) => values.get(key) ?? null })).toMatchObject({
       source: 'v5',
       canPersist: true,
-      snapshot: { notifications: [{ id: 'old-note', daysBefore: 3, time: '08:00', subscriptionIds: ['sub-1'] }], notificationPreferences: { enabled: true } },
+      snapshot: { notifications: [{ id: 'old-note', title: 'Streaming', message: 'Siapkan Rp {amount} untuk {name}.', daysBefore: 3, time: '08:00', subscriptionIds: ['sub-1'] }], notificationPreferences: { enabled: true } },
     });
   });
 

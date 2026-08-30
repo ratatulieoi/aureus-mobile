@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface DeleteConfirmationProps {
   open: boolean;
@@ -26,6 +27,7 @@ const DeleteConfirmation: React.FC<DeleteConfirmationProps> = ({
   onConfirm,
 }) => {
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  useMobileBackDismiss(open, () => onOpenChange(false));
 
   useEffect(() => {
     if (open && document.activeElement instanceof HTMLElement) {

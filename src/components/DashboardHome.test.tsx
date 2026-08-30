@@ -42,6 +42,31 @@ describe('DashboardHome', () => {
     expect(onActiveTypeChange).toHaveBeenCalledWith('income');
   });
 
+  it('keeps lifetime frequency order when the selected day has no matching transactions', () => {
+    render(
+      <DashboardHome
+        transactions={[
+          { ...transactions[2], id: 'transport-old-1', date: new Date(2026, 0, 8, 9).toISOString() },
+          { ...transactions[2], id: 'transport-old-2', date: new Date(2026, 0, 9, 9).toISOString() },
+          { ...transactions[0], id: 'food-old', date: new Date(2026, 0, 9, 8).toISOString() },
+        ]}
+        categories={createDefaultCategoryCatalog()}
+        activeType="expense"
+        onActiveTypeChange={vi.fn()}
+        period={{ kind: 'quick', id: 'today' }}
+        onPeriodChange={vi.fn()}
+        now={now}
+        onOpenEntry={vi.fn()}
+      />,
+    );
+
+    const categoryButtons = screen.getAllByRole('button', { name: /input normal/ });
+    expect(categoryButtons[0]).toHaveAccessibleName(expect.stringContaining('Transportasi'));
+    expect(categoryButtons[0]).toHaveTextContent('Rp0');
+    expect(categoryButtons[0]).toHaveTextContent('Belum ada transaksi');
+    expect(categoryButtons[1]).toHaveAccessibleName(expect.stringContaining('Makanan & Minuman'));
+  });
+
   it('opens normal entry after the completed click and suppresses the click after a voice hold', () => {
     vi.useFakeTimers();
     const onOpenEntry = vi.fn();
@@ -115,12 +140,12 @@ describe('DashboardHome', () => {
     const january = screen.getByRole('button', { name: 'Januari' });
     const february = screen.getByRole('button', { name: 'Februari' });
     const april = screen.getByRole('button', { name: 'April' });
-    expect(january).toHaveClass('month-picker-destination', 'dock-glass-destination');
-    expect(january).toHaveAttribute('data-glass-active', 'true');
+    expect(january).toHaveClass('month-picker-destination', 'blurred-destination');
+    expect(january).toHaveAttribute('data-surface-active', 'true');
     expect(january).toHaveAttribute('data-has-transactions', 'true');
     expect(january).toHaveAccessibleDescription('Memiliki transaksi pada bulan ini.');
-    expect(february).toHaveClass('month-picker-destination', 'dock-glass-destination');
-    expect(february).not.toHaveAttribute('data-glass-active');
+    expect(february).toHaveClass('month-picker-destination', 'blurred-destination');
+    expect(february).not.toHaveAttribute('data-surface-active');
     expect(february).not.toHaveAttribute('aria-selected');
     expect(february).not.toHaveAttribute('aria-current');
     expect(february).toBeEnabled();

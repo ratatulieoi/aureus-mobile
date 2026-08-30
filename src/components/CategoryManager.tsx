@@ -24,7 +24,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
   const [name, setName] = useState('');
   const [pendingDelete, setPendingDelete] = useState<{ type: TransactionType; name: string } | null>(null);
 
-  useMobileBackDismiss(addOpen, () => {
+  useMobileBackDismiss(addOpen && pendingDelete === null, () => {
     setAddOpen(false);
     setName('');
     onCloseAdd?.();

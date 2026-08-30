@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface BackupRestoreProps {
   transactions: Transaction[];
@@ -35,6 +36,8 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
   const [pendingRestore, setPendingRestore] = useState<DecodedBackup | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoreButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelRestoreRef = useRef(() => {});
+  useMobileBackDismiss(pendingRestore !== null, () => cancelRestoreRef.current());
 
   const resetInput = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -110,6 +113,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
     setIsProcessing(false);
     resetInput();
   };
+  cancelRestoreRef.current = cancelRestore;
 
   const categorySummary = categories
     ? `${(categories.expense.length + categories.income.length).toLocaleString('id-ID')} kategori`

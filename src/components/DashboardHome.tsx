@@ -112,18 +112,24 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
   const rankedCategories = useMemo(() => {
     const order = new Map(categories[activeType].map((name, index) => [name, index]));
-    const stats = new Map<string, { amount: number; count: number }>();
+    const periodStats = new Map<string, { amount: number; count: number }>();
+    const lifetimeFrequency = new Map<string, number>();
+    for (const transaction of transactions) {
+      if (transaction.type !== activeType || !order.has(transaction.category)) continue;
+      lifetimeFrequency.set(transaction.category, (lifetimeFrequency.get(transaction.category) ?? 0) + 1);
+    }
     for (const transaction of filtered) {
       if (transaction.type !== activeType || !order.has(transaction.category)) continue;
-      const current = stats.get(transaction.category) ?? { amount: 0, count: 0 };
+      const current = periodStats.get(transaction.category) ?? { amount: 0, count: 0 };
       current.amount += transaction.amount;
       current.count += 1;
-      stats.set(transaction.category, current);
+      periodStats.set(transaction.category, current);
     }
     return categories[activeType]
-      .map((name) => ({ name, amount: stats.get(name)?.amount ?? 0, count: stats.get(name)?.count ?? 0 }))
-      .sort((left, right) => right.count - left.count || (order.get(left.name) ?? 0) - (order.get(right.name) ?? 0));
-  }, [activeType, categories, filtered]);
+      .map((name) => ({ name, amount: periodStats.get(name)?.amount ?? 0, count: periodStats.get(name)?.count ?? 0 }))
+      .sort((left, right) => (lifetimeFrequency.get(right.name) ?? 0) - (lifetimeFrequency.get(left.name) ?? 0)
+        || (order.get(left.name) ?? 0) - (order.get(right.name) ?? 0));
+  }, [activeType, categories, filtered, transactions]);
 
   const visibleCategories = expanded ? rankedCategories : rankedCategories.slice(0, 5);
   const primaryTotal = totals[activeType];
@@ -138,7 +144,18 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     }
     return months;
   }, [transactions]);
-  useMobileBackDismiss(monthPickerOpen, () => setMonthPickerOpen(false));
+  useMobileBackDismiss(quickPickerOpen, () => {
+    setQuickPickerOpen(false);
+    setQuickPickerAnchor(null);
+    setHighlightedQuick(null);
+  });
+  useMobileBackDismiss(monthPickerOpen, () => {
+    if (yearPickerOpen) {
+      setYearPickerOpen(false);
+      return;
+    }
+    setMonthPickerOpen(false);
+  });
 
   const openMonthPicker = () => {
     if (periodHeldRef.current || periodCancelledRef.current) {
@@ -343,7 +360,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           onPointerCancel={cancelPeriodGesture}
         >
           <div
-            className="quick-period-picker liquid-glass-overlay"
+            className="quick-period-picker blurred-overlay"
             role="listbox"
             aria-label="Pilih periode cepat"
             data-anchor-period="today"
@@ -377,8 +394,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           >
             <button
               type="button"
-              className="month-picker-destination dock-glass-destination month-picker-year"
-              data-glass-active="true"
+              className="month-picker-destination blurred-destination month-picker-year"
+              data-surface-active="true"
               aria-expanded={yearPickerOpen}
               onClick={() => setYearPickerOpen((value) => !value)}
             >
@@ -391,8 +408,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <button
                     key={year}
                     type="button"
-                    className="month-picker-destination dock-glass-destination"
-                    data-glass-active={pickerYear === year || undefined}
+                    className="month-picker-destination blurred-destination"
+                    data-surface-active={pickerYear === year || undefined}
                     onClick={() => { setPickerYear(year); setYearPickerOpen(false); }}
                   >
                     <span>{year}</span>
@@ -409,8 +426,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                     <button
                       key={month}
                       type="button"
-                      className="month-picker-destination dock-glass-destination"
-                      data-glass-active={hasTransactions || undefined}
+                      className="month-picker-destination blurred-destination"
+                      data-surface-active={hasTransactions || undefined}
                       data-has-transactions={hasTransactions || undefined}
                       aria-describedby={hasTransactions ? 'month-has-transactions-description' : undefined}
                       disabled={!selectable}

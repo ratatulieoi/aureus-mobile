@@ -25,6 +25,8 @@ export interface Subscription {
 
 export interface AppNotification {
   id: string;
+  title: string;
+  message: string;
   daysBefore: number;
   time: string;
   subscriptionIds: string[];

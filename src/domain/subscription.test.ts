@@ -4,6 +4,7 @@ import {
   decodeStoredSubscriptions,
   MAX_SUBSCRIPTION_ID_LENGTH,
   reconcileSubscriptions,
+  reorderSubscriptions,
   validateAndNormalizeSubscription,
 } from '@/domain/subscription';
 import type { Subscription } from '@/domain/types';
@@ -71,6 +72,13 @@ describe('subscription validation and hydration', () => {
     expect(areSubscriptionListsEqual([BASE], [{ ...BASE }])).toBe(true);
     expect(areSubscriptionListsEqual([BASE], [{ ...BASE, color: 'bg-blue-200 text-blue-800' }])).toBe(false);
     expect(areSubscriptionListsEqual([BASE], [])).toBe(false);
+  });
+
+  it('reorders subscriptions without changing their values', () => {
+    const second = { ...BASE, id: 'sub-2', name: 'Internet' };
+    const third = { ...BASE, id: 'sub-3', name: 'Music' };
+    expect(reorderSubscriptions([BASE, second, third], 'sub-1', 'sub-3')).toEqual([second, third, BASE]);
+    expect(reorderSubscriptions([BASE, second], 'missing', 'sub-2')).toEqual([BASE, second]);
   });
 });
 

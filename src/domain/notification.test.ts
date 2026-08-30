@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   countSubscriptionNotifications,
   decodeStoredNotifications,
+  formatNotificationTemplate,
   migrateLegacyNotifications,
   notificationItemLabel,
+  notificationItemName,
   notificationOccurrences,
   removeNotificationsForSubscription,
   validateAndNormalizeAppNotification,
@@ -20,7 +22,7 @@ const netflix: Subscription = {
   color: 'bg-red-200 text-red-800',
 };
 const spotify: Subscription = { ...netflix, id: 'sub-2', name: 'Spotify', nextPaymentDate: '2026-09-20' };
-const reminder: AppNotification = { id: 'note-1', daysBefore: 7, time: '09:00', subscriptionIds: [netflix.id, spotify.id] };
+const reminder: AppNotification = { id: 'note-1', title: '{name} jatuh tempo', message: 'Tagihan Rp {amount} jatuh tempo {due}.', daysBefore: 7, time: '09:00', subscriptionIds: [netflix.id, spotify.id] };
 
 describe('notification items', () => {
   it('normalizes assignments and rejects invalid timing', () => {
@@ -36,8 +38,13 @@ describe('notification items', () => {
     expect(decodeStoredNotifications([
       reminder,
       { ...reminder, id: 'note-2', subscriptionIds: ['missing'] },
+      { ...reminder, id: 'note-old', title: undefined, message: undefined, subscriptionIds: [] },
       { ...reminder, id: 'bad', time: 'noon' },
-    ], [netflix, spotify])).toEqual([reminder, { ...reminder, id: 'note-2', subscriptionIds: [] }]);
+    ], [netflix, spotify])).toEqual([
+      reminder,
+      { ...reminder, id: 'note-2', subscriptionIds: [] },
+      { ...reminder, id: 'note-old', title: 'Pengingat {name}', message: 'Siapkan Rp {amount} untuk {name}.', subscriptionIds: [] },
+    ]);
     expect(decodeStoredNotifications({}, [netflix])).toBeNull();
   });
 
@@ -51,9 +58,12 @@ describe('notification items', () => {
     expect(removeNotificationsForSubscription([reminder], netflix.id)).toEqual([{ ...reminder, subscriptionIds: [spotify.id] }]);
   });
 
-  it('uses a compact timing label', () => {
-    expect(notificationItemLabel(reminder)).toBe('7 hari sebelum · 09:00');
-    expect(notificationItemLabel({ ...reminder, daysBefore: 0 })).toBe('Hari jatuh tempo · 09:00');
+  it('uses a compact timing label and formats notification templates for a subscription', () => {
+    expect(notificationItemName(reminder)).toBe('H-7');
+    expect(notificationItemLabel(reminder)).toBe('H-7 · 09:00');
+    expect(notificationItemLabel({ ...reminder, daysBefore: 0 })).toBe('H-0 · 09:00');
+    expect(formatNotificationTemplate('Bayar {name}: Rp {amount}, {due}.', reminder, netflix))
+      .toBe('Bayar Netflix: Rp 59.000, 7 hari lagi.');
   });
 
   it('migrates linked legacy rules into reusable timing items', () => {
@@ -63,7 +73,14 @@ describe('notification items', () => {
       { id: 'custom', title: 'Rent', body: '', enabled: true, schedule: { kind: 'once', date: '2026-10-01', time: '08:00' } },
     ];
     expect(migrateLegacyNotifications(legacy, [netflix, spotify])).toEqual([
-      { id: 'old-1', daysBefore: 3, time: '08:00', subscriptionIds: [netflix.id, spotify.id] },
+      {
+        id: 'old-1',
+        title: 'Netflix',
+        message: 'Siapkan Rp {amount} untuk {name}.',
+        daysBefore: 3,
+        time: '08:00',
+        subscriptionIds: [netflix.id, spotify.id],
+      },
     ]);
   });
 });

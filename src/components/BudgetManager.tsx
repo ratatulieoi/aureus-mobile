@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Plus, Circle, AlertCircle, Check, Trash2, Square } from 'lucide-react';
 import type { Budget, Transaction } from '@/domain/types';
+import { useMobileBackDismiss } from '@/hooks/use-mobile-back-dismiss';
 
 interface BudgetManagerProps {
   budgets: Budget[];
@@ -33,6 +34,7 @@ const BudgetManager: React.FC<BudgetManagerProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Budget | null>(null);
   const [newBudget, setNewBudget] = useState({ category: '', amount: '' });
+  useMobileBackDismiss(showForm, () => setShowForm(false));
 
   const monthlyBudgets = budgets.filter((budget) => budget.month === selectedMonth && budget.year === selectedYear);
   const monthlyTransactions = transactions.filter((transaction) => {
