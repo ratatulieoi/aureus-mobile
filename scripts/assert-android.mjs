@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relativePath) => readFile(path.join(root, relativePath), 'utf8');
 
-const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGradle, styles, api27Styles, capacitorConfig, launcherBackground, adaptiveIcon, adaptiveRoundIcon, vectorForeground] = await Promise.all([
+const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGradle, styles, api27Styles, capacitorConfig, packageSource, appSource, backHandlerSource, launcherBackground, adaptiveIcon, adaptiveRoundIcon, vectorForeground] = await Promise.all([
   read('android/app/src/main/AndroidManifest.xml'),
   read('android/app/src/main/res/xml/file_paths.xml'),
   read('android/app/src/main/res/xml/backup_rules.xml'),
@@ -17,6 +17,9 @@ const [manifest, filePaths, legacyRules, extractionRules, exportAdapter, buildGr
   read('android/app/src/main/res/values/styles.xml'),
   read('android/app/src/main/res/values-v27/styles.xml'),
   read('capacitor.config.ts'),
+  read('package.json'),
+  read('src/App.tsx'),
+  read('src/hooks/use-mobile-back-dismiss.ts'),
   read('android/app/src/main/res/values/ic_launcher_background.xml'),
   read('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml'),
   read('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml'),
@@ -74,6 +77,12 @@ assert.match(
 );
 assert.match(capacitorConfig, /SystemBars:[\s\S]*insetsHandling:\s*['"]css['"]/);
 assert.match(capacitorConfig, /LocalNotifications:[\s\S]*presentationOptions:\s*\[['"]sound['"],\s*['"]banner['"],\s*['"]list['"]\]/);
+
+assert.match(packageSource, /"@capacitor\/app":\s*"8\.1\.1"/);
+assert.match(appSource, /useAndroidBackButton\(\)/);
+assert.match(backHandlerSource, /App\.addListener\(['"]backButton['"]/);
+assert.match(backHandlerSource, /layers\.at\(-1\)/);
+assert.match(backHandlerSource, /App\.exitApp\(\)/);
 
 assert.match(styles, /colorPrimary">#D7DF70</);
 assert.match(styles, /colorPrimaryDark">#0D110E</);

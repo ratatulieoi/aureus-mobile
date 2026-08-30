@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "2.5.4",
+  "version": "2.5.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run test:policy && npm run build && npm run bundle:check && npm run brand:assert && npm run android:assert && npm run ci:validate",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:policy && npm run build && npm run bundle:check && npm run css:assert && npm run brand:assert && npm run android:assert && npm run ci:validate",
     "bundle:check": "node scripts/check-bundle.mjs",
+    "css:assert": "node scripts/assert-production-css.mjs",
     "audit:prod": "npm audit --omit=dev --audit-level=low",
     "audit:all": "npm audit --audit-level=low",
     "brand:assert": "node scripts/assert-brand.mjs",
@@ -26,6 +27,7 @@
   "dependencies": {
     "@capacitor-community/speech-recognition": "7.0.1",
     "@capacitor/android": "8.5.0",
+    "@capacitor/app": "8.1.1",
     "@capacitor/core": "8.5.0",
     "@capacitor/filesystem": "8.1.2",
     "@capacitor/local-notifications": "8.3.1",

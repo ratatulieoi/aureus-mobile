@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { App } from '@capacitor/app';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 
 const HISTORY_GUARD_KEY = 'aureusLayerGuard';
 
@@ -25,12 +27,41 @@ export function useMobileBackDismiss(open: boolean, onDismiss: () => void): void
   }, [open]);
 }
 
+/** Connects Android's system Back action to the transient-layer stack. */
+export function useAndroidBackButton(): void {
+  useEffect(() => {
+    if (!isAndroidNative()) return;
+    let disposed = false;
+    let listener: PluginListenerHandle | null = null;
+
+    void App.addListener('backButton', () => {
+      const topLayer = layers.at(-1);
+      if (topLayer) {
+        topLayer.dismiss();
+        return;
+      }
+      void App.exitApp();
+    }).then((handle) => {
+      if (disposed) void handle.remove();
+      else listener = handle;
+    }).catch((error: unknown) => {
+      console.error('Gagal memasang handler tombol Kembali Android', error);
+    });
+
+    return () => {
+      disposed = true;
+      if (listener) void listener.remove();
+    };
+  }, []);
+}
+
 function registerLayer(layer: BackLayer): void {
+  layers.push(layer);
+  if (isAndroidNative()) return;
   if (releaseTimer !== null) {
     window.clearTimeout(releaseTimer);
     releaseTimer = null;
   }
-  layers.push(layer);
   ensureListener();
   ensureHistoryGuard();
 }
@@ -38,7 +69,7 @@ function registerLayer(layer: BackLayer): void {
 function unregisterLayer(id: symbol): void {
   const index = layers.findIndex((layer) => layer.id === id);
   if (index >= 0) layers.splice(index, 1);
-  if (layers.length === 0) scheduleGuardRelease();
+  if (!isAndroidNative() && layers.length === 0) scheduleGuardRelease();
 }
 
 function ensureListener(): void {
@@ -90,6 +121,12 @@ function handlePopState(event: PopStateEvent): void {
     if (layers.length > 0) ensureHistoryGuard();
     else removeListener();
   }, 0);
+}
+
+function isAndroidNative(): boolean {
+  return Capacitor.isNativePlatform()
+    && typeof Capacitor.getPlatform === 'function'
+    && Capacitor.getPlatform() === 'android';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

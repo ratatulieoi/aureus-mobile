@@ -54,7 +54,7 @@ describe('Others menu', () => {
     expect(screen.getByRole('heading', { name: 'Others' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Keuangan' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Data & aplikasi' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Kelola kategori/ })).toHaveTextContent('17 kategori pemasukan dan pengeluaran');
+    expect(screen.getByRole('button', { name: /Kelola kategori/ })).toHaveTextContent('16 kategori pemasukan dan pengeluaran');
     expect(screen.getByRole('button', { name: /Notifikasi/ })).toHaveTextContent('0 notifikasi');
     expect(screen.getByRole('button', { name: /Backup & pulihkan/ })).toHaveTextContent('Transaksi, langganan, kategori, dan jadwal notifikasi');
 

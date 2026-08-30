@@ -11,7 +11,6 @@ export const DEFAULT_TRANSACTION_CATEGORIES: Readonly<Record<TransactionType, re
     'Pendidikan',
     'Rumah Tangga',
     'Komunikasi',
-    'Langganan',
     'Lainnya',
   ],
   income: [
@@ -28,6 +27,7 @@ export const DEFAULT_TRANSACTION_CATEGORIES: Readonly<Record<TransactionType, re
 export const TRANSACTION_CATEGORIES = DEFAULT_TRANSACTION_CATEGORIES;
 
 export const MAX_CATEGORY_NAME_LENGTH = 100;
+const RESERVED_EXPENSE_CATEGORY = 'langganan';
 
 export function createDefaultCategoryCatalog(): CategoryCatalog {
   return {
@@ -45,7 +45,9 @@ export function validateCategoryCatalog(value: unknown): CategoryCatalog | null 
   const record = value as Record<string, unknown>;
   const expense = validateCategoryList(record.expense);
   const income = validateCategoryList(record.income);
-  return expense && income ? { expense, income } : null;
+  return expense && income
+    ? { expense: expense.filter((category) => category.toLocaleLowerCase('id-ID') !== RESERVED_EXPENSE_CATEGORY), income }
+    : null;
 }
 
 export function validateNewCategoryName(
@@ -59,6 +61,9 @@ export function validateNewCategoryName(
     return { ok: false, error: `Nama kategori maksimum ${MAX_CATEGORY_NAME_LENGTH} karakter.` };
   }
   const folded = name.toLocaleLowerCase('id-ID');
+  if (type === 'expense' && folded === RESERVED_EXPENSE_CATEGORY) {
+    return { ok: false, error: 'Kategori Langganan dikelola otomatis dari menu Subs.' };
+  }
   if (catalog[type].some((category) => category.toLocaleLowerCase('id-ID') === folded)) {
     return { ok: false, error: 'Kategori ini sudah ada.' };
   }

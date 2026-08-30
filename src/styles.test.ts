@@ -116,6 +116,7 @@ describe('global accessibility CSS', () => {
 
   it('keeps transaction sheets flat and uses non-glowing focus feedback', () => {
     expect(css).toMatch(/\.transaction-sheet\s*\{[^}]*bottom:\s*0;[^}]*border-radius:\s*1\.5rem 1\.5rem 0 0;[^}]*box-shadow:\s*none;/s);
+    expect(css).toMatch(/\.transaction-amount-save\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*background:\s*hsl\(var\(--primary\)\);/s);
     expect(css).toMatch(/\.transaction-amount-control:focus-within\s*\{[^}]*border-bottom-color:\s*hsl\(var\(--ring\)\);/s);
     expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea\):focus\s*\{[^}]*border-color:\s*hsl\(var\(--ring\)\);/s);
     expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea\)\s*\{[^}]*box-shadow:\s*none;[^}]*text-align:\s*left;/s);

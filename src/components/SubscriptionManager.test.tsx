@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { expect, describe, it, vi } from 'vitest';
@@ -91,8 +91,8 @@ describe('SubscriptionManager', () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
-  it('shows assigned notification item names only while the bell is held', async () => {
-    vi.useFakeTimers();
+  it('toggles assigned notification item names on bell taps and dismisses them on the next action', async () => {
+    const user = userEvent.setup();
     const onOpenNotifications = vi.fn();
     render(
       <SubscriptionManager
@@ -106,28 +106,33 @@ describe('SubscriptionManager', () => {
         onOpenNotifications={onOpenNotifications}
       />,
     );
-    const reminderButton = screen.getByRole('button', { name: '2 notifikasi Streaming. Tahan untuk melihat.' });
+    const reminderButton = screen.getByRole('button', { name: '2 notifikasi Streaming. Ketuk untuk melihat.' });
     expect(reminderButton).toHaveTextContent('2');
     expect(reminderButton).toHaveAttribute('data-no-page-swipe', 'true');
+    expect(reminderButton).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-    fireEvent.pointerDown(reminderButton, { pointerId: 7, pointerType: 'touch', clientX: 20, clientY: 20 });
-    act(() => vi.advanceTimersByTime(300));
+    await user.click(reminderButton);
     const tooltip = screen.getByRole('tooltip');
+    expect(reminderButton).toHaveAttribute('aria-expanded', 'true');
     expect(reminderButton.closest('.subscription-card')).toHaveClass('has-reminder-tooltips');
     expect(tooltip.children).toHaveLength(2);
     expect(tooltip).toHaveTextContent('H-7');
     expect(tooltip).toHaveTextContent('H-1');
     expect(tooltip).toHaveTextContent('09:00');
     expect(tooltip).not.toHaveTextContent('Streaming jatuh tempo');
-    fireEvent.pointerUp(reminderButton, { pointerId: 7, pointerType: 'touch' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(reminderButton);
+    expect(reminderButton).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-    fireEvent.click(reminderButton);
+    await user.click(reminderButton);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Hapus langganan Streaming' }));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: /Notifikasi Streaming/ })).not.toBeInTheDocument();
     expect(onOpenNotifications).not.toHaveBeenCalled();
-    act(() => vi.runOnlyPendingTimers());
-    vi.useRealTimers();
   });
 
   it('creates an Rp0 subscription without a zero-value transaction', async () => {

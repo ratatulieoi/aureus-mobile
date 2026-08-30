@@ -16,6 +16,10 @@ export default defineConfig(() => ({
   },
   build: {
     manifest: true,
+    // Lightning CSS removes the standard backdrop-filter declaration when a
+    // prefixed fallback follows it. Android WebView needs both declarations,
+    // so preserve authored CSS instead of changing runtime behavior at build.
+    cssMinify: false,
     // Dynamic feature boundaries own the meaningful split points. Keep Vite's
     // deterministic shared-chunk extraction rather than package micro-chunks.
     chunkSizeWarningLimit: 600,

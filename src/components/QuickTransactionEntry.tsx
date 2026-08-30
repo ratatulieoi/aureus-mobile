@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-import { CalendarDays, Mic, RotateCcw, X } from 'lucide-react';
+import { CalendarDays, Check, Mic, RotateCcw, X } from 'lucide-react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { NewTransaction, Transaction, TransactionType } from '@/domain/types';
 import { calendarDateToLocalInstant, compareCalendarDates, formatLocalCalendarDate } from '@/domain/calendar-date';
@@ -231,6 +231,18 @@ const QuickTransactionEntry: React.FC<QuickTransactionEntryProps> = ({
               onValueChange={setAmount}
               inputRef={amountRef}
               onEnter={() => descriptionRef.current?.focus()}
+              action={(
+                <button
+                  type="submit"
+                  className="transaction-amount-save"
+                  aria-label={submitting ? 'Menyimpan transaksi dari nominal' : 'Simpan transaksi dari nominal'}
+                  title="Simpan transaksi"
+                  disabled={!valid || submitting}
+                  onPointerDown={(event) => event.preventDefault()}
+                >
+                  <Check aria-hidden="true" />
+                </button>
+              )}
               required
             />
 

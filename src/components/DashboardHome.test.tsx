@@ -161,7 +161,7 @@ describe('DashboardHome', () => {
     renderDashboard(vi.fn(), onPeriodChange);
     const trigger = screen.getByRole('button', { name: 'Hari ini' });
     fireEvent.pointerDown(trigger, { pointerId: 4, clientX: 20, clientY: 20 });
-    act(() => vi.advanceTimersByTime(550));
+    act(() => vi.advanceTimersByTime(350));
 
     const picker = screen.getByRole('listbox', { name: 'Pilih periode cepat' });
     const layer = picker.closest('.quick-period-gesture-layer');
@@ -182,7 +182,7 @@ describe('DashboardHome', () => {
     renderDashboard(vi.fn(), onPeriodChange);
     const trigger = screen.getByRole('button', { name: 'Hari ini' });
     fireEvent.pointerDown(trigger, { pointerId: 5, clientX: 20, clientY: 20 });
-    act(() => vi.advanceTimersByTime(550));
+    act(() => vi.advanceTimersByTime(350));
     const target = screen.getByRole('option', { name: '7 hari' });
     const originalElementFromPoint = document.elementFromPoint;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => target) });
@@ -204,7 +204,7 @@ describe('DashboardHome', () => {
     renderDashboard(vi.fn(), onPeriodChange);
     const trigger = screen.getByRole('button', { name: 'Hari ini' });
     fireEvent.pointerDown(trigger, { pointerId: 6, clientX: 20, clientY: 20 });
-    act(() => vi.advanceTimersByTime(550));
+    act(() => vi.advanceTimersByTime(350));
     const originalElementFromPoint = document.elementFromPoint;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => document.body) });
 

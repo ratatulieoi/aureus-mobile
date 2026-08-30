@@ -78,7 +78,7 @@ const MoreMenu: React.FC<MoreMenuProps> = ({
 
   const categoryCount = categories.expense.length + categories.income.length;
   const financeItems: readonly MoreDestination[] = [
-    { id: 'reports', label: 'Laporan & ekspor', description: 'Ringkasan bulanan, CSV, dan PDF', icon: FileChartColumn },
+    { id: 'reports', label: 'Laporan & ekspor', description: 'Ringkasan bulanan dan ekspor CSV', icon: FileChartColumn },
     { id: 'categories', label: 'Kelola kategori', description: `${categoryCount} kategori pemasukan dan pengeluaran`, icon: Tags },
   ];
   const dataItems: readonly MoreDestination[] = [

@@ -42,7 +42,7 @@ describe('Monthly reports', () => {
     expect(screen.getByText('− Rp 125.000')).toBeInTheDocument();
     expect(screen.getByText('Rp 2.875.000')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ekspor CSV/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /Cetak atau simpan PDF/ })).toBeEnabled();
+    expect(screen.queryByText(/PDF/i)).not.toBeInTheDocument();
     expect(await axe(container)).toHaveNoViolations();
   });
 
@@ -51,6 +51,6 @@ describe('Monthly reports', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Belum ada transaksi pada Januari 2026');
     expect(screen.getByRole('button', { name: /Ekspor CSV/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Cetak atau simpan PDF/ })).toBeDisabled();
+    expect(screen.queryByText(/PDF/i)).not.toBeInTheDocument();
   });
 });

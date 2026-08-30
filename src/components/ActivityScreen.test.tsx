@@ -21,6 +21,9 @@ describe('ActivityScreen', () => {
     expect(screen.getByRole('heading', { name: 'Transaction' })).toBeInTheDocument();
     expect(container.querySelector('.activity-page-header')).toContainElement(screen.getByLabelText('Periode'));
     expect(screen.getByLabelText('Cari transaksi')).toBeInTheDocument();
+    expect(screen.getByLabelText('Kategori transaksi')).toHaveValue('all');
+    expect(screen.getByLabelText('Kategori transaksi')).toHaveTextContent('Freelance');
+    expect(screen.getByLabelText('Kategori transaksi')).toHaveTextContent('Makanan & Minuman');
     expect(screen.getByRole('button', { name: 'PemasukanRp100.000' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: 'PengeluaranRp25.000' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('Rp100.000')).toBeInTheDocument();
@@ -40,13 +43,16 @@ describe('ActivityScreen', () => {
     expect(screen.getByText('Proyek')).toBeInTheDocument();
   });
 
-  it('searches descriptions or categories and opens the populated edit sheet on a normal tap', async () => {
+  it('filters by an existing category, searches, and opens the populated edit sheet on a normal tap', async () => {
     const user = userEvent.setup();
     render(<ActivityScreen transactions={transactions} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
-    await user.type(screen.getByLabelText('Cari transaksi'), 'freelance');
+    await user.selectOptions(screen.getByLabelText('Kategori transaksi'), 'Freelance');
     expect(screen.getByText('Proyek')).toBeInTheDocument();
     expect(screen.queryByText('Makan siang')).not.toBeInTheDocument();
+    expect(screen.getByText('1 hasil')).toBeInTheDocument();
 
+    await user.type(screen.getByLabelText('Cari transaksi'), 'proyek');
+    expect(screen.getByText('Proyek')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Edit Proyek/ }));
     const dialog = screen.getByRole('dialog', { name: 'Edit transaksi' });
     expect(dialog.parentElement).toBe(document.body);
@@ -70,9 +76,11 @@ describe('ActivityScreen', () => {
     expect(screen.queryByRole('button', { name: 'Tampilkan semua transaksi' })).not.toBeInTheDocument();
 
     rerender(<ActivityScreen transactions={transactions} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Kategori transaksi'), { target: { value: 'Freelance' } });
     fireEvent.change(screen.getByLabelText('Cari transaksi'), { target: { value: 'tidak ada' } });
     expect(screen.getByText('Tidak ada transaksi yang cocok')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tampilkan semua transaksi' }));
+    expect(screen.getByLabelText('Kategori transaksi')).toHaveValue('all');
     expect(screen.getByText('Makan siang')).toBeInTheDocument();
     expect(screen.getByText('Proyek')).toBeInTheDocument();
   });

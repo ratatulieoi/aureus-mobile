@@ -43,7 +43,7 @@ describe('BackupRestore dialog', () => {
     render(<BackupRestore transactions={[transaction]} subscriptions={[subscription]} categories={categories} notifications={[notification]} notificationPreferences={{ enabled: true }} onRestore={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Backup semua data' })).toBeInTheDocument();
-    expect(screen.getByText(/1 transaksi, 1 langganan, 18 kategori, dan 1 jadwal notifikasi/)).toBeInTheDocument();
+    expect(screen.getByText(/1 transaksi, 1 langganan, 17 kategori, dan 1 jadwal notifikasi/)).toBeInTheDocument();
     const backupButton = screen.getByRole('button', { name: 'Buat file backup' });
     expect(backupButton).toHaveAccessibleDescription(/Termasuk waktu, langganan yang dipilih, dan status notifikasi perangkat/);
 

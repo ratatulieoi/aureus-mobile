@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowDownToLine, FileSpreadsheet, Printer } from 'lucide-react';
+import { ArrowDownToLine, FileSpreadsheet } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Transaction } from '@/domain/types';
 import { serializeCsvRows } from '@/domain/csv';
-import { buildPrintReportDocument } from '@/domain/report';
 import { filterTransactionsByPeriod } from '@/domain/period';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -77,25 +76,6 @@ const MonthlyReports: React.FC<MonthlyReportsProps> = ({ transactions }) => {
     }
   };
 
-  const downloadPDF = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast({ title: 'Laporan belum dibuka', description: 'Izinkan pop-up untuk mencetak laporan.', variant: 'destructive' });
-      return;
-    }
-    try {
-      buildPrintReportDocument(printWindow.document, { period, income, expense, net, transactions: filteredTransactions });
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
-      printWindow.print();
-    } catch (error) {
-      console.error('Print report failed:', error);
-      printWindow.close();
-      toast({ title: 'Laporan belum dibuat', description: 'Laporan cetak tidak dapat dibuat. Coba lagi.', variant: 'destructive' });
-    }
-  };
-
   return (
     <section className="utility-screen report-screen" aria-labelledby="report-title">
       <header className="utility-screen-header">
@@ -150,11 +130,6 @@ const MonthlyReports: React.FC<MonthlyReportsProps> = ({ transactions }) => {
           <button type="button" onClick={downloadCSV} disabled={!hasTransactions}>
             <span className="report-export-icon"><FileSpreadsheet aria-hidden="true" /></span>
             <span><strong>Ekspor CSV</strong><small>Data lengkap untuk spreadsheet</small></span>
-            <ArrowDownToLine aria-hidden="true" />
-          </button>
-          <button type="button" onClick={downloadPDF} disabled={!hasTransactions}>
-            <span className="report-export-icon"><Printer aria-hidden="true" /></span>
-            <span><strong>Cetak atau simpan PDF</strong><small>Ringkasan siap cetak</small></span>
             <ArrowDownToLine aria-hidden="true" />
           </button>
         </div>

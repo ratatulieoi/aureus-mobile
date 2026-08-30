@@ -53,7 +53,8 @@ const MONTHS = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ] as const;
 
-const HOLD_MS = 550;
+const CATEGORY_HOLD_MS = 550;
+const PERIOD_HOLD_MS = 350;
 const MOVE_TOLERANCE = 12;
 
 const CATEGORY_ICONS: Readonly<Record<string, LucideIcon>> = {
@@ -201,7 +202,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       }
       setQuickPickerOpen(true);
       setHighlightedQuick(current);
-    }, HOLD_MS);
+    }, PERIOD_HOLD_MS);
   };
 
   const quickPeriodAtPoint = (clientX: number, clientY: number): QuickPeriodId | null => {
@@ -484,7 +485,7 @@ const CategoryButton: React.FC<CategoryButtonProps> = ({ category, type, onOpenE
           held.current = true;
           clear();
           onOpenEntry(category.name, true);
-        }, HOLD_MS);
+        }, CATEGORY_HOLD_MS);
       }}
       onPointerMove={(event) => {
         const start = origin.current;

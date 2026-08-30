@@ -11,7 +11,9 @@ describe('persisted category catalog', () => {
     const second = createDefaultCategoryCatalog();
     first.expense.push('Kendaraan');
     expect(second.expense).not.toContain('Kendaraan');
+    expect(second.expense).not.toContain('Langganan');
     expect(validateNewCategoryName(second, 'expense', '  Dana   sosial  ')).toEqual({ ok: true, value: 'Dana sosial' });
+    expect(validateNewCategoryName(second, 'expense', 'Langganan')).toEqual({ ok: false, error: 'Kategori Langganan dikelola otomatis dari menu Subs.' });
   });
 
   it('rejects duplicate and malformed categories', () => {
@@ -19,6 +21,8 @@ describe('persisted category catalog', () => {
     expect(validateNewCategoryName(catalog, 'expense', 'transportasi')).toEqual({ ok: false, error: 'Kategori ini sudah ada.' });
     expect(validateCategoryCatalog({ expense: ['A', 'a'], income: ['Gaji'] })).toBeNull();
     expect(validateCategoryCatalog(catalog)).toEqual(catalog);
+    expect(validateCategoryCatalog({ expense: ['Tagihan', 'Langganan'], income: ['Gaji'] }))
+      .toEqual({ expense: ['Tagihan'], income: ['Gaji'] });
   });
 
   it('accepts valid category collections larger than the former cap', () => {

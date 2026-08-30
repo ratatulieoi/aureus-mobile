@@ -30,12 +30,18 @@ describe('QuickTransactionEntry', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Jumlah pengeluaran')).toHaveFocus();
+    const amountInput = screen.getByLabelText('Jumlah pengeluaran');
+    const amountSave = screen.getByRole('button', { name: 'Simpan transaksi dari nominal' });
+    expect(amountInput).toHaveFocus();
+    expect(amountSave).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Tutup formulir transaksi' })).not.toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Gunakan lagi Sarapan, Rp13.000' }));
     expect(screen.getByLabelText('Jumlah pengeluaran')).toHaveValue('13.000');
     expect(screen.getByLabelText('Deskripsi')).toHaveValue('Sarapan');
-    await user.click(screen.getByRole('button', { name: 'Simpan transaksi' }));
+    expect(amountSave).toBeEnabled();
+    await user.click(amountInput);
+    expect(amountInput).toHaveFocus();
+    await user.click(amountSave);
     expect(onAddTransaction).toHaveBeenCalledOnce();
     expect(onAddTransaction.mock.calls[0][0]).toMatchObject({ type: 'expense', category: 'Makanan & Minuman', amount: 13_000, description: 'Sarapan' });
   });
@@ -60,5 +66,6 @@ describe('QuickTransactionEntry', () => {
     render(<QuickTransactionEntry type="income" category="Bonus" mode="normal" transactions={[]} onAddTransaction={() => true} onClose={vi.fn()} />);
     expect(screen.getByText('Belum ada transaksi sebelumnya')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Simpan transaksi' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Simpan transaksi dari nominal' })).toBeDisabled();
   });
 });

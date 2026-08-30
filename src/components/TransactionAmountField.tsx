@@ -7,6 +7,7 @@ interface TransactionAmountFieldProps {
   onValueChange: (value: string) => void;
   inputRef?: React.Ref<HTMLInputElement>;
   onEnter?: () => void;
+  action?: React.ReactNode;
   required?: boolean;
 }
 
@@ -17,6 +18,7 @@ const TransactionAmountField: React.FC<TransactionAmountFieldProps> = ({
   onValueChange,
   inputRef,
   onEnter,
+  action,
   required = false,
 }) => (
   <div className="transaction-amount-field">
@@ -40,6 +42,7 @@ const TransactionAmountField: React.FC<TransactionAmountFieldProps> = ({
         autoComplete="off"
         required={required}
       />
+      {action}
     </div>
   </div>
 );

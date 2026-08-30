@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowDownLeft,
@@ -32,6 +32,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
   const currentMonth = formatLocalCalendarDate(new Date()).slice(0, 7);
   const [period, setPeriod] = useState(currentMonth);
   const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
@@ -50,12 +51,23 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
     return period === 'all' || day?.startsWith(period);
   }), [period, transactions]);
 
+  const availableCategories = useMemo(() => [...new Set(periodTransactions.map(({ category }) => category))]
+    .sort((left, right) => left.localeCompare(right, 'id-ID')), [periodTransactions]);
+  const effectiveCategoryFilter = categoryFilter === 'all' || availableCategories.includes(categoryFilter)
+    ? categoryFilter
+    : 'all';
+
+  useEffect(() => {
+    if (effectiveCategoryFilter !== categoryFilter) setCategoryFilter(effectiveCategoryFilter);
+  }, [categoryFilter, effectiveCategoryFilter]);
+
   const searchedTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('id-ID');
     return periodTransactions
+      .filter((transaction) => effectiveCategoryFilter === 'all' || transaction.category === effectiveCategoryFilter)
       .filter((transaction) => !normalizedQuery || `${transaction.description} ${transaction.category}`.toLocaleLowerCase('id-ID').includes(normalizedQuery))
       .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-  }, [periodTransactions, query]);
+  }, [effectiveCategoryFilter, periodTransactions, query]);
 
   const visibleTransactions = useMemo(() => searchedTransactions
     .filter((transaction) => typeFilter === 'all' || transaction.type === typeFilter), [searchedTransactions, typeFilter]);
@@ -78,10 +90,11 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
   }, [visibleTransactions]);
 
   const periodLabel = period === 'all' ? 'Semua bulan' : formatMonth(period);
-  const hasListFilter = typeFilter !== 'all' || query.trim() !== '';
+  const hasListFilter = typeFilter !== 'all' || effectiveCategoryFilter !== 'all' || query.trim() !== '';
   const hasActiveFilter = period !== 'all' || hasListFilter;
   const resetFilters = () => {
     setPeriod('all');
+    setCategoryFilter('all');
     setTypeFilter('all');
     setQuery('');
   };
@@ -103,7 +116,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
         </div>
       </header>
 
-      <section className="activity-controls" aria-label="Pencarian transaksi">
+      <section className="activity-controls" aria-label="Pencarian dan kategori transaksi">
         <div className="activity-search-field">
           <Search aria-hidden="true" />
           <label className="sr-only" htmlFor="activity-search">Cari transaksi</label>
@@ -121,6 +134,16 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
             </button>
           )}
         </div>
+        {availableCategories.length > 0 && (
+          <div className="activity-category-filter">
+            <label className="sr-only" htmlFor="activity-category">Kategori transaksi</label>
+            <select id="activity-category" value={effectiveCategoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="all">Semua kategori</option>
+              {availableCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" />
+          </div>
+        )}
       </section>
 
       <section className="activity-history" aria-labelledby="activity-history-title">

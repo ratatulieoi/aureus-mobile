@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   DndContext,
@@ -348,13 +348,25 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
   const assignedNotifications = notifications.filter(({ subscriptionIds }) => subscriptionIds.includes(subscription.id));
   const reminderCount = countSubscriptionNotifications(notifications, subscription.id);
   const [showReminderTooltips, setShowReminderTooltips] = useState(false);
-  const reminderHoldTimer = useRef<number | null>(null);
-  const reminderHeld = useRef(false);
-  const clearReminderHold = () => {
-    if (reminderHoldTimer.current !== null) window.clearTimeout(reminderHoldTimer.current);
-    reminderHoldTimer.current = null;
-    setShowReminderTooltips(false);
-  };
+  const reminderAreaRef = useRef<HTMLSpanElement>(null);
+  const reminderTooltipId = useId();
+
+  useEffect(() => {
+    if (!showReminderTooltips) return;
+    const dismissOnAction = (event: PointerEvent) => {
+      if (event.target instanceof Node && reminderAreaRef.current?.contains(event.target)) return;
+      setShowReminderTooltips(false);
+    };
+    const dismissOnKeyboardOrWheel = () => setShowReminderTooltips(false);
+    window.addEventListener('pointerdown', dismissOnAction, true);
+    window.addEventListener('keydown', dismissOnKeyboardOrWheel, true);
+    window.addEventListener('wheel', dismissOnKeyboardOrWheel, true);
+    return () => {
+      window.removeEventListener('pointerdown', dismissOnAction, true);
+      window.removeEventListener('keydown', dismissOnKeyboardOrWheel, true);
+      window.removeEventListener('wheel', dismissOnKeyboardOrWheel, true);
+    };
+  }, [showReminderTooltips]);
   const progressDescription = `${Math.round(progress)} persen siklus telah berlalu. ${daysLeft <= 0 ? 'Jatuh tempo hari ini.' : `${daysLeft} hari lagi.`}`;
 
   return (
@@ -368,34 +380,20 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
             <div className="subscription-card-meta">
               <span><Clock aria-hidden="true" />{subscription.cycleDays} hari / siklus</span>
               {reminderCount > 0 && (
-                <span className="subscription-reminder-hold">
+                <span ref={reminderAreaRef} className="subscription-reminder-hold">
                   <button
                     type="button"
                     className="subscription-reminder-count"
                     data-no-page-swipe="true"
-                    aria-label={`${reminderCount} notifikasi ${subscription.name}. Tahan untuk melihat.`}
+                    aria-label={`${reminderCount} notifikasi ${subscription.name}. Ketuk untuk melihat.`}
                     aria-expanded={showReminderTooltips}
-                    onContextMenu={(event) => event.preventDefault()}
-                    onPointerDown={(event) => {
-                      if (overlay || (event.pointerType === 'mouse' && event.button !== 0)) return;
-                      reminderHeld.current = false;
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                      reminderHoldTimer.current = window.setTimeout(() => {
-                        reminderHeld.current = true;
-                        setShowReminderTooltips(true);
-                      }, 300);
-                    }}
-                    onPointerUp={clearReminderHold}
-                    onPointerCancel={clearReminderHold}
-                    onLostPointerCapture={clearReminderHold}
-                    onClick={(event) => {
-                      if (reminderHeld.current) event.preventDefault();
-                      reminderHeld.current = false;
-                    }}
+                    aria-controls={reminderTooltipId}
+                    aria-describedby={showReminderTooltips ? reminderTooltipId : undefined}
+                    onClick={() => setShowReminderTooltips((visible) => !visible)}
                     disabled={overlay}
                   ><Bell aria-hidden="true" />{reminderCount}</button>
                   {showReminderTooltips && (
-                    <span className="subscription-reminder-tooltips" role="tooltip">
+                    <span id={reminderTooltipId} className="subscription-reminder-tooltips" role="tooltip">
                       {assignedNotifications.map((notification) => (
                         <span key={notification.id}><strong>{notificationItemName(notification)}</strong><time dateTime={notification.time}>{notification.time}</time></span>
                       ))}

@@ -11,7 +11,7 @@ const speechMock = vi.hoisted(() => ({
   addListener: vi.fn(),
 }));
 
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true } }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true, getPlatform: () => 'android' } }));
 vi.mock('@capacitor-community/speech-recognition', () => ({ SpeechRecognition: speechMock }));
 
 beforeEach(() => {
