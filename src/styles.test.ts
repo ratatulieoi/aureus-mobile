@@ -51,6 +51,13 @@ describe('global accessibility CSS', () => {
     }
   });
 
+  it('prevents native selection on app UI while preserving editable text selection', () => {
+    expect(css).toMatch(/body\s*\{[^}]*-webkit-touch-callout:\s*none;[^}]*-webkit-user-select:\s*none;[^}]*user-select:\s*none;/s);
+    expect(css).toMatch(/:where\(input, textarea, \[contenteditable="true"\], \[contenteditable="true"\] \*\)\s*\{[^}]*-webkit-touch-callout:\s*default;[^}]*-webkit-user-select:\s*text;[^}]*user-select:\s*text;/s);
+    expect(css).toMatch(/\.period-trigger\s*\{[^}]*touch-action:\s*none;/s);
+    expect(css).toMatch(/\.quick-period-gesture-layer\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*pointer-events:\s*auto;[^}]*touch-action:\s*none;/s);
+  });
+
   it('uses AA-safe primary and accent text for meaningful controls', () => {
     expect(contrast(LIGHT.primary, LIGHT.background)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(LIGHT['primary-foreground'], LIGHT.primary)).toBeGreaterThanOrEqual(4.5);
@@ -65,14 +72,14 @@ describe('global accessibility CSS', () => {
     expect(css).toMatch(/\.bottom-nav-positioner\s*\{[^}]*position:\s*fixed/s);
     expect(css).toMatch(/\.bottom-nav-liquid\s*\{[^}]*height:\s*60px;[^}]*background:\s*transparent/s);
     expect(css).toMatch(/\.dock-glass-surface::before\s*\{[^}]*z-index:\s*0;[^}]*box-shadow:[^}]*inset 1px 1px/s);
-    expect(css).toMatch(/\.dock-glass-surface::after\s*\{[^}]*z-index:\s*-1;[^}]*background:\s*hsl\(var\(--glass-surface\) \/ \.7\);[^}]*backdrop-filter:\s*blur\(18px\) saturate\(1\.35\)/s);
-    expect(css).not.toMatch(/\.dock-glass-surface::after\s*\{[^}]*(?<!-)filter:\s*url/s);
+    expect(css).toMatch(/\.dock-glass-surface::after\s*\{[^}]*z-index:\s*-1;[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\)/s);
+    expect(css).not.toMatch(/\.dock-glass-surface::after\s*\{[^}]*background:/s);
     expect(css).toMatch(/\.bottom-nav-add\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;[^}]*border:\s*0;[^}]*background:\s*transparent/s);
     expect(css).toMatch(/\.bottom-nav-add::before\s*\{[^}]*box-shadow:[^}]*inset 1px 1px/s);
-    expect(css).toMatch(/\.bottom-nav-add::after\s*\{[^}]*background:\s*hsl\(var\(--glass-surface\) \/ \.74\);[^}]*backdrop-filter:\s*blur\(18px\) saturate\(1\.35\)/s);
-    expect(css).not.toMatch(/\.bottom-nav-add::after\s*\{[^}]*(?<!-)filter:\s*url/s);
+    expect(css).toMatch(/\.bottom-nav-add::after\s*\{[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\)/s);
+    expect(css).not.toMatch(/\.bottom-nav-add::after\s*\{[^}]*background:/s);
     expect(css).toMatch(/\.dock-glass-destination\[aria-current="page"\]::before,[\s\S]*?\.dock-glass-destination\[data-glass-active="true"\]::before\s*\{[^}]*background-color:\s*rgb\(255 255 255 \/ \.1\);[^}]*box-shadow:[^}]*inset 1px 1px/s);
-    expect(css).toMatch(/\.dock-glass-destination\[aria-current="page"\]::after,[\s\S]*?\.dock-glass-destination\[data-glass-active="true"\]::after\s*\{[^}]*backdrop-filter:\s*blur\(1px\);[^}]*filter:\s*url\("#btn-glass"\)/s);
+    expect(css).toMatch(/\.dock-glass-destination\[aria-current="page"\]::after,[\s\S]*?\.dock-glass-destination\[data-glass-active="true"\]::after\s*\{[^}]*backdrop-filter:\s*url\("#btn-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#btn-glass"\) blur\(5px\)/s);
     expect(css).toMatch(/\.app-content\s*\{[^}]*padding-bottom:\s*calc\(/s);
     expect(css).toMatch(/\.dashboard-home\s*\{[^}]*safe-area-inset-bottom/s);
     expect(css).not.toMatch(/\.bottom-nav-liquid\s*\{[^}]*(brand-lime|brand-paper)/s);
@@ -101,14 +108,14 @@ describe('global accessibility CSS', () => {
     expect(css).toMatch(/\.month-picker-backdrop\s*\{[^}]*position:\s*fixed;[^}]*background:\s*transparent;/s);
     expect(css).toMatch(/\.month-picker-box\s*\{[^}]*position:\s*fixed;[^}]*border-radius:\s*1\.35rem;[^}]*background:\s*transparent;[^}]*isolation:\s*isolate;/s);
     expect(css).toMatch(/\.month-picker-box::before,[\s\S]*?\.month-picker-box::after\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;/s);
-    expect(css).toMatch(/\.month-picker-box::after\s*\{[^}]*background:\s*hsl\(var\(--glass-surface\) \/ \.76\);[^}]*backdrop-filter:\s*blur\(18px\) saturate\(1\.3\);[^}]*-webkit-backdrop-filter:\s*blur\(18px\) saturate\(1\.3\);/s);
-    expect(css).not.toMatch(/\.month-picker-box::after\s*\{[^}]*(?<!-)filter\s*:/s);
+    expect(css).toMatch(/\.month-picker-box::after\s*\{[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);/s);
+    expect(css).not.toMatch(/\.month-picker-box::after\s*\{[^}]*background:/s);
     expect(css).toMatch(/\.month-picker-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/s);
     expect(css).toMatch(/\.month-picker-destination\s*\{[^}]*min-height:\s*54px;[^}]*border:\s*0;[^}]*background:\s*transparent;/s);
     expect(css).toMatch(/\.month-picker-destination:disabled\s*\{[^}]*opacity:\s*\.35;/s);
-    expect(css).toMatch(/\.quick-period-picker\s*\{[^}]*background:\s*hsl\(var\(--glass-surface\) \/ \.68\);[^}]*box-shadow:\s*none;/s);
-    expect(css).toMatch(/\.liquid-glass-overlay::after\s*\{[^}]*background:\s*hsl\(var\(--glass-surface\) \/ \.68\);[^}]*backdrop-filter:\s*blur\(18px\) saturate\(1\.3\)/s);
-    expect(css).not.toMatch(/\.liquid-glass-overlay::after\s*\{[^}]*(?<!-)filter:\s*url/s);
+    expect(css).toMatch(/\.quick-period-picker\s*\{[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s);
+    expect(css).toMatch(/\.liquid-glass-overlay::after\s*\{[^}]*backdrop-filter:\s*url\("#container-glass"\) blur\(5px\);[^}]*-webkit-backdrop-filter:\s*url\("#container-glass"\) blur\(5px\)/s);
+    expect(css).not.toMatch(/\.liquid-glass-overlay::after\s*\{[^}]*background:/s);
     expect(css).not.toMatch(/\.(?:month-dock|month-picker-row|month-picker-docks|year-trigger|year-list|month-grid)\b/);
     expect(liquidGlassSource).toContain('filterUnits="objectBoundingBox"');
     expect(liquidGlassSource).toMatch(/id="btn-glass"[\s\S]*?x="0"[\s\S]*?y="0"[\s\S]*?width="1"[\s\S]*?height="1"/);

@@ -32,7 +32,6 @@
     --surface: 40 33% 95%;
     --home-surface: 40 38% 98%;
     --home-surface-muted: 63 28% 91%;
-    --glass-surface: 40 38% 98%;
     --brand-lime: 63 62% 66%;
     --brand-ink: 135 13% 6%;
     --brand-paper: 40 33% 95%;
@@ -66,7 +65,6 @@
     --surface: 135 13% 6%;
     --home-surface: 132 13% 10%;
     --home-surface-muted: 130 11% 14%;
-    --glass-surface: 132 13% 10%;
     --brand-lime: 63 62% 66%;
     --brand-ink: 135 13% 6%;
     --brand-paper: 40 33% 95%;
@@ -86,7 +84,16 @@
     min-height: 100dvh;
     margin: 0;
     overflow-x: hidden;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
     @apply bg-background font-sans text-foreground;
+  }
+
+  :where(input, textarea, [contenteditable="true"], [contenteditable="true"] *) {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   button, input, textarea, select { font: inherit; }
@@ -296,9 +303,8 @@
   overflow: hidden;
   isolation: isolate;
   border-radius: inherit;
-  background: hsl(var(--glass-surface) / .68);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: url("#container-glass") blur(5px);
+  -webkit-backdrop-filter: url("#container-glass") blur(5px);
   pointer-events: none;
 }
 
@@ -334,9 +340,8 @@
   overflow: hidden;
   isolation: isolate;
   border-radius: inherit;
-  background: hsl(var(--glass-surface) / .72);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: url("#container-glass") blur(5px);
+  -webkit-backdrop-filter: url("#container-glass") blur(5px);
   pointer-events: none;
 }
 
@@ -399,9 +404,8 @@
   overflow: hidden;
   isolation: isolate;
   border-radius: inherit;
-  background: hsl(var(--glass-surface) / .7);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  backdrop-filter: url("#container-glass") blur(5px);
+  -webkit-backdrop-filter: url("#container-glass") blur(5px);
   pointer-events: none;
 }
 
@@ -458,10 +462,8 @@
 .dock-glass-destination[data-glass-active="true"]::after {
   z-index: -1;
   isolation: isolate;
-  backdrop-filter: blur(1px);
-  -webkit-backdrop-filter: blur(1px);
-  filter: url("#btn-glass");
-  -webkit-filter: url("#btn-glass");
+  backdrop-filter: url("#btn-glass") blur(5px);
+  -webkit-backdrop-filter: url("#btn-glass") blur(5px);
 }
 
 .dock-glass-destination > * {
@@ -513,9 +515,8 @@
   overflow: hidden;
   isolation: isolate;
   border-radius: 9999px;
-  background: hsl(var(--glass-surface) / .74);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  backdrop-filter: url("#container-glass") blur(5px);
+  -webkit-backdrop-filter: url("#container-glass") blur(5px);
   pointer-events: none;
 }
 
@@ -591,7 +592,7 @@
   box-shadow: inset 0 1px 0 hsl(0 0% 100% / .38);
   font-size: .76rem;
   font-weight: 680;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .period-trigger svg {
@@ -1070,9 +1071,8 @@
 
 .month-picker-box::after {
   z-index: 0;
-  background: hsl(var(--glass-surface) / .76);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: url("#container-glass") blur(5px);
+  -webkit-backdrop-filter: url("#container-glass") blur(5px);
 }
 
 .month-picker-box > * {
@@ -1122,6 +1122,14 @@
   box-shadow: 0 24px 64px hsl(var(--foreground) / .22);
 }
 
+.quick-period-gesture-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 119;
+  pointer-events: auto;
+  touch-action: none;
+}
+
 .quick-period-picker {
   position: fixed;
   z-index: 120;
@@ -1130,7 +1138,7 @@
   padding: .35rem;
   border: 0;
   border-radius: 1rem;
-  background: hsl(var(--glass-surface) / .68);
+  background: transparent;
   box-shadow: none;
   transform: translateY(-70.2px);
   pointer-events: auto;

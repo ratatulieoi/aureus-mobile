@@ -57,6 +57,11 @@ describe('subscription validation and hydration', () => {
     expect(decodeStoredSubscriptions('{bad')).toBeNull();
   });
 
+  it('hydrates every valid subscription without a collection-size cap', () => {
+    const subscriptions = Array.from({ length: 5_001 }, (_, index) => ({ ...BASE, id: `sub-${index}` }));
+    expect(decodeStoredSubscriptions(subscriptions)).toHaveLength(5_001);
+  });
+
   it('caps subscription IDs so lossless renewal IDs fit transaction validation', () => {
     expect(validateAndNormalizeSubscription({ ...BASE, id: 's'.repeat(MAX_SUBSCRIPTION_ID_LENGTH) }).ok).toBe(true);
     expect(validateAndNormalizeSubscription({ ...BASE, id: 's'.repeat(MAX_SUBSCRIPTION_ID_LENGTH + 1) }).ok).toBe(false);

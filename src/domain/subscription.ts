@@ -4,7 +4,6 @@ import type { Subscription, Transaction } from '@/domain/types';
 import { isValidIdentifier, MAX_TRANSACTION_AMOUNT, MAX_TRANSACTION_ID_LENGTH } from '@/domain/transaction-validation';
 
 export const SUBSCRIPTION_STORAGE_KEY = 'subscriptions';
-export const MAX_SUBSCRIPTIONS = 5_000;
 export const MAX_RENEWALS_PER_SUBSCRIPTION = 1_000;
 export const MAX_SUBSCRIPTION_NAME_LENGTH = 100;
 export const MAX_CYCLE_DAYS = 36_600;
@@ -89,7 +88,6 @@ export function decodeStoredSubscriptions(
   makeId: () => string = () => generateId('sub'),
 ): Subscription[] | null {
   if (!Array.isArray(value)) return null;
-  if (value.length > MAX_SUBSCRIPTIONS) return null;
 
   const subscriptions: Subscription[] = [];
   const ids = new Set<string>();

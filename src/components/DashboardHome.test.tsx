@@ -130,20 +130,65 @@ describe('DashboardHome', () => {
     expect(onPeriodChange).toHaveBeenCalledWith({ kind: 'month', month: 1, year: 2026 });
   });
 
-  it('opens quick periods after a hold and applies the highlighted period on release', () => {
+  it('opens an active quick-period gesture layer and keeps the current period on a plain release', () => {
     vi.useFakeTimers();
     const onPeriodChange = vi.fn();
     renderDashboard(vi.fn(), onPeriodChange);
     const trigger = screen.getByRole('button', { name: 'Hari ini' });
     fireEvent.pointerDown(trigger, { pointerId: 4, clientX: 20, clientY: 20 });
     act(() => vi.advanceTimersByTime(550));
+
     const picker = screen.getByRole('listbox', { name: 'Pilih periode cepat' });
-    expect(picker).toBeInTheDocument();
+    const layer = picker.closest('.quick-period-gesture-layer');
+    expect(layer).not.toBeNull();
+    expect(layer?.parentElement).toBe(document.body);
     expect(picker).toHaveAttribute('data-anchor-period', 'today');
-    expect(picker.parentElement).toBe(document.body);
     expect(screen.getByRole('option', { name: 'Hari ini' })).toHaveAttribute('aria-selected', 'true');
+
     fireEvent.pointerUp(trigger, { pointerId: 4, clientX: 20, clientY: 20 });
-    expect(onPeriodChange).toHaveBeenCalledWith({ kind: 'quick', id: 'today' });
+    expect(onPeriodChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole('listbox', { name: 'Pilih periode cepat' })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('selects a quick period only after sliding onto it and releasing', () => {
+    vi.useFakeTimers();
+    const onPeriodChange = vi.fn();
+    renderDashboard(vi.fn(), onPeriodChange);
+    const trigger = screen.getByRole('button', { name: 'Hari ini' });
+    fireEvent.pointerDown(trigger, { pointerId: 5, clientX: 20, clientY: 20 });
+    act(() => vi.advanceTimersByTime(550));
+    const target = screen.getByRole('option', { name: '7 hari' });
+    const originalElementFromPoint = document.elementFromPoint;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => target) });
+
+    fireEvent.pointerMove(trigger, { pointerId: 5, clientX: 80, clientY: 80 });
+    expect(target).toHaveAttribute('aria-selected', 'true');
+    fireEvent.pointerUp(trigger, { pointerId: 5, clientX: 80, clientY: 80 });
+
+    expect(onPeriodChange).toHaveBeenCalledOnce();
+    expect(onPeriodChange).toHaveBeenCalledWith({ kind: 'quick', id: '7d' });
+    expect(screen.queryByRole('listbox', { name: 'Pilih periode cepat' })).not.toBeInTheDocument();
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: originalElementFromPoint });
+    vi.useRealTimers();
+  });
+
+  it('closes the quick-period popup without changing period when released outside', () => {
+    vi.useFakeTimers();
+    const onPeriodChange = vi.fn();
+    renderDashboard(vi.fn(), onPeriodChange);
+    const trigger = screen.getByRole('button', { name: 'Hari ini' });
+    fireEvent.pointerDown(trigger, { pointerId: 6, clientX: 20, clientY: 20 });
+    act(() => vi.advanceTimersByTime(550));
+    const originalElementFromPoint = document.elementFromPoint;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => document.body) });
+
+    fireEvent.pointerMove(trigger, { pointerId: 6, clientX: 110, clientY: 110 });
+    fireEvent.pointerUp(trigger, { pointerId: 6, clientX: 110, clientY: 110 });
+
+    expect(onPeriodChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole('listbox', { name: 'Pilih periode cepat' })).not.toBeInTheDocument();
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: originalElementFromPoint });
     vi.useRealTimers();
   });
 });

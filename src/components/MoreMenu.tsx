@@ -83,7 +83,7 @@ const MoreMenu: React.FC<MoreMenuProps> = ({
   ];
   const dataItems: readonly MoreDestination[] = [
     { id: 'notifications', label: 'Notifikasi', description: `${notifications.length} notifikasi`, icon: Bell },
-    { id: 'backup', label: 'Backup & pulihkan', description: `${transactions.length} transaksi dan ${subscriptions.length} langganan tersimpan`, icon: DatabaseBackup },
+    { id: 'backup', label: 'Backup & pulihkan', description: 'Transaksi, langganan, kategori, dan jadwal notifikasi', icon: DatabaseBackup },
     { id: 'about', label: 'Tentang Aureus', description: 'Versi aplikasi dan tautan proyek', icon: Info },
   ];
 

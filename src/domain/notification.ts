@@ -2,7 +2,6 @@ import { addCalendarDays, parseLocalCalendarDate } from '@/domain/calendar-date'
 import { isValidIdentifier } from '@/domain/transaction-validation';
 import type { AppNotification, NotificationPreferences, Subscription } from '@/domain/types';
 
-export const MAX_NOTIFICATIONS = 5_000;
 export const MAX_NOTIFICATION_DAYS_BEFORE = 36_600;
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = { enabled: false };
 
@@ -48,7 +47,7 @@ export function decodeStoredNotifications(
   value: unknown,
   subscriptions: readonly Subscription[],
 ): AppNotification[] | null {
-  if (!Array.isArray(value) || value.length > MAX_NOTIFICATIONS) return null;
+  if (!Array.isArray(value)) return null;
   const subscriptionIds = new Set(subscriptions.map(({ id }) => id));
   const ids = new Set<string>();
   const notifications: AppNotification[] = [];

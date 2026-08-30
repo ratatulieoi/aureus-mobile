@@ -1,18 +1,15 @@
 import type { AppNotification, CategoryCatalog, NotificationPreferences, Subscription, Transaction } from '@/domain/types';
 import { generateId } from '@/domain/id';
-import { MAX_SUBSCRIPTIONS, validateAndNormalizeSubscription } from '@/domain/subscription';
+import { validateAndNormalizeSubscription } from '@/domain/subscription';
 import { normalizeTransactionDate, validateAndNormalizeTransaction } from '@/domain/transaction-validation';
 import { createDefaultCategoryCatalog, validateCategoryCatalog } from '@/domain/categories';
-import { decodeNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, MAX_NOTIFICATIONS, migrateLegacyNotifications, validateAndNormalizeAppNotification } from '@/domain/notification';
+import { decodeNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, migrateLegacyNotifications, validateAndNormalizeAppNotification } from '@/domain/notification';
 
 export const CURRENT_BACKUP_VERSION = '6.0';
 export const PREVIOUS_BACKUP_VERSION = '5.0';
 export const CATEGORY_BACKUP_VERSION = '4.0';
 export const LEGACY_BACKUP_VERSION = '3.0';
 export const TRANSACTION_ONLY_BACKUP_VERSION = '2.0';
-export const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
-export const MAX_BACKUP_TRANSACTIONS = 50_000;
-export const MAX_BACKUP_JSON_DEPTH = 12;
 
 export interface TransactionDecodeOptions {
   generateId?: () => string;
@@ -62,15 +59,6 @@ export function createBackupEnvelope(
 ): BackupEnvelope {
   const categories = categoriesOrNow instanceof Date ? createDefaultCategoryCatalog() : categoriesOrNow;
   const now = categoriesOrNow instanceof Date ? categoriesOrNow : explicitNow;
-  if (transactions.length > MAX_BACKUP_TRANSACTIONS) {
-    throw new BackupValidationError(`Tidak dapat mengekspor lebih dari ${MAX_BACKUP_TRANSACTIONS} transaksi`);
-  }
-  if (subscriptions.length > MAX_SUBSCRIPTIONS) {
-    throw new BackupValidationError(`Tidak dapat mengekspor lebih dari ${MAX_SUBSCRIPTIONS} langganan`);
-  }
-  if (notifications.length > MAX_NOTIFICATIONS) {
-    throw new BackupValidationError(`Tidak dapat mengekspor lebih dari ${MAX_NOTIFICATIONS} notifikasi`);
-  }
   const normalizedCategories = validateCategoryCatalog(categories);
   if (!normalizedCategories) throw new BackupValidationError('Daftar kategori tidak valid');
   if (Number.isNaN(now.getTime())) throw new BackupValidationError('Tanggal ekspor backup tidak valid');
@@ -136,27 +124,8 @@ export function decodeStoredTransactions(
   return transactions;
 }
 
-function assertJsonDepth(value: unknown, maxDepth: number): void {
-  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current) break;
-    if (current.depth > maxDepth) {
-      throw new BackupValidationError(`Backup terlalu kompleks (maksimum kedalaman ${maxDepth})`);
-    }
-    if (Array.isArray(current.value)) {
-      for (const item of current.value) stack.push({ value: item, depth: current.depth + 1 });
-    } else if (isRecord(current.value)) {
-      for (const item of Object.values(current.value)) stack.push({ value: item, depth: current.depth + 1 });
-    }
-  }
-}
-
 function decodeStrictTransactions(value: unknown, expectedCount: unknown): Transaction[] {
   if (!Array.isArray(value)) throw new BackupValidationError('Daftar transaksi backup tidak valid');
-  if (value.length > MAX_BACKUP_TRANSACTIONS) {
-    throw new BackupValidationError(`Backup melebihi batas ${MAX_BACKUP_TRANSACTIONS} transaksi`);
-  }
   if (!Number.isSafeInteger(expectedCount) || expectedCount !== value.length) {
     throw new BackupValidationError('Jumlah transaksi backup tidak sesuai dengan isinya');
   }
@@ -173,7 +142,6 @@ function decodeStrictTransactions(value: unknown, expectedCount: unknown): Trans
 
 function decodeStrictSubscriptions(value: unknown, expectedCount: unknown): Subscription[] {
   if (!Array.isArray(value)) throw new BackupValidationError('Daftar langganan backup tidak valid');
-  if (value.length > MAX_SUBSCRIPTIONS) throw new BackupValidationError(`Backup melebihi batas ${MAX_SUBSCRIPTIONS} langganan`);
   if (!Number.isSafeInteger(expectedCount) || expectedCount !== value.length) {
     throw new BackupValidationError('Jumlah langganan backup tidak sesuai dengan isinya');
   }
@@ -190,7 +158,6 @@ function decodeStrictSubscriptions(value: unknown, expectedCount: unknown): Subs
 
 function decodeStrictNotifications(value: unknown, expectedCount: unknown, subscriptions: readonly Subscription[]): AppNotification[] {
   if (!Array.isArray(value)) throw new BackupValidationError('Daftar notifikasi backup tidak valid');
-  if (value.length > MAX_NOTIFICATIONS) throw new BackupValidationError(`Backup melebihi batas ${MAX_NOTIFICATIONS} notifikasi`);
   if (!Number.isSafeInteger(expectedCount) || expectedCount !== value.length) {
     throw new BackupValidationError('Jumlah notifikasi backup tidak sesuai dengan isinya');
   }
@@ -207,7 +174,6 @@ function decodeStrictNotifications(value: unknown, expectedCount: unknown, subsc
 
 /** Strict all-or-nothing decoder; v2-v5 remain read-only compatibility formats. */
 export function decodeBackup(value: unknown): DecodedBackup {
-  assertJsonDepth(value, MAX_BACKUP_JSON_DEPTH);
   if (!isRecord(value)) throw new BackupValidationError('Format backup harus berupa objek');
   if (![CURRENT_BACKUP_VERSION, PREVIOUS_BACKUP_VERSION, CATEGORY_BACKUP_VERSION, LEGACY_BACKUP_VERSION, TRANSACTION_ONLY_BACKUP_VERSION].includes(value.version as string)) {
     throw new BackupValidationError(`Versi backup tidak didukung; diperlukan versi ${CURRENT_BACKUP_VERSION} hingga ${TRANSACTION_ONLY_BACKUP_VERSION}`);
@@ -285,10 +251,6 @@ export function decodeBackup(value: unknown): DecodedBackup {
 }
 
 export function parseBackupText(text: string): DecodedBackup {
-  if (new Blob([text]).size > MAX_BACKUP_BYTES) {
-    throw new BackupValidationError(`File backup terlalu besar (maksimum ${MAX_BACKUP_BYTES / 1024 / 1024} MB)`);
-  }
-
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

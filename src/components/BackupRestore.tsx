@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Download, Upload, FileJson, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { AppNotification, CategoryCatalog, NotificationPreferences, Subscription, Transaction } from '@/domain/types';
-import { createBackupEnvelope, MAX_BACKUP_BYTES, parseBackupText, type DecodedBackup } from '@/domain/backup';
+import { createBackupEnvelope, parseBackupText, type DecodedBackup } from '@/domain/backup';
 import { formatLocalCalendarDate } from '@/domain/calendar-date';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -77,11 +77,6 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
   const handleRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_BACKUP_BYTES) {
-      setMessage({ type: 'error', text: `File backup terlalu besar (maksimum ${MAX_BACKUP_BYTES / 1024 / 1024} MB).` });
-      resetInput();
-      return;
-    }
 
     setIsProcessing(true);
     setMessage(null);
@@ -116,6 +111,11 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
     resetInput();
   };
 
+  const categorySummary = categories
+    ? `${(categories.expense.length + categories.income.length).toLocaleString('id-ID')} kategori`
+    : 'kategori bawaan';
+  const backupSummary = `${transactions.length.toLocaleString('id-ID')} transaksi, ${subscriptions.length.toLocaleString('id-ID')} langganan, ${categorySummary}, dan ${notifications.length.toLocaleString('id-ID')} jadwal notifikasi`;
+
   const confirmRestore = () => {
     if (!pendingRestore) return;
     const count = pendingRestore.transactions.length;
@@ -130,13 +130,13 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ transactions, subscriptio
     <>
       <Card className="aureus-form-card p-5">
         <div className="space-y-6">
-          <div><h2 className="mb-1 text-xl font-bold text-foreground">Backup & Restore</h2><p className="text-sm leading-relaxed text-muted-foreground">Simpan atau pulihkan transaksi, langganan, kategori, dan jadwal notifikasi dalam format JSON tervalidasi.</p></div>
+          <div><h2 className="mb-1 text-xl font-bold text-foreground">Backup & pulihkan</h2><p className="text-sm leading-relaxed text-muted-foreground">Simpan atau pulihkan semua data Aureus dalam satu file JSON.</p></div>
           {message && <Alert role={message.type === 'error' ? 'alert' : 'status'} aria-live={message.type === 'error' ? 'assertive' : 'polite'} variant={message.type === 'error' ? 'destructive' : 'default'}>{message.type === 'success' ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" /> : <AlertCircle aria-hidden="true" className="h-4 w-4" />}<AlertDescription>{message.text}</AlertDescription></Alert>}
           <div className="form-option-grid">
-            <section className="form-option"><div className="form-option-heading"><Download aria-hidden="true" /><div><h3>Backup Data</h3><p>Ekspor seluruh data ke satu file.</p></div></div><Button onClick={handleBackup} disabled={isProcessing} aria-busy={isProcessing} className="w-full whitespace-normal"><FileJson aria-hidden="true" />{isProcessing ? 'Memproses...' : `Backup (${transactions.length} transaksi)`}</Button></section>
-            <section className="form-option"><div className="form-option-heading"><Upload aria-hidden="true" /><div><h3>Restore Data</h3><p id="restore-file-help">Validasi dahulu, lalu konfirmasi penggantian.</p></div></div><Button ref={restoreButtonRef} onClick={() => fileInputRef.current?.click()} disabled={isProcessing} aria-busy={isProcessing} variant="outline" className="w-full whitespace-normal"><Upload aria-hidden="true" />{isProcessing ? 'Memproses...' : 'Pilih File Backup'}</Button><input ref={fileInputRef} id="restore-file-input" type="file" accept=".json,application/json" aria-describedby="restore-file-help" aria-label="Pilih file backup JSON" onChange={handleRestore} className="sr-only" tabIndex={-1} /></section>
+            <section className="form-option"><div className="form-option-heading"><Download aria-hidden="true" /><div><h3>Backup semua data</h3><p id="backup-content-summary">{backupSummary}. Termasuk waktu, langganan yang dipilih, dan status notifikasi perangkat.</p></div></div><Button onClick={handleBackup} disabled={isProcessing} aria-busy={isProcessing} aria-describedby="backup-content-summary" className="w-full whitespace-normal"><FileJson aria-hidden="true" />{isProcessing ? 'Membuat backup...' : 'Buat file backup'}</Button></section>
+            <section className="form-option"><div className="form-option-heading"><Upload aria-hidden="true" /><div><h3>Pulihkan semua data</h3><p id="restore-file-help">Pilih file JSON. Isinya diperiksa sebelum mengganti data saat ini.</p></div></div><Button ref={restoreButtonRef} onClick={() => fileInputRef.current?.click()} disabled={isProcessing} aria-busy={isProcessing} variant="outline" className="w-full whitespace-normal"><Upload aria-hidden="true" />{isProcessing ? 'Memeriksa backup...' : 'Pilih file backup'}</Button><input ref={fileInputRef} id="restore-file-input" type="file" accept=".json,application/json" aria-describedby="restore-file-help" aria-label="Pilih file backup JSON" onChange={handleRestore} className="sr-only" tabIndex={-1} /></section>
           </div>
-          <Alert role="note"><AlertCircle aria-hidden="true" className="h-4 w-4" /><AlertDescription className="text-xs"><strong>Perhatian:</strong> Restore yang dikonfirmasi mengganti seluruh data saat ini, termasuk jadwal notifikasi. Izin perangkat tetap harus diberikan pada perangkat ini. File tidak valid tidak akan mengubah data.</AlertDescription></Alert>
+          <Alert role="note"><AlertCircle aria-hidden="true" className="h-4 w-4" /><AlertDescription className="text-xs">Memulihkan backup mengganti semua data saat ini. Jadwal notifikasi ikut dipulihkan, tetapi tetap nonaktif sampai Anda mengaktifkannya di perangkat ini. Izin Android tidak ikut dipindahkan.</AlertDescription></Alert>
         </div>
       </Card>
 

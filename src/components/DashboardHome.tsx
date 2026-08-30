@@ -99,7 +99,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   const periodOriginRef = useRef<{ x: number; y: number } | null>(null);
   const periodHeldRef = useRef(false);
   const periodCancelledRef = useRef(false);
-  const highlightedQuickRef = useRef<QuickPeriodId | null>(null);
 
   const filtered = useMemo(
     () => filterTransactionsForDashboard(transactions, period, now),
@@ -172,6 +171,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     event.currentTarget.setPointerCapture(event.pointerId);
     periodHoldRef.current = window.setTimeout(() => {
       periodHeldRef.current = true;
+      setYearPickerOpen(false);
+      setMonthPickerOpen(false);
       const current = period.kind === 'quick' ? period.id : null;
       const controlRect = periodControlRef.current?.getBoundingClientRect();
       const labelRect = periodLabelRef.current?.getBoundingClientRect();
@@ -181,48 +182,53 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           labelCenterY: labelRect.top + labelRect.height / 2,
         });
       }
-      highlightedQuickRef.current = current;
       setQuickPickerOpen(true);
       setHighlightedQuick(current);
     }, HOLD_MS);
   };
 
-  const handlePeriodPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const quickPeriodAtPoint = (clientX: number, clientY: number): QuickPeriodId | null => {
+    const target = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-quick-period]');
+    return (target?.dataset.quickPeriod as QuickPeriodId | undefined) ?? null;
+  };
+
+  const handlePeriodPointerMove = (event: React.PointerEvent<Element>) => {
     const origin = periodOriginRef.current;
     if (!origin) return;
-    if (!periodHeldRef.current && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > MOVE_TOLERANCE) {
+    const distance = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
+    if (!periodHeldRef.current && distance > MOVE_TOLERANCE) {
       periodCancelledRef.current = true;
       clearPeriodHold();
       return;
     }
-    if (!periodHeldRef.current) return;
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-quick-period]');
-    const next = (target?.dataset.quickPeriod as QuickPeriodId | undefined) ?? null;
-    highlightedQuickRef.current = next;
+    if (!periodHeldRef.current || distance <= MOVE_TOLERANCE) return;
+    const next = quickPeriodAtPoint(event.clientX, event.clientY);
     setHighlightedQuick(next);
   };
 
-  const finishPeriodGesture = () => {
+  const resetQuickPeriodGesture = () => {
+    setQuickPickerOpen(false);
+    setQuickPickerAnchor(null);
+    setHighlightedQuick(null);
+  };
+
+  const finishPeriodGesture = (event: React.PointerEvent<Element>) => {
     const held = periodHeldRef.current;
-    const selected = highlightedQuickRef.current;
+    const origin = periodOriginRef.current;
+    const dragged = origin !== null && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > MOVE_TOLERANCE;
+    const selected = held && dragged ? quickPeriodAtPoint(event.clientX, event.clientY) : null;
     clearPeriodHold();
-    if (held) {
-      if (selected) onPeriodChange({ kind: 'quick', id: selected });
-      setQuickPickerOpen(false);
-      setQuickPickerAnchor(null);
-      highlightedQuickRef.current = null;
-      setHighlightedQuick(null);
-      window.setTimeout(() => { periodHeldRef.current = false; }, 0);
-    }
+    if (!held) return;
+    if (selected) onPeriodChange({ kind: 'quick', id: selected });
+    resetQuickPeriodGesture();
+    window.setTimeout(() => { periodHeldRef.current = false; }, 0);
   };
 
   const cancelPeriodGesture = () => {
+    periodCancelledRef.current = true;
     clearPeriodHold();
     periodHeldRef.current = false;
-    setQuickPickerOpen(false);
-    setQuickPickerAnchor(null);
-    highlightedQuickRef.current = null;
-    setHighlightedQuick(null);
+    resetQuickPeriodGesture();
   };
 
   return (
@@ -236,6 +242,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
               aria-haspopup="dialog"
               aria-expanded={monthPickerOpen || quickPickerOpen}
               onClick={openMonthPicker}
+              onContextMenu={(event) => event.preventDefault()}
               onPointerDown={handlePeriodPointerDown}
               onPointerMove={handlePeriodPointerMove}
               onPointerUp={finishPeriodGesture}
@@ -328,38 +335,32 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
       {quickPickerOpen && quickPickerAnchor && createPortal(
         <div
-          className="quick-period-picker liquid-glass-overlay"
-          role="listbox"
-          aria-label="Pilih periode cepat"
-          data-anchor-period="today"
-          style={{ left: quickPickerAnchor.left, top: quickPickerAnchor.labelCenterY }}
+          className="quick-period-gesture-layer"
+          role="presentation"
+          onContextMenu={(event) => event.preventDefault()}
+          onPointerMove={handlePeriodPointerMove}
+          onPointerUp={finishPeriodGesture}
+          onPointerCancel={cancelPeriodGesture}
         >
-          {QUICK_PERIOD_OPTIONS.map(({ id, label }) => (
-            <div
-              key={id}
-              data-quick-period={id}
-              role="option"
-              aria-selected={highlightedQuick === id}
-              className={highlightedQuick === id ? 'is-highlighted' : undefined}
-              onPointerEnter={() => {
-                if (!periodHeldRef.current) return;
-                highlightedQuickRef.current = id;
-                setHighlightedQuick(id);
-              }}
-              onPointerUp={() => {
-                if (!periodHeldRef.current) return;
-                onPeriodChange({ kind: 'quick', id });
-                periodHeldRef.current = false;
-                clearPeriodHold();
-                setQuickPickerOpen(false);
-                setQuickPickerAnchor(null);
-                highlightedQuickRef.current = null;
-                setHighlightedQuick(null);
-              }}
-            >
-              {label}
-            </div>
-          ))}
+          <div
+            className="quick-period-picker liquid-glass-overlay"
+            role="listbox"
+            aria-label="Pilih periode cepat"
+            data-anchor-period="today"
+            style={{ left: quickPickerAnchor.left, top: quickPickerAnchor.labelCenterY }}
+          >
+            {QUICK_PERIOD_OPTIONS.map(({ id, label }) => (
+              <div
+                key={id}
+                data-quick-period={id}
+                role="option"
+                aria-selected={highlightedQuick === id}
+                className={highlightedQuick === id ? 'is-highlighted' : undefined}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
         </div>,
         document.body,
       )}

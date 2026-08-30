@@ -73,7 +73,7 @@ describe('Index mobile navigation and dashboard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Buka menu Aureus' }));
     await user.click(screen.getByRole('menuitem', { name: /Backup & pulihkan/ }));
-    expect(await screen.findByRole('heading', { name: 'Backup & Restore' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Backup & pulihkan' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Others' })).toHaveAttribute('aria-current', 'page');
 
     await user.click(screen.getByRole('button', { name: 'Buka menu Aureus' }));

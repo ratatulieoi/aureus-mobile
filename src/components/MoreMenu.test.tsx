@@ -56,7 +56,7 @@ describe('Others menu', () => {
     expect(screen.getByRole('heading', { name: 'Data & aplikasi' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Kelola kategori/ })).toHaveTextContent('17 kategori pemasukan dan pengeluaran');
     expect(screen.getByRole('button', { name: /Notifikasi/ })).toHaveTextContent('0 notifikasi');
-    expect(screen.getByRole('button', { name: /Backup & pulihkan/ })).toHaveTextContent('1 transaksi dan 1 langganan tersimpan');
+    expect(screen.getByRole('button', { name: /Backup & pulihkan/ })).toHaveTextContent('Transaksi, langganan, kategori, dan jadwal notifikasi');
 
     const themeButton = screen.getByRole('button', { name: /Tema aplikasi, Terang aktif/ });
     expect(themeButton).toHaveAttribute('aria-pressed', 'false');

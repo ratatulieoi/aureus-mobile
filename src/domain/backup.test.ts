@@ -3,7 +3,6 @@ import {
   createBackupEnvelope,
   decodeBackup,
   decodeStoredTransactions,
-  MAX_BACKUP_BYTES,
   parseBackupText,
 } from '@/domain/backup';
 import type { Subscription, Transaction } from '@/domain/types';
@@ -167,9 +166,7 @@ describe('strict backup decoding', () => {
     expect(() => decodeBackup({ ...envelope, transactionCount: 2 })).toThrow('Jumlah transaksi');
     expect(() => decodeBackup({ ...envelope, subscriptions: [{ ...subscription, cycleDays: 0 }] }))
       .toThrow('Langganan ke-1');
-    expect(() => decodeBackup({ ...envelope, extra: [[[[[[[[[[[[[1]]]]]]]]]]]]] })).toThrow('terlalu kompleks');
     expect(() => parseBackupText('{bad')).toThrow('bukan JSON');
-    expect(() => parseBackupText(' '.repeat(MAX_BACKUP_BYTES + 1))).toThrow('terlalu besar');
   });
 
   it('refuses to export invalid or duplicate current state', () => {
@@ -179,11 +176,36 @@ describe('strict backup decoding', () => {
     expect(() => createBackupEnvelope([], [subscription, subscription])).toThrow('ID langganan duplikat');
   });
 
-  it('refuses to export counts that strict restore would reject', () => {
-    const tooManyTransactions = Array.from({ length: 50_001 }, () => transaction);
-    const tooManySubscriptions = Array.from({ length: 5_001 }, () => subscription);
-    expect(() => createBackupEnvelope(tooManyTransactions, [])).toThrow('lebih dari 50000 transaksi');
-    expect(() => createBackupEnvelope([], tooManySubscriptions)).toThrow('lebih dari 5000 langganan');
+  it('does not impose collection or file-size limits on valid backups', () => {
+    const manyTransactions = Array.from({ length: 50_001 }, (_, index) => ({ ...transaction, id: `tx-${index}` }));
+    const manySubscriptions = Array.from({ length: 5_001 }, (_, index) => ({ ...subscription, id: `sub-${index}` }));
+    const manyNotifications = Array.from({ length: 5_001 }, (_, index) => ({
+      id: `note-${index}`,
+      daysBefore: 3,
+      time: '08:00',
+      subscriptionIds: [`sub-${index}`],
+    }));
+    const manyCategories = createDefaultCategoryCatalog();
+    manyCategories.expense.push(...Array.from({ length: 201 }, (_, index) => `Kategori ${index}`));
+    const envelope = createBackupEnvelope(
+      manyTransactions,
+      manySubscriptions,
+      manyCategories,
+      new Date('2026-03-15T00:00:00Z'),
+      manyNotifications,
+      { enabled: true },
+    );
+    const text = JSON.stringify(envelope);
+    const decoded = parseBackupText(text);
+
+    expect(new Blob([text]).size).toBeGreaterThan(5 * 1024 * 1024);
+    expect(decoded.transactions).toHaveLength(50_001);
+    expect(decoded.subscriptions).toHaveLength(5_001);
+    expect(decoded.categories.expense).toHaveLength(createDefaultCategoryCatalog().expense.length + 201);
+    expect(decoded.notifications).toHaveLength(5_001);
+  });
+
+  it('still rejects invalid export dates', () => {
     expect(() => createBackupEnvelope([], [], new Date(Number.NaN))).toThrow('Tanggal ekspor');
     const outsideCanonicalRange = new Date(0);
     outsideCanonicalRange.setUTCFullYear(10_000, 0, 1);

@@ -41,6 +41,11 @@ describe('notification items', () => {
     expect(decodeStoredNotifications({}, [netflix])).toBeNull();
   });
 
+  it('hydrates every valid notification without a collection-size cap', () => {
+    const notifications = Array.from({ length: 5_001 }, (_, index) => ({ ...reminder, id: `note-${index}` }));
+    expect(decodeStoredNotifications(notifications, [netflix, spotify])).toHaveLength(5_001);
+  });
+
   it('counts assignments and unassigns a deleted subscription without deleting the item', () => {
     expect(countSubscriptionNotifications([reminder], netflix.id)).toBe(1);
     expect(removeNotificationsForSubscription([reminder], netflix.id)).toEqual([{ ...reminder, subscriptionIds: [spotify.id] }]);
