@@ -10,7 +10,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import type { Transaction, TransactionType } from '@/domain/types';
+import type { CategoryCatalog, Transaction, TransactionType } from '@/domain/types';
 import { calendarDateToLocalInstant, formatLocalCalendarDate } from '@/domain/calendar-date';
 import { parsePositiveFiniteAmount, transactionCalendarDate, validateAndNormalizeTransaction } from '@/domain/transaction-validation';
 import DeleteConfirmation from '@/components/DeleteConfirmation';
@@ -20,15 +20,18 @@ import TransactionAmountField from '@/components/TransactionAmountField';
 
 interface ActivityScreenProps {
   transactions: Transaction[];
+  categories: CategoryCatalog;
   onUpdateTransaction: (transaction: Transaction) => boolean;
   onDeleteTransaction: (id: string) => void;
 }
 
 type TypeFilter = 'all' | TransactionType;
 
+const amountFormatter = new Intl.NumberFormat('id-ID');
+const timeFormatter = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
 const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
 const dateFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
+const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, categories, onUpdateTransaction, onDeleteTransaction }) => {
   const currentMonth = formatLocalCalendarDate(new Date()).slice(0, 7);
   const [period, setPeriod] = useState(currentMonth);
   const [query, setQuery] = useState('');
@@ -61,13 +64,17 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
     if (effectiveCategoryFilter !== categoryFilter) setCategoryFilter(effectiveCategoryFilter);
   }, [categoryFilter, effectiveCategoryFilter]);
 
+  const sortedPeriodTransactions = useMemo(() => periodTransactions
+    .map((transaction) => ({ transaction, timestamp: new Date(transaction.date).getTime() }))
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .map(({ transaction }) => transaction), [periodTransactions]);
+
   const searchedTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('id-ID');
-    return periodTransactions
-      .filter((transaction) => effectiveCategoryFilter === 'all' || transaction.category === effectiveCategoryFilter)
-      .filter((transaction) => !normalizedQuery || `${transaction.description} ${transaction.category}`.toLocaleLowerCase('id-ID').includes(normalizedQuery))
-      .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-  }, [effectiveCategoryFilter, periodTransactions, query]);
+    return sortedPeriodTransactions.filter((transaction) =>
+      (effectiveCategoryFilter === 'all' || transaction.category === effectiveCategoryFilter)
+      && (!normalizedQuery || `${transaction.description} ${transaction.category}`.toLocaleLowerCase('id-ID').includes(normalizedQuery)));
+  }, [effectiveCategoryFilter, sortedPeriodTransactions, query]);
 
   const visibleTransactions = useMemo(() => searchedTransactions
     .filter((transaction) => typeFilter === 'all' || transaction.type === typeFilter), [searchedTransactions, typeFilter]);
@@ -193,6 +200,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ transactions, onUpdateT
       {editing && (
         <ActivityEditSheet
           transaction={editing}
+          categories={categories}
           onClose={() => setEditing(null)}
           onDelete={() => { setPendingDelete(editing); setEditing(null); }}
           onSave={(next) => {
@@ -241,12 +249,13 @@ interface ActivityTransactionRowProps {
 
 const ActivityTransactionRow: React.FC<ActivityTransactionRowProps> = ({ transaction, onOpen }) => {
   const TypeIcon = transaction.type === 'income' ? ArrowDownLeft : ArrowUpRight;
+  const formattedAmount = amountFormatter.format(transaction.amount);
 
   return (
     <button
       type="button"
       className="activity-transaction-row"
-      aria-label={`Edit ${transaction.description}, ${transaction.category}, ${transaction.type === 'income' ? 'pemasukan' : 'pengeluaran'} Rp${transaction.amount.toLocaleString('id-ID')}`}
+      aria-label={`Edit ${transaction.description}, ${transaction.category}, ${transaction.type === 'income' ? 'pemasukan' : 'pengeluaran'} Rp${formattedAmount}`}
       onClick={onOpen}
     >
       <span className={`activity-transaction-icon${transaction.type === 'income' ? ' is-income' : ''}`}>
@@ -258,7 +267,7 @@ const ActivityTransactionRow: React.FC<ActivityTransactionRowProps> = ({ transac
       </span>
       <span className="activity-transaction-trailing">
         <strong className={`activity-transaction-amount${transaction.type === 'income' ? ' is-income' : ''}`}>
-          {transaction.type === 'income' ? '+' : '−'}Rp{transaction.amount.toLocaleString('id-ID')}
+          {transaction.type === 'income' ? '+' : '−'}Rp{formattedAmount}
         </strong>
         <ChevronRight aria-hidden="true" />
       </span>
@@ -268,12 +277,13 @@ const ActivityTransactionRow: React.FC<ActivityTransactionRowProps> = ({ transac
 
 interface ActivityEditSheetProps {
   transaction: Transaction;
+  categories: CategoryCatalog;
   onClose: () => void;
   onDelete: () => void;
   onSave: (transaction: Transaction) => boolean;
 }
 
-const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onClose, onDelete, onSave }) => {
+const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, categories, onClose, onDelete, onSave }) => {
   const [type, setType] = useState<TransactionType>(transaction.type);
   const [amount, setAmount] = useState(String(transaction.amount));
   const [description, setDescription] = useState(transaction.description);
@@ -282,11 +292,24 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
   const today = formatLocalCalendarDate(new Date());
   useMobileBackDismiss(true, onClose);
 
+  // Preserve historical and system categories without offering them to other transactions.
+  const categoryOptions = type === transaction.type && !categories[type].includes(transaction.category)
+    ? [transaction.category, ...categories[type]]
+    : categories[type];
+  const selectedCategory = categoryOptions.includes(category) ? category : '';
+  const changeType = (nextType: TransactionType) => {
+    if (nextType === type) return;
+    const canKeepCategory = categories[nextType].includes(category)
+      || (nextType === transaction.type && category === transaction.category);
+    setCategory(canKeepCategory ? category : '');
+    setType(nextType);
+  };
+
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     const parsedAmount = parsePositiveFiniteAmount(amount);
     const instant = calendarDateToLocalInstant(date, new Date(transaction.date));
-    if (parsedAmount === null || !instant || date > today || !description.trim() || !category.trim()) {
+    if (parsedAmount === null || !instant || date > today || !description.trim() || !selectedCategory) {
       toast({ variant: 'destructive', title: 'Perubahan belum disimpan', description: 'Periksa jenis, jumlah, deskripsi, kategori, dan tanggal.' });
       return;
     }
@@ -295,7 +318,7 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
       type,
       amount: parsedAmount,
       description: description.trim(),
-      category: category.trim(),
+      category: selectedCategory,
       date: instant,
     }, { requireId: true });
     if (!result.ok) {
@@ -315,8 +338,8 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
         </header>
         <form onSubmit={save} className="transaction-sheet-form activity-edit-form">
           <div className="transaction-type-choice" role="group" aria-label="Jenis transaksi">
-            <button type="button" aria-pressed={type === 'expense'} onClick={() => setType('expense')}>Pengeluaran</button>
-            <button type="button" aria-pressed={type === 'income'} onClick={() => setType('income')}>Pemasukan</button>
+            <button type="button" aria-pressed={type === 'expense'} onClick={() => changeType('expense')}>Pengeluaran</button>
+            <button type="button" aria-pressed={type === 'income'} onClick={() => changeType('income')}>Pemasukan</button>
           </div>
 
           <TransactionAmountField
@@ -335,7 +358,11 @@ const ActivityEditSheet: React.FC<ActivityEditSheetProps> = ({ transaction, onCl
 
             <div className="transaction-line-field">
               <label htmlFor="edit-activity-category">Kategori</label>
-              <input id="edit-activity-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} required />
+              <select id="edit-activity-category" value={selectedCategory} onChange={(event) => setCategory(event.target.value)} required>
+                <option value="" disabled>Pilih kategori</option>
+                {categoryOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+              {categoryOptions.length === 0 && <p>Belum ada kategori untuk jenis ini. Tambahkan melalui Others → Kelola kategori.</p>}
             </div>
 
             <div className="transaction-line-field">
@@ -370,7 +397,7 @@ function displayDate(value: string): string {
 
 function formatTime(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '00.00' : date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  return Number.isNaN(date.getTime()) ? '00.00' : timeFormatter.format(date);
 }
 
 export default ActivityScreen;

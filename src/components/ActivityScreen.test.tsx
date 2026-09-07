@@ -2,10 +2,16 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { describe, expect, it, vi } from 'vitest';
-import ActivityScreen from './ActivityScreen';
+import ActivityScreenComponent from './ActivityScreen';
+import type { ComponentProps } from 'react';
+import { createDefaultCategoryCatalog } from '@/domain/categories';
 import type { Transaction } from '@/domain/types';
 
 expect.extend(toHaveNoViolations);
+
+const ActivityScreen = (props: Omit<ComponentProps<typeof ActivityScreenComponent>, 'categories'> & Partial<Pick<ComponentProps<typeof ActivityScreenComponent>, 'categories'>>) => (
+  <ActivityScreenComponent categories={createDefaultCategoryCatalog()} {...props} />
+);
 
 const today = new Date();
 const transactions: Transaction[] = [
@@ -43,6 +49,24 @@ describe('ActivityScreen', () => {
     expect(screen.getByText('Proyek')).toBeInTheDocument();
   });
 
+  it('keeps newest-first order and Indonesian formatting when filtering or updating records', () => {
+    const { rerender } = render(<ActivityScreen transactions={transactions} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
+    const rows = () => screen.getAllByRole('button', { name: /^Edit / });
+    expect(rows()[0]).toHaveAccessibleName('Edit Makan siang, Makanan & Minuman, pengeluaran Rp25.000');
+    expect(rows()[1]).toHaveAccessibleName('Edit Proyek, Freelance, pemasukan Rp100.000');
+    expect(within(rows()[0]).getByText('Makanan & Minuman · 12.00')).toBeInTheDocument();
+    expect(within(rows()[1]).getByText('Freelance · 09.00')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Cari transaksi'), { target: { value: 'proyek' } });
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]).toHaveTextContent('Proyek');
+    fireEvent.change(screen.getByLabelText('Cari transaksi'), { target: { value: '' } });
+    const updated = [{ ...transactions[0], date: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 15).toISOString() }, transactions[1]];
+    rerender(<ActivityScreen transactions={updated} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
+    expect(rows()[0]).toHaveTextContent('Proyek');
+    expect(rows()[1]).toHaveTextContent('Makan siang');
+    expect(within(rows()[0]).getByText('Freelance · 15.00')).toBeInTheDocument();
+  });
+
   it('filters by an existing category, searches, and opens the populated edit sheet on a normal tap', async () => {
     const user = userEvent.setup();
     render(<ActivityScreen transactions={transactions} onUpdateTransaction={() => true} onDeleteTransaction={vi.fn()} />);
@@ -62,6 +86,63 @@ describe('ActivityScreen', () => {
     const typeChoices = within(screen.getByRole('group', { name: 'Jenis transaksi' }));
     expect(typeChoices.getByRole('button', { name: 'Pemasukan' })).toHaveAttribute('aria-pressed', 'true');
     expect(typeChoices.getByRole('button', { name: 'Pengeluaran' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('selects from the saved catalog, including unused custom categories, without accepting free text', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn(() => true);
+    const categories = { expense: ['Makanan & Minuman', 'Kucing'], income: ['Freelance', 'Gaji'] };
+    render(<ActivityScreen transactions={transactions} categories={categories} onUpdateTransaction={onUpdate} onDeleteTransaction={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /Edit Makan siang/ }));
+    const select = screen.getByRole('combobox', { name: 'Kategori' });
+    expect(screen.queryByRole('textbox', { name: 'Kategori' })).not.toBeInTheDocument();
+    expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['Pilih kategori', 'Makanan & Minuman', 'Kucing']);
+    await user.selectOptions(select, 'Kucing');
+    expect(onUpdate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Simpan perubahan' }));
+    expect(onUpdate).toHaveBeenCalledWith({ ...transactions[1], category: 'Kucing' });
+  });
+
+  it('requires a matching category after changing the transaction type', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn(() => true);
+    render(<ActivityScreen transactions={transactions} onUpdateTransaction={onUpdate} onDeleteTransaction={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /Edit Makan siang/ }));
+    await user.click(within(screen.getByRole('group', { name: 'Jenis transaksi' })).getByRole('button', { name: 'Pemasukan' }));
+    const select = screen.getByRole('combobox', { name: 'Kategori' });
+    expect(select).toHaveValue('');
+    expect(within(select).queryByRole('option', { name: 'Makanan & Minuman' })).not.toBeInTheDocument();
+    fireEvent.submit(select.closest('form')!);
+    expect(onUpdate).not.toHaveBeenCalled();
+    await user.selectOptions(select, 'Gaji');
+    await user.click(screen.getByRole('button', { name: 'Simpan perubahan' }));
+    expect(onUpdate).toHaveBeenCalledWith({ ...transactions[1], type: 'income', category: 'Gaji' });
+  });
+
+  it.each(['Kategori lama', 'Langganan'])('preserves the original %s category when it is outside the catalog', async (category) => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn(() => true);
+    const transaction = { ...transactions[1], category };
+    render(<ActivityScreen transactions={[transaction]} categories={{ expense: [], income: [] }} onUpdateTransaction={onUpdate} onDeleteTransaction={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /Edit Makan siang/ }));
+    expect(screen.getByRole('combobox', { name: 'Kategori' })).toHaveValue(category);
+    await user.clear(screen.getByLabelText('Deskripsi'));
+    await user.type(screen.getByLabelText('Deskripsi'), 'Diperbarui');
+    await user.click(screen.getByRole('button', { name: 'Simpan perubahan' }));
+    expect(onUpdate).toHaveBeenCalledWith({ ...transaction, description: 'Diperbarui' });
+  });
+
+  it('does not invent a category when the selected type has an empty catalog', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn(() => true);
+    render(<ActivityScreen transactions={transactions} categories={{ expense: [], income: [] }} onUpdateTransaction={onUpdate} onDeleteTransaction={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /Edit Makan siang/ }));
+    await user.click(within(screen.getByRole('group', { name: 'Jenis transaksi' })).getByRole('button', { name: 'Pemasukan' }));
+    const select = screen.getByRole('combobox', { name: 'Kategori' });
+    expect(select).toHaveValue('');
+    expect(screen.getByText(/Tambahkan melalui Others/)).toBeInTheDocument();
+    fireEvent.submit(select.closest('form')!);
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 
   it('has no accessibility violations in the populated Transaction state', async () => {

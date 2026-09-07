@@ -4,6 +4,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Match the native launch background until the app stylesheet loads. -->
+    <style>:where(html) { background: #0d110e; }</style>
+    <script>
+      (() => {
+        let theme;
+        try { theme = window.localStorage.getItem('theme'); } catch { /* Storage may be unavailable. */ }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
+        }
+        document.documentElement.classList.add(theme);
+      })();
+    </script>
     <title>Aureus</title>
     <meta name="description" content="Aplikasi pencatat pemasukan & pengeluaran." />
     <meta name="author" content="Aureus" />

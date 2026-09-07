@@ -1300,7 +1300,7 @@
   font-weight: 640;
 }
 
-.transaction-line-field > :is(input, textarea) {
+.transaction-line-field > :is(input, textarea, select) {
   width: 100%;
   min-width: 0;
   min-height: 46px;
@@ -1318,7 +1318,7 @@
 
 .transaction-line-field > textarea { min-height: 66px; resize: vertical; }
 .transaction-line-field > :is(input, textarea)::placeholder { color: hsl(var(--muted-foreground) / .72); }
-.transaction-line-field > :is(input, textarea):focus { border-color: hsl(var(--ring)); }
+.transaction-line-field > :is(input, textarea, select):focus { border-color: hsl(var(--ring)); }
 
 .transaction-type-choice {
   display: grid;

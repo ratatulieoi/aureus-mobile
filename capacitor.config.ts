@@ -4,6 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.aureus.moneytracking',
   appName: 'Aureus',
   webDir: 'dist',
+  backgroundColor: '#0D110E',
   plugins: {
     LocalNotifications: {
       presentationOptions: ['sound', 'banner', 'list'],

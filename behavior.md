@@ -1,6 +1,6 @@
 # Alur perilaku Aureus
 
-Dokumen ini mencatat alur perilaku yang sudah disepakati untuk aplikasi mobile Aureus.
+Dokumen ini mencatat alur perilaku yang sudah disepakati untuk aplikasi mobile Aureus. Arsitektur, aturan data, dan perintah validasi dijelaskan dalam [PROJECT.md](PROJECT.md). Usulan perilaku yang belum diterapkan harus ditandai terpisah dari perilaku yang sudah tersedia.
 
 ## Identitas visual
 
@@ -80,7 +80,7 @@ Menekan area di luar daftar atau melakukan tindakan kembali menutup daftar tanpa
 
 ### Tahan untuk memilih periode
 
-Seluruh label, termasuk ikon dan teks seperti `Hari ini`, dapat ditekan atau ditahan. Menahan label selama 550 milidetik membuka popup pada lapisan paling atas. Baris `Hari ini` selalu muncul tepat di atas posisi label yang sedang ditahan, terlepas dari periode yang sedang aktif. Popup boleh menutupi header dan isi dashboard:
+Seluruh label, termasuk ikon dan teks seperti `Hari ini`, dapat ditekan atau ditahan. Menahan label selama 350 milidetik membuka popup pada lapisan paling atas. Baris `Hari ini` selalu muncul tepat di atas posisi label yang sedang ditahan, terlepas dari periode yang sedang aktif. Popup boleh menutupi header dan isi dashboard:
 
 - Semua;
 - Hari ini;
@@ -93,7 +93,7 @@ Seluruh label, termasuk ikon dan teks seperti `Hari ini`, dapat ditekan atau dit
 
 Setelah pilihan muncul, pengguna tetap menahan layar lalu menggeser jari ke pilihan yang diinginkan. Pilihan diterapkan saat jari dilepas.
 
-Jika jari dilepas di luar pilihan, daftar ditutup dan filter sebelumnya tetap digunakan. Jika jari sudah bergerak untuk menggulir dashboard sebelum 550 milidetik, gestur tahan dibatalkan.
+Jika jari dilepas di luar pilihan, daftar ditutup dan filter sebelumnya tetap digunakan. Jika jari sudah bergerak untuk menggulir dashboard sebelum 350 milidetik, gestur tahan dibatalkan.
 
 Rentang dihitung sampai hari ini dan mencakup hari ini:
 
@@ -123,7 +123,7 @@ Jika periode tidak memiliki transaksi:
 
 - kedua total menjadi Rp0;
 - urutan kategori tetap mengikuti frekuensi penggunaan sepanjang waktu;
-- semua kategori menampilkan `••••`.
+- semua kategori menampilkan `Rp0` dan `Belum ada transaksi`.
 
 `Hari ini` mengikuti tanggal dan zona waktu perangkat. Jika aplikasi tetap terbuka ketika tanggal berganti, Hari ini dan seluruh rentang periode dihitung ulang secara otomatis.
 
@@ -137,7 +137,7 @@ Dashboard menampilkan lima kategori teratas terlebih dahulu.
 
 Saat pengguna memilih `Lihat kategori lainnya`, semua kategori tersisa ditampilkan. Pengguna dapat memilih `Tampilkan lebih sedikit` untuk kembali ke lima kategori teratas.
 
-Kategori yang belum memiliki transaksi menampilkan `••••` sebagai keadaan kosong.
+Kategori yang belum memiliki transaksi dalam periode aktif menampilkan `Rp0` dan `Belum ada transaksi`.
 
 ## Kelola kategori
 
@@ -154,6 +154,16 @@ Saat kategori dihapus:
 - transaksi lama tidak dihapus atau dipindahkan.
 
 Daftar kategori disimpan di perangkat dan ikut dalam backup.
+
+## Kategori saat mengedit transaksi
+
+Pada formulir `Edit transaksi`, kategori dipilih dari daftar kategori yang tersimpan, bukan diketik sebagai teks bebas. Pilihan mengikuti jenis Pengeluaran atau Pemasukan dan mencakup kategori buatan pengguna, meskipun belum pernah dipakai.
+
+Jika jenis transaksi diubah dan kategori sebelumnya tidak tersedia untuk jenis baru, pengguna harus memilih kategori sebelum menyimpan. Formulir tidak memilih kategori pengganti secara otomatis.
+
+Kategori asli transaksi tetap dapat dipertahankan pada jenis aslinya meskipun sudah dihapus dari daftar, termasuk kategori sistem `Langganan`. Pengecualian ini hanya berlaku untuk kategori asli transaksi tersebut, bukan untuk memilih kategori lama milik transaksi lain.
+
+Jika tidak ada pilihan kategori untuk jenis yang dipilih, pengguna perlu menambahkannya melalui Others lalu Kelola kategori. Memilih kategori tidak langsung menyimpan transaksi.
 
 ## Memulai input transaksi
 
@@ -173,7 +183,7 @@ Saat pengguna menekan singkat kategori:
 1. formulir transaksi dibuka;
 2. jenis dan kategori langsung ditentukan dari dashboard;
 3. tanggal otomatis berisi hari ini;
-4. tidak ada kolom yang langsung mendapat fokus;
+4. kolom nominal langsung mendapat fokus;
 5. pengguna mengisi nominal dan deskripsi;
 6. pengguna dapat mengubah tanggal;
 7. pengguna memeriksa semua data;
@@ -219,21 +229,17 @@ Tanggal awal selalu hari ini, termasuk saat dashboard sedang menampilkan bulan a
 
 Tanggal setelah hari ini tidak valid.
 
-## Latest
+## Gunakan transaksi sebelumnya
 
-Latest mengambil transaksi dari jenis dan kategori yang sama dengan formulir yang sedang dibuka. Latest tidak mengikuti filter dashboard.
+Bagian `Gunakan transaksi sebelumnya` mengambil transaksi dari jenis dan kategori yang sama dengan formulir yang sedang dibuka. Daftar ini tidak mengikuti filter dashboard.
 
-Latest menampilkan lima transaksi terbaru dari seluruh riwayat jenis dan kategori tersebut, dimulai dari transaksi paling baru. Pengguna dapat menggeser daftar untuk melihat item yang tidak muat.
+Daftar menampilkan paling banyak sepuluh transaksi terbaru dengan pasangan nominal dan deskripsi yang berbeda, dimulai dari transaksi paling baru. Transaksi dengan pasangan nominal dan deskripsi yang sama hanya muncul sekali. Pengguna dapat menggulir daftar untuk melihat item yang tidak muat.
 
-Setiap item memiliki nominal dan deskripsi.
+Setiap item menampilkan nominal, deskripsi, dan tanggal. Menekan satu item mengisi nominal dan deskripsi sekaligus tanpa mengubah tanggal pada formulir.
 
-- Menekan nominal menyalin nominal saja.
-- Menekan deskripsi menyalin deskripsi saja.
-- Menahan satu item menyalin nominal dan deskripsinya sekaligus.
+Menggunakan transaksi sebelumnya tidak langsung menyimpan transaksi. Pengguna masih dapat mengubah hasilnya dan harus memilih Simpan untuk menyimpan transaksi baru.
 
-Menyalin data dari Latest tidak langsung menyimpan transaksi. Pengguna masih dapat mengubah hasilnya.
-
-Jika belum ada transaksi sebelumnya, Latest menampilkan `Belum ada transaksi sebelumnya`.
+Jika belum ada transaksi sebelumnya, bagian ini menampilkan `Belum ada transaksi sebelumnya`.
 
 ## Validasi
 
@@ -255,7 +261,7 @@ Jika tanggal transaksi masuk dalam filter yang sedang aktif:
 3. jumlah kategori diperbarui;
 4. frekuensi kategori diperbarui;
 5. urutan kategori sepanjang waktu dihitung ulang;
-6. Latest diperbarui;
+6. daftar `Gunakan transaksi sebelumnya` diperbarui;
 7. formulir ditutup;
 8. pesan berhasil ditampilkan.
 
@@ -264,13 +270,13 @@ Jika frekuensi kategori berubah, posisi kategori dapat ikut berubah.
 Jika tanggal transaksi berada di luar filter yang sedang aktif:
 
 1. transaksi tetap disimpan;
-2. transaksi masuk ke riwayat dan Latest;
+2. transaksi masuk ke riwayat dan dapat muncul dalam daftar `Gunakan transaksi sebelumnya`;
 3. total yang sedang ditampilkan tidak berubah;
 4. jumlah kategori yang sedang ditampilkan tidak berubah;
 5. urutan kategori sepanjang waktu dapat berubah;
 6. filter tidak berubah;
-6. formulir ditutup;
-7. pesan berhasil ditampilkan.
+7. formulir ditutup;
+8. pesan berhasil ditampilkan.
 
 ## Menutup tanpa menyimpan
 

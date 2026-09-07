@@ -158,7 +158,7 @@ describe('strict backup decoding', () => {
     })).toThrow('ID langganan duplikat');
   });
 
-  it('validates version, count, subscription data, depth, JSON, and byte limits', () => {
+  it('validates version, export date, declared count, subscription data, and JSON syntax', () => {
     const envelope = createBackupEnvelope([transaction], [subscription]);
     expect(() => decodeBackup({ ...envelope, version: '1.0' })).toThrow('Versi backup');
     expect(() => decodeBackup({ ...envelope, exportDate: '2026-02-30T00:00:00.000Z' })).toThrow('instant ISO kanonis');

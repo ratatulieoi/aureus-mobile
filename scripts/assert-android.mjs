@@ -75,6 +75,12 @@ assert.match(
   /<style name="AppTheme\.NoActionBarLaunch" parent="Theme\.SplashScreen">/,
   'API 27+ must preserve the splash theme parent',
 );
+for (const themeSource of [styles, api27Styles]) {
+  assert.match(themeSource, /<item name="android:windowBackground">@color\/ic_launcher_background<\/item>/, 'The native window must match the launch background');
+  assert.match(themeSource, /<item name="windowSplashScreenBackground">@color\/ic_launcher_background<\/item>/);
+  assert.match(themeSource, /<item name="windowSplashScreenAnimatedIcon">@mipmap\/ic_launcher_foreground<\/item>/);
+}
+assert.match(capacitorConfig, /backgroundColor:\s*['"]#0D110E['"]/, 'The loading WebView must match the launch background');
 assert.match(capacitorConfig, /SystemBars:[\s\S]*insetsHandling:\s*['"]css['"]/);
 assert.match(capacitorConfig, /LocalNotifications:[\s\S]*presentationOptions:\s*\[['"]sound['"],\s*['"]banner['"],\s*['"]list['"]\]/);
 

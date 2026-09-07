@@ -118,8 +118,8 @@ describe('global accessibility CSS', () => {
     expect(css).toMatch(/\.transaction-sheet\s*\{[^}]*bottom:\s*0;[^}]*border-radius:\s*1\.5rem 1\.5rem 0 0;[^}]*box-shadow:\s*none;/s);
     expect(css).toMatch(/\.transaction-amount-save\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*background:\s*hsl\(var\(--primary\)\);/s);
     expect(css).toMatch(/\.transaction-amount-control:focus-within\s*\{[^}]*border-bottom-color:\s*hsl\(var\(--ring\)\);/s);
-    expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea\):focus\s*\{[^}]*border-color:\s*hsl\(var\(--ring\)\);/s);
-    expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea\)\s*\{[^}]*box-shadow:\s*none;[^}]*text-align:\s*left;/s);
+    expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea, select\):focus\s*\{[^}]*border-color:\s*hsl\(var\(--ring\)\);/s);
+    expect(css).toMatch(/\.transaction-line-field > :is\(input, textarea, select\)\s*\{[^}]*box-shadow:\s*none;[^}]*text-align:\s*left;/s);
     expect(css).toMatch(/\.transaction-primary-action,[\s\S]*?\.transaction-delete-action\s*\{[^}]*box-shadow:\s*none;/s);
     expect(css).not.toMatch(/\.transaction-amount-control(?::focus-within)?\s*\{[^}]*box-shadow:/s);
     expect(css).not.toMatch(/\.transaction-line-field(?::focus-within)?\s*\{[^}]*box-shadow:/s);
@@ -128,6 +128,14 @@ describe('global accessibility CSS', () => {
     expect(css).toMatch(/\.subscription-reminder-tooltips\s*\{[^}]*box-shadow:\s*none;/s);
     expect(css).toMatch(/\.latest-list\s*\{[^}]*max-height:\s*162px;[^}]*overflow-y:\s*auto;[^}]*scrollbar-width:\s*none;/s);
     expect(css).toMatch(/\.latest-list::-webkit-scrollbar\s*\{[^}]*display:\s*none;/s);
+  });
+
+  it('keeps active Header and Others theme controls at least 44 CSS px high', () => {
+    for (const selector of ['.app-overflow-menu button', '.more-row']) {
+      const block = css.slice(css.indexOf(`${selector} {`)).split('}')[0];
+      const height = block.match(/min-height:\s*(\d+)px;/)?.[1];
+      expect(Number(height)).toBeGreaterThanOrEqual(44);
+    }
   });
 
   it('groups the Others destinations in flat setting rows with visible states', () => {

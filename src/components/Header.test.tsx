@@ -38,9 +38,17 @@ describe('Header utility menu', () => {
     render(<Header onOpenMore={vi.fn()} onOpenBackup={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: 'Buka menu Aureus' }));
-    await user.click(screen.getByRole('menuitem', { name: /Ganti tema/ }));
+    const themeButton = screen.getByRole('menuitem', { name: /Ganti tema/ });
+    expect(themeButton.tagName).toBe('BUTTON');
+    expect(themeButton.parentElement).toHaveClass('app-overflow-menu');
+    await user.click(themeButton);
 
     expect(document.documentElement).toHaveClass('dark');
     expect(window.localStorage.getItem('theme')).toBe('dark');
+
+    await user.click(screen.getByRole('button', { name: 'Buka menu Aureus' }));
+    await user.click(screen.getByRole('menuitem', { name: /Ganti tema/ }));
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(window.localStorage.getItem('theme')).toBe('light');
   });
 });

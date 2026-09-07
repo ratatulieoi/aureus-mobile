@@ -136,7 +136,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   const primaryTotal = totals[activeType];
   const secondaryType: TransactionType = activeType === 'expense' ? 'income' : 'expense';
   const secondaryTotal = totals[secondaryType];
-  const availableYears = dashboardAvailableYears(transactions, now);
+  const availableYears = useMemo(() => dashboardAvailableYears(transactions, now), [transactions, now]);
   const transactionMonths = useMemo(() => {
     const months = new Set<string>();
     for (const transaction of transactions) {

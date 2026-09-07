@@ -1,4 +1,4 @@
-import { lazy, useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import Header from '@/components/Header';
 import BottomNav, { type NavTab, type PrimaryNavTab } from '@/components/BottomNav';
 import DashboardHome from '@/components/DashboardHome';
@@ -142,22 +142,22 @@ const Index = () => {
     setTransactions(next);
   }, []);
 
-  const deleteTransaction = (id: string) => {
+  const deleteTransaction = useCallback((id: string) => {
     const next = transactionsRef.current.filter((transaction) => transaction.id !== id);
     transactionsRef.current = next;
     setTransactions(next);
-  };
+  }, []);
 
-  const updateTransaction = (candidate: Transaction) => {
+  const updateTransaction = useCallback((candidate: Transaction) => {
     const validation = validateAndNormalizeTransaction(candidate, { requireId: true });
     if (!validation.ok || !transactionsRef.current.some(({ id }) => id === candidate.id)) return false;
     const next = transactionsRef.current.map((transaction) => transaction.id === candidate.id ? validation.value : transaction);
     transactionsRef.current = next;
     setTransactions(next);
     return true;
-  };
+  }, []);
 
-  const restore = (snapshot: { transactions: Transaction[]; subscriptions: Subscription[]; categories: CategoryCatalog; notifications: AppNotification[]; notificationPreferences: NotificationPreferences }) => {
+  const restore = useCallback((snapshot: { transactions: Transaction[]; subscriptions: Subscription[]; categories: CategoryCatalog; notifications: AppNotification[]; notificationPreferences: NotificationPreferences }) => {
     setCanPersist(true);
     transactionsRef.current = snapshot.transactions;
     setTransactions(snapshot.transactions);
@@ -165,11 +165,11 @@ const Index = () => {
     setCategories(snapshot.categories);
     setNotifications(snapshot.notifications);
     setNotificationPreferences(snapshot.notificationPreferences);
-  };
+  }, []);
 
-  const openEntry = (category: string, voice: boolean) => {
+  const openEntry = useCallback((category: string, voice: boolean) => {
     setEntry({ type: activeType, category, mode: voice ? 'voice' : 'normal' });
-  };
+  }, [activeType]);
 
   const clearPageSettleTimer = useCallback(() => {
     if (pageSettleTimerRef.current !== null) window.clearTimeout(pageSettleTimerRef.current);
@@ -311,51 +311,58 @@ const Index = () => {
     startPageSettle(nextTab);
   };
 
-  const renderPage = (tab: NavTab) => {
-    if (tab === 'home') return (
-      <DashboardHome
-        transactions={transactions}
-        categories={categories}
-        activeType={activeType}
-        onActiveTypeChange={setActiveType}
-        period={period}
-        onPeriodChange={setPeriod}
-        now={now}
-        onOpenEntry={openEntry}
-      />
-    );
-    if (tab === 'activity') return <ActivityScreen transactions={transactions} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} />;
-    if (tab === 'subs') return (
-      <section className="feature-page">
-        <LazyFeature featureName="Langganan" resetKey={tab}>
-          <SubscriptionManager
-            subscriptions={subscriptions}
-            notifications={notifications}
-            onSubscriptionsChange={setSubscriptions}
-            onAddTransaction={addTransaction}
-            onAddReconciledTransactions={addReconciledTransactions}
-            onOpenNotifications={() => openMore('notifications')}
-            onRemoveNotificationLinks={(subscriptionId) => setNotifications((current) => removeNotificationsForSubscription(current, subscriptionId))}
-          />
-        </LazyFeature>
-      </section>
-    );
-    return (
-      <MoreMenu
-        key={moreViewKey}
-        transactions={transactions}
-        subscriptions={subscriptions}
-        categories={categories}
-        notifications={notifications}
-        notificationPreferences={notificationPreferences}
-        onCategoriesChange={setCategories}
-        onNotificationsChange={setNotifications}
-        onNotificationPreferencesChange={setNotificationPreferences}
-        onRestore={restore}
-        initialSection={moreSection}
-      />
-    );
-  };
+  // Only the page wrappers move during a swipe. Reuse their content while its data is unchanged.
+  // These elements do not keep inactive pages mounted.
+  const homePage = useMemo(() => (
+    <DashboardHome
+      transactions={transactions}
+      categories={categories}
+      activeType={activeType}
+      onActiveTypeChange={setActiveType}
+      period={period}
+      onPeriodChange={setPeriod}
+      now={now}
+      onOpenEntry={openEntry}
+    />
+  ), [transactions, categories, activeType, period, now, openEntry]);
+
+  const activityPage = useMemo(() => (
+    <ActivityScreen transactions={transactions} categories={categories} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} />
+  ), [transactions, categories, updateTransaction, deleteTransaction]);
+
+  const subscriptionsPage = useMemo(() => (
+    <section className="feature-page">
+      <LazyFeature featureName="Langganan" resetKey="subs">
+        <SubscriptionManager
+          subscriptions={subscriptions}
+          notifications={notifications}
+          onSubscriptionsChange={setSubscriptions}
+          onAddTransaction={addTransaction}
+          onAddReconciledTransactions={addReconciledTransactions}
+          onOpenNotifications={() => openMore('notifications')}
+          onRemoveNotificationLinks={(subscriptionId) => setNotifications((current) => removeNotificationsForSubscription(current, subscriptionId))}
+        />
+      </LazyFeature>
+    </section>
+  ), [subscriptions, notifications, addTransaction, addReconciledTransactions, openMore]);
+
+  const morePage = useMemo(() => (
+    <MoreMenu
+      key={moreViewKey}
+      transactions={transactions}
+      subscriptions={subscriptions}
+      categories={categories}
+      notifications={notifications}
+      notificationPreferences={notificationPreferences}
+      onCategoriesChange={setCategories}
+      onNotificationsChange={setNotifications}
+      onNotificationPreferencesChange={setNotificationPreferences}
+      onRestore={restore}
+      initialSection={moreSection}
+    />
+  ), [moreViewKey, transactions, subscriptions, categories, notifications, notificationPreferences, restore, moreSection]);
+
+  const pages = { home: homePage, activity: activityPage, subs: subscriptionsPage, more: morePage };
 
   const activePrimaryIndex = TAB_ORDER.indexOf(activeTab as PrimaryNavTab);
   const visibleTabs: NavTab[] = pageMotion.previewTab && pageMotion.previewTab !== activeTab
@@ -400,7 +407,7 @@ const Index = () => {
                     completePageMotion();
                   } : undefined}
                 >
-                  {renderPage(tab)}
+                  {pages[tab]}
                 </div>
               );
             })}

@@ -1,10 +1,10 @@
 # Aureus agent codebase reference
 
-This file is the single project document for coding agents. It maps the codebase, records the financial-data rules, and names the checks that protect those rules. Source code and configuration remain authoritative when they differ from this file.
+This file is the technical reference for coding agents. It maps the current codebase, records the financial-data rules, and names the checks that protect those rules. [behavior.md](behavior.md) records agreed user interactions in Indonesian. Source code and configuration remain authoritative for the current implementation when they differ from this file. Proposed behavior changes must be distinguished from shipped behavior.
 
 ## Project identity
 
-Aureus is an Indonesian Rupiah money tracker for the browser and Android. The application records income, expenses, and recurring subscriptions. It also provides statistics, CSV export, printable reports, and JSON backup and restore.
+Aureus is an Indonesian Rupiah money tracker for the browser and Android. The application records income, expenses, and recurring subscriptions. It also provides dashboard totals, category rankings, monthly summaries, CSV export, and JSON backup and restore. Dedicated charts and printable reports are not shipped features.
 
 The product identity uses the approved three-part Aureus mark and the fixed core palette: lime `#D7DF70`, ink `#0D110E`, and paper `#F7F5EF`. Browser icons, the web manifest, Android launcher icons, Android adaptive icons, Android splash screens, and the in-app header all derive from this identity. Keep destructive red limited to dangerous actions; do not reintroduce Lovable, default Capacitor, or generic template branding.
 
@@ -57,6 +57,8 @@ index.html
         └── src/pages/NotFound.tsx
 ```
 
+`index.html` applies the stored theme or device preference before the app loads. Its fallback background matches the Android launch window and WebView until `src/index.css` takes over. Startup uses no added loading screen or fixed delay.
+
 `src/main.tsx` mounts React and imports `src/index.css`.
 
 `src/App.tsx` mounts the toast provider. It renders `Index` only when `window.location.pathname` is `/`. Every other path renders `NotFound`. The project does not use React Router.
@@ -67,9 +69,10 @@ index.html
 - `localStorage` hydration and persistence,
 - the active primary navigation destination,
 - the Home dashboard period and transaction type,
-- the Activity month and year,
 - the shared quick-entry panel,
 - transaction insertion, deletion, reconciliation, and restore callbacks.
+
+`src/components/ActivityScreen.tsx` owns the Activity month and year locally. `Index` passes the persisted category catalog to Activity. The edit sheet selects categories from that catalog by transaction type, while allowing the original category to remain on its original type if it is no longer in the catalog. A type change clears an incompatible selection and requires a valid choice before saving. This UI restriction does not change the domain rule that historical stored categories can exist outside the catalog.
 
 The page loads expensive feature sections with `React.lazy`. `src/components/LazyFeature.tsx` wraps each lazy section in `Suspense` and a feature-level error boundary.
 
@@ -82,16 +85,16 @@ The page loads expensive feature sections with `React.lazy`. `src/components/Laz
 | `home` | `Home` in the bottom dock | `DashboardHome`, `QuickTransactionEntry` | Show period totals, switch transaction type, rank categories, and create transactions. |
 | `activity` | `Transaction` in the bottom dock | `ActivityScreen` | Search and filter monthly transactions, show type-aware totals, group rows by date, and edit or delete a transaction. |
 | `subs` | `Subs` in the bottom dock | `SubscriptionManager` | Create subscriptions and reconcile due payments. |
-| `more` | `Others` in the bottom dock or utility menu | `MoreMenu`, `CategoryManager`, `MonthlyReports`, `BackupRestore`, `ThemeToggle`, `AboutSection` | Manage categories and open reports, backup, appearance, or application information. |
+| `more` | `Others` in the bottom dock or utility menu | `MoreMenu`, `CategoryManager`, `MonthlyReports`, `NotificationManager`, `BackupRestore`, `AboutSection` | Manage categories and reminders, switch themes, and open reports, backup, or application information. |
 
-Horizontal swiping follows the bottom dock: Home, Transaction, Subs, then Others. The utility menu can open Backup directly in the `more` view.
+Horizontal swiping follows the bottom dock: Home, Transaction, Subs, then Others. `Index` memoizes each page element so swipe offsets update the wrappers without rerendering unchanged page content. Inactive pages still unmount, and page elements update when their data or callbacks change. Activity reuses number and time formatters and sorts by timestamp separately from search filtering. The utility menu can open Backup directly in the `more` view.
 
 The shared component layers are:
 
 - `src/components/*.tsx`: product components.
 - `src/components/ui/*.tsx`: reusable Radix-based controls and visual primitives.
 - `src/components/DeleteConfirmation.tsx`: the shared accessible destructive-action dialog.
-- `src/components/ThemeToggle.tsx`: light and dark theme state.
+- `src/hooks/use-theme.ts`: shared light and dark theme handling, used directly by `Header` and `MoreMenu`.
 - `src/hooks/use-toast.ts`: toast state.
 
 These files are not in the active runtime path:
@@ -101,8 +104,6 @@ These files are not in the active runtime path:
 | `src/components/BudgetManager.tsx` | Tested, but not mounted and not persisted. |
 | `src/components/TransactionHistory.tsx` | Tested, but not mounted in the active UI. |
 | `src/components/TransactionTable.tsx` | Tested, but replaced in the active UI by `ActivityScreen`. |
-| `src/components/StatisticsChart.tsx` | Not mounted in the active UI. |
-| `src/components/TransactionByCategory.tsx` | Not mounted in the active UI. |
 | `src/domain/subscription-storage.ts` | Tested compatibility helper, but `Index` hydrates subscriptions through `ledger.ts`. |
 
 Do not treat dormant code as a shipped feature. A feature becomes active only after the composition root, state model, persistence schema, backup schema, and tests all include it.
@@ -178,7 +179,7 @@ interface Subscription {
 - `nextPaymentDate` cannot precede `startDate`.
 - `id` uses the transaction ID alphabet and has a shorter bound so a renewal transaction ID still fits within 128 characters.
 - `color` must be one of `SUBSCRIPTION_COLORS`; invalid persisted colors fall back to the first color.
-- The stored subscription count cannot exceed `5_000`.
+- Stored subscriptions have no fixed collection-count cap. Field validation and the per-pass renewal bound still apply.
 
 ### Budget
 
@@ -245,7 +246,7 @@ Every active transaction source ends at `Index.addTransaction` or the idempotent
 
 ### Manual entry
 
-`src/components/QuickTransactionEntry.tsx` is the active Home entry flow. It locks the selected type and category, formats whole Rupiah, limits dates to today or earlier, provides five recent shortcuts, and commits through `Index.addTransaction`.
+`src/components/QuickTransactionEntry.tsx` is the active Home entry flow. It locks the selected type and category, formats whole Rupiah, limits dates to today or earlier, provides up to ten recent shortcuts with distinct amount-and-description pairs, and commits through `Index.addTransaction`.
 
 `src/components/TransactionForm.tsx` remains the generic transaction form used by tests and future non-category entry points. It:
 
@@ -305,7 +306,7 @@ The user reviews the parsed amount and description before saving. In the active 
 
 `src/domain/notification.ts` validates reusable reminder items. Each item stores an editable title and message, days before due, time, and the subscription IDs that use it. The title and message support `{name}`, `{amount}`, and `{due}` placeholders. One item can apply to several subscriptions and repeats for each billing cycle.
 
-The notification editor opens a dedicated 24-hour picker with separate hour and minute selectors instead of free-form time entry. On a subscription card, holding the bell count temporarily shows stacked tooltips with the assigned item names, such as `H-3`, and their times. Notification titles and messages only control the Android notification content. Android Back dismisses the topmost open menu, picker, form, or confirmation dialog before the app can exit. `src/platform/notifications.ts` resolves the title and message placeholders for each assigned subscription, owns Capacitor scheduling, serializes reschedules, caps Aureus at 64 pending native notifications, and sets `isExactNotification: false` on every item. The Android manifest removes `SCHEDULE_EXACT_ALARM`, so enabling notifications never opens the separate "Alarms & reminders" settings screen. The master switch is the only route that requests notification permission.
+The notification editor opens a dedicated 24-hour picker with separate hour and minute selectors instead of free-form time entry. On a subscription card, tapping the bell count toggles stacked tooltips with the assigned item names, such as `H-3`, and their times. Notification titles and messages only control the Android notification content. Android Back dismisses the topmost open menu, picker, form, or confirmation dialog before the app can exit. `src/platform/notifications.ts` resolves the title and message placeholders for each assigned subscription, owns Capacitor scheduling, serializes reschedules, caps Aureus at 64 pending native notifications, and sets `isExactNotification: false` on every item. The Android manifest removes `SCHEDULE_EXACT_ALARM`, so enabling notifications never opens the separate "Alarms & reminders" settings screen. The master switch is the only route that requests notification permission.
 
 The Notifications page under Others creates items and assigns them to subscriptions. Subscription rows show a bell count. Deleting a subscription removes its ID from reminder items without deleting those items.
 
@@ -362,14 +363,7 @@ interface BackupEnvelope {
 
 Backup version `6.0` is separate from the numeric local ledger version `6`. Versions `2.0` through `5.0` remain read-only restore formats. Version 5 subscription rules become reusable reminder items. Missing notification data becomes an empty list with notifications off.
 
-The limits are:
-
-| Limit | Value |
-| --- | --- |
-| File size | 5 MiB |
-| Transactions | 50,000 |
-| Subscriptions | 5,000 |
-| JSON nesting depth | 12 |
+Backup creation and import impose no fixed caps on file size, collection counts, or JSON nesting depth. Device memory and storage still constrain large backups. The absence of these caps does not bypass record validation or guarantee that every valid backup fits on every device.
 
 `decodeBackup` is strict and all-or-nothing. It validates the version, export date, declared counts, every record, and unique IDs. One invalid record rejects the complete backup.
 
@@ -386,8 +380,6 @@ CSV export uses `src/domain/csv.ts`:
 - `serializeCsvRows` uses RFC 4180 quoting and CRLF record separators.
 - String cells that start with `=`, `+`, `-`, or `@`, including after whitespace, receive an apostrophe prefix.
 - The exported file starts with a UTF-8 byte-order mark for spreadsheet compatibility.
-
-Printable reports use `src/domain/report.ts`. `buildPrintReportDocument` creates DOM nodes and writes untrusted transaction fields through `textContent`. Do not replace this path with HTML template interpolation or `document.write`.
 
 Browser exports create a Blob URL, activate a temporary download link, and revoke the URL.
 
@@ -420,7 +412,7 @@ Important Android files are:
 
 The manifest declares `INTERNET` and `RECORD_AUDIO`. The application sets `allowBackup="false"`, and both backup-rules files exclude every app-data domain. The FileProvider is not exported and grants access only through temporary URI permissions.
 
-The release build enables R8 minification, resource shrinking, and `proguard-android-optimize.txt`.
+The release build disables R8 bytecode minification and resource shrinking to preserve reflected Capacitor permission entry points. `scripts/assert-android.mjs` enforces both disabled flags. The configured `proguard-android-optimize.txt` does not enable shrinking by itself.
 
 `android/capacitor.settings.gradle` and `android/app/capacitor.build.gradle` are generated Capacitor files. `npx cap sync android` can rewrite them. Persistent native policy belongs in the app manifest, Gradle files, XML resources, `capacitor.config.ts`, and policy scripts.
 
@@ -451,12 +443,11 @@ The source test files cover these areas:
 
 - transaction and subscription validation,
 - ledger hydration, persistence order, and ID collision behavior,
-- backup versions, strict restore, limits, and full-state round trips,
+- backup versions, strict restore, acceptance of large valid backups without collection or file-size caps, and full-state round trips,
 - local calendar arithmetic and timezone boundaries,
 - voice parsing and browser or native recognition lifecycle,
 - subscription catch-up and idempotency,
 - CSV formula and quoting safety,
-- safe printable-report construction,
 - Android export-directory scope,
 - dialogs, focus, keyboard controls, touch sizing, and navigation,
 - Home period behavior, category ranking, quick entry, safe areas, contrast, reduced motion, and axe checks,
@@ -477,9 +468,11 @@ Two Node test files under `scripts/` cover bundle-budget behavior and Android ve
 | `npm run test:watch` | Runs Vitest in watch mode. |
 | `npm run test:policy` | Runs the Node policy tests in `scripts/`. |
 | `npm run bundle:check` | Checks the built Vite manifest and JavaScript budgets. |
-| `npm run android:assert` | Checks tracked Android privacy, path, cutout, and build policy. |
+| `npm run css:assert` | Checks the production CSS output. |
+| `npm run brand:assert` | Checks Aureus branding assets and rejects stale template branding. |
+| `npm run android:assert` | Checks tracked Android privacy, export paths, display cutouts, disabled shrinking, version wiring, Local Notifications and System Bars configuration, App plugin version and Back-handler wiring, and launcher, splash, and palette contracts. |
 | `npm run ci:validate` | Parses workflow YAML and verifies required gates and full action SHA pins. |
-| `npm run check` | Runs typecheck, lint, Vitest, policy tests, build, bundle checks, Android assertions, and workflow validation. |
+| `npm run check` | Runs typecheck, lint, Vitest, policy tests, build, bundle checks, production CSS assertions, branding assertions, Android assertions, and workflow validation. |
 | `npm run audit:prod` | Audits production dependencies through the npm advisory service. |
 | `npm run audit:all` | Audits all dependencies through the npm advisory service. |
 | `npm run ci` | Runs `check` and both npm audits. It does not run Gradle. |
@@ -554,9 +547,8 @@ Use this map to find the first relevant implementation and regression tests.
 | Date or period behavior | `calendar-date.ts`, `period.ts`, `dashboard-period.ts` | `calendar-date.test.ts`, `period.test.ts`, `dashboard-period.test.ts`, affected component tests |
 | Activity history, filters, edit, or delete | `ActivityScreen.tsx` | `ActivityScreen.test.tsx`, `Index.test.tsx` |
 | CSV export | `csv.ts`, `MonthlyReports.tsx`, `export-file.ts` | `csv.test.ts`, `export-file.test.ts` |
-| Printable report | `report.ts`, `MonthlyReports.tsx` | `report.test.ts` |
 | Navigation or tab composition | `Header.tsx`, `BottomNav.tsx`, `Index.tsx` | `Header.test.tsx`, `BottomNav.test.tsx`, `Index.test.tsx` |
-| Theme, safe areas, contrast, or motion | `index.css`, `tailwind.config.ts`, `ThemeToggle.tsx`, `index.html` | `styles.test.ts`, `ControlSizing.test.tsx`, `npm run android:assert` |
+| Theme, safe areas, contrast, or motion | `index.css`, `tailwind.config.ts`, `use-theme.ts`, `Header.tsx`, `MoreMenu.tsx`, `index.html` | `styles.test.ts`, `ControlSizing.test.tsx`, `Header.test.tsx`, `MoreMenu.test.tsx`, `npm run android:assert` |
 | Shared controls | `src/components/ui/` | Component tests and `Index.test.tsx` axe coverage |
 | Android privacy or file sharing | Manifest and XML resources, `export-file.ts`, `capacitor.config.ts` | `assert-android.mjs`, `assert-merged-manifest.mjs`, `export-file.test.ts` |
 | CI gate or action pin | `.github/workflows/`, `scripts/validate-ci.mjs` | `npm run ci:validate` |
@@ -578,11 +570,10 @@ These rules protect data correctness and platform security:
 - Use `calendar-date.ts` for calendar inputs and subscription arithmetic.
 - Keep Home totals, category amounts, and displayed counts on the selected dashboard period. Rank categories by their all-time transaction frequency so the order does not reset when the period or day changes.
 - Keep CSV formula neutralization and RFC 4180 escaping.
-- Build printable reports with DOM text nodes. Do not parse stored fields as markup.
 - Keep Android exports inside `cache/aureus-exports/` and keep the TypeScript and FileProvider paths equal.
 - Keep Android backup disabled in the manifest and both extraction-rule files.
 - Do not await native `SpeechRecognition.stop()` as the release signal.
 - Keep lazy feature errors contained by `LazyFeature`.
 - Keep safe-area and reduced-motion behavior in the active global stylesheet.
 - Use npm and commit `package-lock.json`. Do not add a second package-manager lockfile.
-- Update this file instead of adding another project documentation file.
+- Keep technical facts in this file and agreed user interactions in [behavior.md](behavior.md). Cross-link the documents instead of duplicating technical details. Do not describe future behavior as already implemented.

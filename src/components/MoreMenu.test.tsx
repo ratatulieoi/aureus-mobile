@@ -59,10 +59,16 @@ describe('Others menu', () => {
     expect(screen.getByRole('button', { name: /Backup & pulihkan/ })).toHaveTextContent('Transaksi, langganan, kategori, dan jadwal notifikasi');
 
     const themeButton = screen.getByRole('button', { name: /Tema aplikasi, Terang aktif/ });
+    expect(themeButton).toHaveClass('more-row');
     expect(themeButton).toHaveAttribute('aria-pressed', 'false');
     await user.click(themeButton);
     expect(document.documentElement).toHaveClass('dark');
     expect(screen.getByRole('button', { name: /Tema aplikasi, Gelap aktif/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(window.localStorage.getItem('theme')).toBe('dark');
+    await user.click(screen.getByRole('button', { name: /Tema aplikasi, Gelap aktif/ }));
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(window.localStorage.getItem('theme')).toBe('light');
+    expect(screen.getByRole('button', { name: /Tema aplikasi, Terang aktif/ })).toHaveAttribute('aria-pressed', 'false');
     expect(await axe(container)).toHaveNoViolations();
   });
 
